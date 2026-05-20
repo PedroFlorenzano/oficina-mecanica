@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  cnpj      String   @unique
+  logo      String?
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  active    Boolean  @default(true)
+
+  users     User[]
+  clients   Client[]
+  vehicles  Vehicle[]
+  orders    ServiceOrder[]
+  items     StockItem[]
+  services  ServiceCatalog[]
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(ATTENDANT)
+  active    Boolean  @default(true)
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  orders    ServiceOrder[]
+  timerLogs TimerLog[]
+}
+
+enum Role {
+  ADMIN
+  MECHANIC
+  ATTENDANT
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  document  String   // CPF or CNPJ
+  docType   DocType
+  phone     String?
+  email     String?
+  address   String?
+  tenantId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  vehicles  Vehicle[]
+  orders    ServiceOrder[]
+
+  @@unique([document, tenantId])
+}
+
+enum DocType {
+  CPF
+  CNPJ
+}
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  plate       String
+  brand       String
+  model       String
+  year        Int
+  yearModel   Int?
+  color       String?
+  fuel        String?
+  chassis     String?
+  mileage     Int      @default(0)
+  clientId    String
+  tenantId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client      Client   @relation(fields: [clientId], references: [id])
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  orders      ServiceOrder[]
+
+  @@unique([plate, tenantId])
+}
+
+model ServiceCatalog {
+  id            String   @id @default(cuid())
+  code          String?
+  description   String
+  category      String?
+  estimatedTime Int?     // minutes
+  defaultPrice  Float
+  pricingType   String   @default("VALUE") // "VALUE" or "TIME"
+  active        Boolean  @default(true)
+  tenantId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  orderServices OrderService[]
+}
+
+model ServiceOrder {
+  id          String      @id @default(cuid())
+  number      Int
+  status      OrderStatus @default(OPEN)
+  mileage     Int
+  notes       String?
+  totalAmount Float       @default(0)
+  clientId    String
+  vehicleId   String
+  tenantId    String
+  createdById String
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  client      Client      @relation(fields: [clientId], references: [id])
+  vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  createdBy   User        @relation(fields: [createdById], references: [id])
+  complaints  Complaint[]
+  services    OrderService[]
+  parts       OrderPart[]
+  statusHistory StatusHistory[]
+}
+
+model Complaint {
+  id          String   @id @default(cuid())
+  number      Int      // 1, 2, 3...
+  description String
+  orderId     String
+  createdAt   DateTime @default(now())
+
+  order       ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  services    OrderService[]
+  parts       OrderPart[]
+}
+
+enum OrderStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_PART
+  WAITING_APPROVAL
+  COMPLETED
+  DELIVERED
+  CANCELLED
+}
+
+model OrderService {
+  id          String   @id @default(cuid())
+  description String
+  price       Float
+  timeMinutes Int?
+  serviceId   String?
+  orderId     String
+  complaintId String?
+  mechanicId  String?
+  createdAt   DateTime @default(now())
+
+  service     ServiceCatalog? @relation(fields: [serviceId], references: [id])
+  order       ServiceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  complaint   Complaint?      @relation(fields: [complaintId], references: [id])
+  timerLogs   TimerLog[]
+}
+
+model OrderPart {
+  id          String   @id @default(cuid())
+  description String
+  quantity    Int
+  unitPrice   Float
+  totalPrice  Float
+  stockItemId String?
+  orderId     String
+  complaintId String?
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  stockItem   StockItem?   @relation(fields: [stockItemId], references: [id])
+  order       ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  complaint   Complaint?   @relation(fields: [complaintId], references: [id])
+}
+
+model StockItem {
+  id           String   @id @default(cuid())
+  code         String
+  barcode      String?
+  description  String
+  brand        String?
+  unit         String   @default("UN")
+  minQuantity  Int      @default(0)
+  quantity     Int      @default(0)
+  location     String?
+  costPrice    Float    @default(0)
+  sellPrice    Float    @default(0)
+  avgCost      Float    @default(0)
+  profitMargin Float?   @default(0)
+  active       Boolean  @default(true)
+  tenantId     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  orderParts   OrderPart[]
+  movements    StockMovement[]
+
+  @@unique([code, tenantId])
+}
+
+model StockMovement {
+  id          String       @id @default(cuid())
+  type        MovementType
+  quantity    Int
+  reason      String
+  document    String?
+  stockItemId String
+  createdAt   DateTime     @default(now())
+
+  stockItem   StockItem    @relation(fields: [stockItemId], references: [id])
+}
+
+enum MovementType {
+  IN
+  OUT
+}
+
+model StatusHistory {
+  id        String      @id @default(cuid())
+  fromStatus OrderStatus?
+  toStatus  OrderStatus
+  userId    String
+  orderId   String
+  createdAt DateTime    @default(now())
+
+  order     ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model TimerLog {
+  id             String    @id @default(cuid())
+  startedAt      DateTime  @default(now())
+  pausedAt       DateTime?
+  finishedAt     DateTime?
+  pauseReason    String?
+  totalSeconds   Int       @default(0)
+  orderServiceId String
+  userId         String
+  createdAt      DateTime  @default(now())
+
+  orderService   OrderService @relation(fields: [orderServiceId], references: [id])
+  user           User         @relation(fields: [userId], references: [id])
+}

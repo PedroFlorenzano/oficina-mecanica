@@ -1,0 +1,102 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Plus, ClipboardList } from "lucide-react";
+import Link from "next/link";
+
+interface Order {
+  id: string;
+  number: number;
+  status: string;
+  mileage: number;
+  totalAmount: number;
+  createdAt: string;
+  client: { name: string };
+  vehicle: { plate: string; model: string };
+}
+
+const statusLabels: Record<string, { label: string; color: string }> = {
+  OPEN: { label: "Aberta", color: "bg-blue-100 text-blue-700" },
+  IN_PROGRESS: { label: "Em Execução", color: "bg-yellow-100 text-yellow-700" },
+  WAITING_PART: { label: "Aguardando Peça", color: "bg-orange-100 text-orange-700" },
+  WAITING_APPROVAL: { label: "Aguardando Aprovação", color: "bg-purple-100 text-purple-700" },
+  COMPLETED: { label: "Concluída", color: "bg-green-100 text-green-700" },
+  DELIVERED: { label: "Entregue", color: "bg-slate-100 text-slate-700" },
+  CANCELLED: { label: "Cancelada", color: "bg-red-100 text-red-700" },
+};
+
+export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/orders")
+      .then((res) => res.json())
+      .then((data) => { setOrders(data); setLoading(false); });
+  }, []);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-slate-800">Ordens de Serviço</h1>
+        <Link
+          href="/dashboard/orders/new"
+          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        >
+          <Plus size={18} />
+          Nova OS
+        </Link>
+      </div>
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {loading ? (
+          <p className="p-6 text-slate-500">Carregando...</p>
+        ) : orders.length === 0 ? (
+          <div className="p-8 text-center">
+            <ClipboardList size={40} className="mx-auto text-slate-300 mb-3" />
+            <p className="text-slate-500">Nenhuma OS cadastrada</p>
+            <Link href="/dashboard/orders/new" className="text-blue-600 text-sm hover:underline mt-2 inline-block">
+              Criar primeira OS
+            </Link>
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Nº</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Cliente</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Veículo</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Total</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Data</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {orders.map((order) => {
+                const status = statusLabels[order.status] || { label: order.status, color: "bg-slate-100" };
+                return (
+                  <tr key={order.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => window.location.href = `/dashboard/orders/${order.id}`}>
+                    <td className="px-4 py-3 font-mono font-medium text-slate-800">#{order.number}</td>
+                    <td className="px-4 py-3 text-slate-700">{order.client.name}</td>
+                    <td className="px-4 py-3 text-slate-600">{order.vehicle.plate} - {order.vehicle.model}</td>
+                    <td className="px-4 py-3">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${status.color}`}>
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-slate-700">
+                      R$ {order.totalAmount.toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-slate-500">
+                      {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}

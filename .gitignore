@@ -1,0 +1,37 @@
+# Dependencies
+oficina/node_modules/
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Database
+oficina/prisma/dev.db
+oficina/prisma/dev.db-journal
+oficina/dev.db
+oficina/dev.db-journal
+*.db
+*.db-journal
+
+# Next.js
+oficina/.next/
+oficina/out/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
+oficina/dist/
+
+# Kiro
+.kiro/
+
+# PDFs (client files)
+*.pdf
