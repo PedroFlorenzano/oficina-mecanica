@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, FileDown, XCircle } from "lucide-react";
 import Link from "next/link";
 
 interface ComplaintData {
@@ -18,6 +18,7 @@ interface Order {
   status: string;
   mileage: number;
   notes: string | null;
+  cancelReason?: string | null;
   totalAmount: number;
   createdAt: string;
   client: { name: string; document: string; phone: string | null; email: string | null; address: string | null };
@@ -40,12 +41,19 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 const statusFlow = ["OPEN", "IN_PROGRESS", "WAITING_PART", "WAITING_APPROVAL", "COMPLETED", "DELIVERED", "CANCELLED"];
+const TERMINAL_STATUSES = ["COMPLETED", "DELIVERED", "CANCELLED"];
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+
+  // Estado do modal de cancelamento
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   const fetchOrder = () => {
     fetch(`/api/orders/${id}`)
@@ -66,11 +74,38 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     setUpdating(false);
   };
 
+  const handleCancel = async () => {
+    if (!cancelReason.trim()) {
+      setCancelError("Informe o motivo do cancelamento");
+      return;
+    }
+    setCancelling(true);
+    setCancelError("");
+    try {
+      const res = await fetch(`/api/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", reason: cancelReason }),
+      });
+      if (res.ok) {
+        fetchOrder();
+        setShowCancelModal(false);
+        setCancelReason("");
+      } else {
+        const data = await res.json();
+        setCancelError(data.error || "Erro ao cancelar OS");
+      }
+    } finally {
+      setCancelling(false);
+    }
+  };
+
   if (loading) return <p className="p-6 text-slate-500">Carregando...</p>;
   if (!order) return <p className="p-6 text-red-500">OS não encontrada</p>;
 
   const status = statusLabels[order.status] || { label: order.status, color: "" };
   const hasComplaints = order.complaints && order.complaints.length > 0;
+  const canCancel = !TERMINAL_STATUSES.includes(order.status);
 
   // For orders without complaints, use flat services/parts
   const ungroupedServices = order.services.filter(s => !s.complaintId);
@@ -94,6 +129,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">
             <Printer size={16} /> Imprimir
           </button>
+          {/* Botão Baixar PDF */}
+          <a
+            href={`/api/orders/${order.id}/pdf`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
+          >
+            <FileDown size={16} /> Baixar PDF
+          </a>
         </div>
       </div>
 
@@ -102,7 +146,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
           <p className="text-sm text-slate-600 mb-2">Alterar status:</p>
           <div className="flex flex-wrap gap-2">
-            {statusFlow.filter(s => s !== order.status).map(s => {
+            {statusFlow.filter(s => s !== order.status && s !== "CANCELLED").map(s => {
               const st = statusLabels[s];
               return (
                 <button key={s} onClick={() => changeStatus(s)} disabled={updating}
@@ -111,6 +155,70 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 </button>
               );
             })}
+            {/* Botão Cancelar OS */}
+            {canCancel && (
+              <button
+                onClick={() => { setShowCancelModal(true); setCancelError(""); setCancelReason(""); }}
+                disabled={updating}
+                className="text-xs px-3 py-1.5 rounded-full border hover:opacity-80 disabled:opacity-50 bg-red-100 text-red-700 border-red-200"
+              >
+                <span className="flex items-center gap-1"><XCircle size={12} /> Cancelar OS</span>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Motivo de cancelamento */}
+      {order.status === "CANCELLED" && order.cancelReason && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4">
+          <p className="text-sm font-medium text-red-700 mb-1">Motivo do cancelamento:</p>
+          <p className="text-sm text-red-600">{order.cancelReason}</p>
+        </div>
+      )}
+
+      {/* Modal de cancelamento */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <XCircle size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800">Cancelar Ordem de Serviço</h3>
+                <p className="text-sm text-slate-500">O.S. #{order.number}</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-700 mb-3">
+              Informe o motivo do cancelamento. As reservas de estoque serão automaticamente revertidas.
+            </p>
+            <textarea
+              value={cancelReason}
+              onChange={(e) => { setCancelReason(e.target.value); setCancelError(""); }}
+              placeholder="Descreva o motivo do cancelamento..."
+              rows={4}
+              className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 resize-none mb-2"
+            />
+            {cancelError && (
+              <p className="text-sm text-red-600 mb-3">{cancelError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200"
+                disabled={cancelling}
+              >
+                Voltar
+              </button>
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                disabled={cancelling}
+              >
+                {cancelling ? "Cancelando..." : "Confirmar Cancelamento"}
+              </button>
+            </div>
           </div>
         </div>
       )}

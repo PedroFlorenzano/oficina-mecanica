@@ -2,6 +2,7 @@ import { PrismaClientRepository } from "./repositories/PrismaClientRepository";
 import { PrismaVehicleRepository } from "./repositories/PrismaVehicleRepository";
 import { PrismaServiceOrderRepository } from "./repositories/PrismaServiceOrderRepository";
 import { PrismaStockItemRepository } from "./repositories/PrismaStockItemRepository";
+import { PrismaStockMovementRepository } from "./repositories/PrismaStockMovementRepository";
 import { PrismaServiceCatalogRepository } from "./repositories/PrismaServiceCatalogRepository";
 
 export const container = {
@@ -9,5 +10,6 @@ export const container = {
   vehicleRepository: new PrismaVehicleRepository(),
   orderRepository: new PrismaServiceOrderRepository(),
   stockItemRepository: new PrismaStockItemRepository(),
+  stockMovementRepository: new PrismaStockMovementRepository(),
   serviceCatalogRepository: new PrismaServiceCatalogRepository(),
 };

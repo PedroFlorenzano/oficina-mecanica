@@ -1,5 +1,5 @@
 import { prisma } from "../database/prisma";
-import { IServiceOrderRepository, OrderData, CreateOrderData, LegacyCreateOrderData } from "@/domain/repositories/IServiceOrderRepository";
+import { IServiceOrderRepository, OrderData, OrderSummary, CreateOrderData, LegacyCreateOrderData } from "@/domain/repositories/IServiceOrderRepository";
 
 export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   async findById(id: string): Promise<any> {
@@ -65,6 +65,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     const order = await prisma.serviceOrder.create({
       data: {
         number: nextNumber,
+        status: "WAITING_APPROVAL",
         mileage: data.mileage,
         notes: data.notes,
         totalAmount: data.totalAmount,
@@ -73,7 +74,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
         tenantId: data.tenantId,
         createdById: data.createdById,
         statusHistory: {
-          create: { toStatus: "OPEN", userId: data.createdById },
+          create: { toStatus: "WAITING_APPROVAL", userId: data.createdById },
         },
       },
     });
@@ -139,6 +140,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     return prisma.serviceOrder.create({
       data: {
         number: nextNumber,
+        status: "WAITING_APPROVAL",
         mileage: data.mileage,
         notes: data.notes,
         totalAmount: servicesTotal + partsTotal,
@@ -166,7 +168,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
             }
           : undefined,
         statusHistory: {
-          create: { toStatus: "OPEN", userId: data.createdById },
+          create: { toStatus: "WAITING_APPROVAL", userId: data.createdById },
         },
       },
       include: {
@@ -188,6 +190,76 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
           create: {
             fromStatus: order.status,
             toStatus: status as any,
+            userId,
+          },
+        },
+      },
+    });
+  }
+
+  async findByClientId(clientId: string, tenantId: string): Promise<OrderSummary[]> {
+    return prisma.serviceOrder.findMany({
+      where: { clientId, tenantId },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        totalAmount: true,
+        createdAt: true,
+        vehicle: { select: { plate: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }) as unknown as OrderSummary[];
+  }
+
+  async findByVehicleId(vehicleId: string, tenantId: string): Promise<OrderSummary[]> {
+    return prisma.serviceOrder.findMany({
+      where: { vehicleId, tenantId },
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        totalAmount: true,
+        createdAt: true,
+        client: { select: { name: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    }) as unknown as OrderSummary[];
+  }
+
+  async findOilChangeOrders(vehicleId: string, tenantId: string): Promise<{ mileage: number; createdAt: Date }[]> {
+    const orders = await prisma.serviceOrder.findMany({
+      where: {
+        vehicleId,
+        tenantId,
+        complaints: {
+          some: {
+            description: { contains: "troca de óleo" },
+          },
+        },
+      },
+      select: {
+        mileage: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    return orders;
+  }
+
+  async cancel(id: string, reason: string, userId: string): Promise<any> {
+    const order = await prisma.serviceOrder.findUnique({ where: { id } });
+    if (!order) return null;
+
+    return prisma.serviceOrder.update({
+      where: { id },
+      data: {
+        status: "CANCELLED",
+        cancelReason: reason,
+        statusHistory: {
+          create: {
+            fromStatus: order.status,
+            toStatus: "CANCELLED",
             userId,
           },
         },

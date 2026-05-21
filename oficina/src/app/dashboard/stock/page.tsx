@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Package, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import StockItemForm from "./StockItemForm";
 
@@ -21,20 +22,33 @@ interface StockItem {
 }
 
 export default function StockPage() {
+  const router = useRouter();
   const [items, setItems] = useState<StockItem[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
 
   const fetchItems = async () => {
     setLoading(true);
-    const res = await fetch("/api/stock");
-    const data = await res.json();
-    setItems(data);
+    const [itemsRes, alertsRes] = await Promise.all([
+      fetch("/api/stock"),
+      fetch("/api/stock/alerts"),
+    ]);
+    const itemsData = await itemsRes.json();
+    setItems(itemsData);
+
+    if (alertsRes.ok) {
+      const alertsData = await alertsRes.json();
+      setLowStockItems(Array.isArray(alertsData) ? alertsData : []);
+    }
+
     setLoading(false);
   };
 
-  useEffect(() => { fetchItems(); }, []);
+  useEffect(() => {
+    fetchItems();
+  }, []);
 
   const handleNew = () => {
     setEditingItem(null);
@@ -76,6 +90,31 @@ export default function StockPage() {
         </button>
       </div>
 
+      {/* Painel de alertas de estoque baixo */}
+      {lowStockItems.length > 0 && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle size={18} className="text-red-600" />
+            <h2 className="font-semibold text-red-800">
+              {lowStockItems.length}{" "}
+              {lowStockItems.length === 1 ? "item" : "itens"} com estoque baixo
+            </h2>
+          </div>
+          <div className="grid gap-2">
+            {lowStockItems.map((item) => (
+              <div key={item.id} className="flex justify-between text-sm text-red-700">
+                <span>
+                  <span className="font-mono">{item.code}</span> — {item.description}
+                </span>
+                <span>
+                  {item.quantity} / mín {item.minQuantity} {item.unit}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {loading ? (
           <p className="p-6 text-slate-500">Carregando...</p>
@@ -102,13 +141,19 @@ export default function StockPage() {
                 <tr
                   key={item.id}
                   className="hover:bg-slate-50 cursor-pointer"
-                  onClick={() => handleEdit(item)}
+                  onClick={() => router.push(`/dashboard/stock/${item.id}`)}
                 >
                   <td className="px-4 py-3 font-mono text-slate-800">{item.code}</td>
                   <td className="px-4 py-3 text-slate-700">{item.description}</td>
                   <td className="px-4 py-3 text-slate-600">{item.brand || "—"}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 ${item.quantity <= item.minQuantity ? "text-red-600 font-medium" : "text-slate-700"}`}>
+                    <span
+                      className={`inline-flex items-center gap-1 ${
+                        item.quantity <= item.minQuantity
+                          ? "text-red-600 font-medium"
+                          : "text-slate-700"
+                      }`}
+                    >
                       {item.quantity <= item.minQuantity && <AlertTriangle size={14} />}
                       {item.quantity} {item.unit}
                     </span>
@@ -117,14 +162,20 @@ export default function StockPage() {
                   <td className="px-4 py-3 text-slate-700">R$ {item.sellPrice.toFixed(2)}</td>
                   <td className="px-4 py-3 text-right">
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(item);
+                      }}
                       className="text-slate-400 hover:text-blue-600 p-1"
                       title="Editar"
                     >
                       <Pencil size={16} />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); handleDelete(item); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(item);
+                      }}
                       className="text-slate-400 hover:text-red-600 p-1 ml-1"
                       title="Excluir"
                     >

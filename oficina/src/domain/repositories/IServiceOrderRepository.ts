@@ -4,6 +4,7 @@ export interface OrderData {
   status: string;
   mileage: number;
   notes: string | null;
+  cancelReason?: string | null;
   totalAmount: number;
   clientId: string;
   vehicleId: string;
@@ -14,9 +15,19 @@ export interface OrderData {
   vehicle?: { plate: string; model: string; brand?: string };
 }
 
+export interface OrderSummary {
+  id: string;
+  number: number;
+  status: string;
+  totalAmount: number;
+  createdAt: Date;
+  vehicle?: { plate: string };
+  client?: { name: string };
+}
+
 export interface ComplaintInput {
   description: string;
-  services: { description: string; price: number; timeMinutes?: number; serviceId?: string | null; mechanicId?: string | null }[];
+  services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null }[];
   parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[];
 }
 
@@ -50,4 +61,8 @@ export interface IServiceOrderRepository {
   createWithComplaints(data: CreateOrderData): Promise<any>;
   createLegacy(data: LegacyCreateOrderData): Promise<any>;
   updateStatus(id: string, status: string, userId: string): Promise<any>;
+  findByClientId(clientId: string, tenantId: string): Promise<OrderSummary[]>;
+  findByVehicleId(vehicleId: string, tenantId: string): Promise<OrderSummary[]>;
+  findOilChangeOrders(vehicleId: string, tenantId: string): Promise<{ mileage: number; createdAt: Date }[]>;
+  cancel(id: string, reason: string, userId: string): Promise<any>;
 }

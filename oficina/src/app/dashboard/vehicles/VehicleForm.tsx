@@ -20,6 +20,7 @@ interface Vehicle {
   fuel?: string | null;
   chassis?: string | null;
   mileage: number;
+  oilReminderEnabled?: boolean;
   clientId: string;
   client?: { id: string; name: string };
 }
@@ -42,6 +43,7 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
     chassis: vehicle?.chassis || "",
     mileage: vehicle?.mileage?.toString() || "0",
     clientId: vehicle?.clientId || "",
+    oilReminderEnabled: vehicle?.oilReminderEnabled !== false, // default true
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -269,6 +271,23 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+        </div>
+
+        {/* Lembrete de troca de óleo */}
+        <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div>
+            <p className="text-sm font-medium text-amber-800">Lembrete de troca de óleo</p>
+            <p className="text-xs text-amber-600">Alerta quando o veículo se aproximar do intervalo de 5.000 km</p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.oilReminderEnabled}
+              onChange={(e) => setForm({ ...form, oilReminderEnabled: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-10 h-5 bg-slate-300 rounded-full peer peer-checked:bg-amber-500 peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all"></div>
+          </label>
         </div>
 
         <div className="flex gap-3 pt-4">

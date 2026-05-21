@@ -22,6 +22,7 @@ export class PrismaClientRepository implements IClientRepository {
     return prisma.client.findMany({
       where: {
         tenantId,
+        active: true,
         OR: [
           { name: { contains: query } },
           { document: { contains: query } },
@@ -37,9 +38,12 @@ export class PrismaClientRepository implements IClientRepository {
     }) as unknown as ClientData[];
   }
 
-  async findAll(tenantId: string): Promise<ClientData[]> {
+  async findAll(tenantId: string, activeOnly?: boolean): Promise<ClientData[]> {
+    // Quando activeOnly é false explícito, busca todos; caso contrário filtra apenas ativos
+    const whereActive = activeOnly === false ? undefined : { active: true };
+
     return prisma.client.findMany({
-      where: { tenantId },
+      where: { tenantId, ...whereActive },
       include: {
         vehicles: { select: { id: true, plate: true, brand: true, model: true, year: true, color: true, mileage: true } },
         _count: { select: { vehicles: true, orders: true } },
@@ -48,11 +52,18 @@ export class PrismaClientRepository implements IClientRepository {
     }) as unknown as ClientData[];
   }
 
-  async create(data: Omit<ClientData, "id" | "vehicles" | "_count">): Promise<ClientData> {
+  async create(data: Omit<ClientData, "id" | "vehicles" | "_count" | "active"> & { active?: boolean }): Promise<ClientData> {
     return prisma.client.create({ data }) as unknown as ClientData;
   }
 
   async update(id: string, data: Partial<Omit<ClientData, "id" | "vehicles" | "_count">>): Promise<ClientData> {
     return prisma.client.update({ where: { id }, data }) as unknown as ClientData;
+  }
+
+  async deactivate(id: string): Promise<ClientData> {
+    return prisma.client.update({
+      where: { id },
+      data: { active: false },
+    }) as unknown as ClientData;
   }
 }

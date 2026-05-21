@@ -56,6 +56,7 @@ model Client {
   phone     String?
   email     String?
   address   String?
+  active    Boolean  @default(true)
   tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -82,7 +83,8 @@ model Vehicle {
   color       String?
   fuel        String?
   chassis     String?
-  mileage     Int      @default(0)
+  mileage              Int      @default(0)
+  oilReminderEnabled   Boolean  @default(true)
   clientId    String
   tenantId    String
   createdAt   DateTime @default(now())
@@ -113,18 +115,19 @@ model ServiceCatalog {
 }
 
 model ServiceOrder {
-  id          String      @id @default(cuid())
-  number      Int
-  status      OrderStatus @default(OPEN)
-  mileage     Int
-  notes       String?
-  totalAmount Float       @default(0)
-  clientId    String
-  vehicleId   String
-  tenantId    String
-  createdById String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  number       Int
+  status       OrderStatus @default(OPEN)
+  mileage      Int
+  notes        String?
+  cancelReason String?
+  totalAmount  Float       @default(0)
+  clientId     String
+  vehicleId    String
+  tenantId     String
+  createdById  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   client      Client      @relation(fields: [clientId], references: [id])
   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
@@ -134,6 +137,7 @@ model ServiceOrder {
   services    OrderService[]
   parts       OrderPart[]
   statusHistory StatusHistory[]
+  movements   StockMovement[]
 }
 
 model Complaint {
@@ -219,20 +223,28 @@ model StockItem {
 }
 
 model StockMovement {
-  id          String       @id @default(cuid())
-  type        MovementType
-  quantity    Int
-  reason      String
-  document    String?
-  stockItemId String
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(cuid())
+  type          MovementType
+  quantity      Int
+  reason        String
+  document      String?
+  orderId       String?
+  balanceBefore Int          @default(0)
+  balanceAfter  Int          @default(0)
+  stockItemId   String
+  createdAt     DateTime     @default(now())
 
-  stockItem   StockItem    @relation(fields: [stockItemId], references: [id])
+  stockItem     StockItem    @relation(fields: [stockItemId], references: [id])
+  order         ServiceOrder? @relation(fields: [orderId], references: [id])
 }
 
 enum MovementType {
   IN
   OUT
+  RESERVED
+  CONSUMPTION
+  REVERSAL
+  ADJUSTMENT
 }
 
 model StatusHistory {

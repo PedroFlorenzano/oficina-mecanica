@@ -1,5 +1,7 @@
 import { prisma } from "../database/prisma";
 import { IStockItemRepository, StockItemData } from "@/domain/repositories/IStockItemRepository";
+import { StockMovementData } from "@/domain/repositories/IStockMovementRepository";
+import { BusinessRuleError } from "@/domain/errors/DomainError";
 
 export class PrismaStockItemRepository implements IStockItemRepository {
   async findById(id: string): Promise<StockItemData | null> {
@@ -19,6 +21,18 @@ export class PrismaStockItemRepository implements IStockItemRepository {
       where: { tenantId },
       orderBy: { description: "asc" },
     }) as unknown as StockItemData[];
+  }
+
+  async findLowStock(tenantId: string): Promise<StockItemData[]> {
+    // SQLite não suporta comparação entre colunas no where do Prisma — usar $queryRaw
+    const results = await prisma.$queryRaw<StockItemData[]>`
+      SELECT * FROM "StockItem"
+      WHERE "tenantId" = ${tenantId}
+        AND "active" = 1
+        AND "quantity" <= "minQuantity"
+      ORDER BY "description" ASC
+    `;
+    return results;
   }
 
   async count(tenantId: string): Promise<number> {
@@ -43,5 +57,22 @@ export class PrismaStockItemRepository implements IStockItemRepository {
 
   async countOrderParts(id: string): Promise<number> {
     return prisma.orderPart.count({ where: { stockItemId: id } });
+  }
+
+  async createEntryTransaction(
+    itemId: string,
+    movementData: Omit<StockMovementData, "id" | "createdAt">,
+    itemUpdate: Partial<Omit<StockItemData, "id">>
+  ): Promise<StockItemData> {
+    if (movementData.balanceAfter < 0) {
+      throw new BusinessRuleError("Saldo do estoque não pode ser negativo");
+    }
+
+    const [, updatedItem] = await prisma.$transaction([
+      prisma.stockMovement.create({ data: movementData as any }),
+      prisma.stockItem.update({ where: { id: itemId }, data: itemUpdate }),
+    ]);
+
+    return updatedItem as unknown as StockItemData;
   }
 }
