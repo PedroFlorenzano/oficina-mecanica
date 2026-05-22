@@ -28,3 +28,15 @@ export class BusinessRuleError extends DomainError {
     super(message, "BUSINESS_RULE_VIOLATION");
   }
 }
+
+export class AuthenticationError extends DomainError {
+  constructor(message: string) {
+    super(message, "AUTHENTICATION_ERROR");
+  }
+}
+
+export class ForbiddenError extends DomainError {
+  constructor(message: string) {
+    super(message, "FORBIDDEN");
+  }
+}

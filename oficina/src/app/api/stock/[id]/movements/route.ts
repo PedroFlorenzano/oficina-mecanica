@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { container } from "@/infrastructure/container";
 import { handleError } from "@/lib/api-handler";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAuth();
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const pageParam = searchParams.get("page") ?? "1";
@@ -30,6 +32,7 @@ export async function GET(
     const result = await container.stockMovementRepository.findByStockItemId(id, page, pageSize);
     return NextResponse.json(result);
   } catch (error) {
+    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

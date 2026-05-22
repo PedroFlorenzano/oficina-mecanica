@@ -26,18 +26,21 @@ const makeStockItemRepo = (item: StockItemData | null = makeItem()): IStockItemR
   findById: jest.fn().mockResolvedValue(item),
   findByCode: jest.fn(),
   findAll: jest.fn(),
+  findLowStock: jest.fn(),
   count: jest.fn(),
   create: jest.fn(),
   update: jest.fn().mockResolvedValue(item),
   delete: jest.fn(),
   countMovements: jest.fn(),
   countOrderParts: jest.fn(),
+  createEntryTransaction: jest.fn(),
 });
 
 const makeMovementRepo = (): IStockMovementRepository => ({
   create: jest.fn().mockResolvedValue({} as StockMovementData),
   findPendingReservations: jest.fn(),
   findByOrderId: jest.fn(),
+  findByStockItemId: jest.fn(),
 });
 
 describe("ReserveStock", () => {

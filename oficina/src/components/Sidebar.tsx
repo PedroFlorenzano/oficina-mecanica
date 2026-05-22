@@ -11,6 +11,8 @@ import {
   Wrench,
   LayoutDashboard,
   LayoutGrid,
+  UserCog,
+  User,
 } from "lucide-react";
 
 const mainNav = [
@@ -26,56 +28,57 @@ const cadastrosNav = [
   { href: "/dashboard/services", label: "Catálogo de Serviços", icon: Wrench },
 ];
 
-export default function Sidebar() {
+interface NavItemProps {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  alertCount?: number;
+}
+
+function NavItem({ href, label, icon: Icon, alertCount = 0 }: NavItemProps) {
   const pathname = usePathname();
+  const active =
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+
+  return (
+    <Link
+      href={href}
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all relative
+        ${
+          active
+            ? "bg-blue-50 text-blue-700 font-medium border-l-3 border-blue-600 ml-0"
+            : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+        }`}
+    >
+      <div className="relative">
+        <Icon size={18} className={active ? "text-blue-600" : "text-slate-400"} />
+        {href === "/dashboard/stock" && alertCount > 0 && (
+          <span
+            className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold
+                       rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5"
+          >
+            {alertCount > 99 ? "99+" : alertCount}
+          </span>
+        )}
+      </div>
+      {label}
+    </Link>
+  );
+}
+
+interface SidebarProps {
+  role?: string;
+}
+
+export default function Sidebar({ role }: SidebarProps) {
   const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
-    // TODO: integrar com auth — incluir token de autenticação no header
     fetch("/api/stock/alerts")
       .then((r) => r.json())
       .then((data: unknown[]) => setAlertCount(Array.isArray(data) ? data.length : 0))
       .catch(() => {}); // falha silenciosa — não bloquear navegação
   }, []);
-
-  const isActive = (href: string) =>
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
-
-  const NavItem = ({
-    href,
-    label,
-    icon: Icon,
-  }: {
-    href: string;
-    label: string;
-    icon: React.ElementType;
-  }) => {
-    const active = isActive(href);
-    return (
-      <Link
-        href={href}
-        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all relative
-          ${
-            active
-              ? "bg-blue-50 text-blue-700 font-medium border-l-3 border-blue-600 ml-0"
-              : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-          }`}
-      >
-        <div className="relative">
-          <Icon size={18} className={active ? "text-blue-600" : "text-slate-400"} />
-          {href === "/dashboard/stock" && alertCount > 0 && (
-            <span
-              className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] font-bold
-                         rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5"
-            >
-              {alertCount > 99 ? "99+" : alertCount}
-            </span>
-          )}
-        </div>
-        {label}
-      </Link>
-    );
-  };
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 min-h-screen flex flex-col">
@@ -108,8 +111,25 @@ export default function Sidebar() {
           </p>
           <div className="space-y-1">
             {cadastrosNav.map((item) => (
-              <NavItem key={item.href} {...item} />
+              <NavItem
+                key={item.href}
+                {...item}
+                alertCount={item.href === "/dashboard/stock" ? alertCount : 0}
+              />
             ))}
+          </div>
+        </div>
+
+        {/* Conta */}
+        <div>
+          <p className="px-3 mb-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            Conta
+          </p>
+          <div className="space-y-1">
+            {role === "ADMIN" && (
+              <NavItem href="/dashboard/users" label="Usuários" icon={UserCog} />
+            )}
+            <NavItem href="/dashboard/profile" label="Meu Perfil" icon={User} />
           </div>
         </div>
       </nav>

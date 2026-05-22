@@ -3,20 +3,27 @@ import { container } from "@/infrastructure/container";
 import { UpdateStockItem } from "@/application/use-cases/stock/UpdateStockItem";
 import { DeleteStockItem } from "@/application/use-cases/stock/DeleteStockItem";
 import { handleError } from "@/lib/api-handler";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
+  try {
+    await requireAuth();
+    const { id } = await params;
 
-  const item = await container.stockItemRepository.findById(id);
+    const item = await container.stockItemRepository.findById(id);
 
-  if (!item) {
-    return NextResponse.json({ error: "Item não encontrado" }, { status: 404 });
+    if (!item) {
+      return NextResponse.json({ error: "Item não encontrado" }, { status: 404 });
+    }
+
+    return NextResponse.json(item);
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return handleError(error);
   }
-
-  return NextResponse.json(item);
 }
 
 export async function PUT(
@@ -24,12 +31,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAuth();
     const { id } = await params;
     const body = await request.json();
     const useCase = new UpdateStockItem(container.stockItemRepository);
     const item = await useCase.execute(id, body);
     return NextResponse.json(item);
   } catch (error) {
+    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -39,11 +48,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireAuth();
     const { id } = await params;
     const useCase = new DeleteStockItem(container.stockItemRepository);
     await useCase.execute(id);
     return NextResponse.json({ success: true });
   } catch (error) {
+    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

@@ -8,6 +8,8 @@ export function handleError(error: unknown): NextResponse {
       NOT_FOUND: 404,
       CONFLICT: 409,
       BUSINESS_RULE_VIOLATION: 400,
+      AUTHENTICATION_ERROR: 401,
+      FORBIDDEN: 403,
     };
     const status = statusMap[error.code] || 400;
     return NextResponse.json({ error: error.message, code: error.code }, { status });

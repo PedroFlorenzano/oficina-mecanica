@@ -1,8 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const passwordHash = await bcrypt.hash("password123", 10);
+
   // Create demo tenant
   const tenant = await prisma.tenant.upsert({
     where: { id: "demo-tenant" },
@@ -23,7 +26,7 @@ async function main() {
     create: {
       id: "demo-user",
       email: "admin@paiffer.com",
-      password: "$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu5bO", // password123
+      password: passwordHash,
       name: "Administrador",
       role: "ADMIN",
       tenantId: tenant.id,
@@ -37,7 +40,7 @@ async function main() {
     create: {
       id: "demo-mechanic",
       email: "mecanico@paiffer.com",
-      password: "$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu5bO",
+      password: passwordHash,
       name: "João Mecânico",
       role: "MECHANIC",
       tenantId: tenant.id,
