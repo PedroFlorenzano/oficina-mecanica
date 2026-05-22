@@ -24,22 +24,29 @@ model Tenant {
   orders    ServiceOrder[]
   items     StockItem[]
   services  ServiceCatalog[]
+  whatsappConfig WhatsAppConfig?
+  fiscalConfig   FiscalConfig?
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  password  String
-  name      String
-  role      Role     @default(ATTENDANT)
-  active    Boolean  @default(true)
-  tenantId  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String    @id @default(cuid())
+  email             String    @unique
+  password          String
+  name              String
+  role              Role      @default(ATTENDANT)
+  active            Boolean   @default(true)
+  failedLoginCount  Int       @default(0)
+  lockedUntil       DateTime?
+  tenantId          String
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  commissionRate  Float    @default(0)
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
   orders    ServiceOrder[]
   timerLogs TimerLog[]
+  commissions Commission[]
 }
 
 enum Role {
@@ -56,6 +63,7 @@ model Client {
   phone     String?
   email     String?
   address   String?
+  active    Boolean  @default(true)
   tenantId  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -82,7 +90,8 @@ model Vehicle {
   color       String?
   fuel        String?
   chassis     String?
-  mileage     Int      @default(0)
+  mileage              Int      @default(0)
+  oilReminderEnabled   Boolean  @default(true)
   clientId    String
   tenantId    String
   createdAt   DateTime @default(now())
@@ -113,18 +122,19 @@ model ServiceCatalog {
 }
 
 model ServiceOrder {
-  id          String      @id @default(cuid())
-  number      Int
-  status      OrderStatus @default(OPEN)
-  mileage     Int
-  notes       String?
-  totalAmount Float       @default(0)
-  clientId    String
-  vehicleId   String
-  tenantId    String
-  createdById String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id           String      @id @default(cuid())
+  number       Int
+  status       OrderStatus @default(OPEN)
+  mileage      Int
+  notes        String?
+  cancelReason String?
+  totalAmount  Float       @default(0)
+  clientId     String
+  vehicleId    String
+  tenantId     String
+  createdById  String
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 
   client      Client      @relation(fields: [clientId], references: [id])
   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
@@ -134,6 +144,10 @@ model ServiceOrder {
   services    OrderService[]
   parts       OrderPart[]
   statusHistory StatusHistory[]
+  movements   StockMovement[]
+  signatures  Signature[]
+  whatsappMessages WhatsAppMessage[]
+  fiscalInvoices   FiscalInvoice[]
 }
 
 model Complaint {
@@ -173,6 +187,7 @@ model OrderService {
   order       ServiceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   complaint   Complaint?      @relation(fields: [complaintId], references: [id])
   timerLogs   TimerLog[]
+  commissionItems CommissionItem[]
 }
 
 model OrderPart {
@@ -219,20 +234,28 @@ model StockItem {
 }
 
 model StockMovement {
-  id          String       @id @default(cuid())
-  type        MovementType
-  quantity    Int
-  reason      String
-  document    String?
-  stockItemId String
-  createdAt   DateTime     @default(now())
+  id            String       @id @default(cuid())
+  type          MovementType
+  quantity      Int
+  reason        String
+  document      String?
+  orderId       String?
+  balanceBefore Int          @default(0)
+  balanceAfter  Int          @default(0)
+  stockItemId   String
+  createdAt     DateTime     @default(now())
 
-  stockItem   StockItem    @relation(fields: [stockItemId], references: [id])
+  stockItem     StockItem    @relation(fields: [stockItemId], references: [id])
+  order         ServiceOrder? @relation(fields: [orderId], references: [id])
 }
 
 enum MovementType {
   IN
   OUT
+  RESERVED
+  CONSUMPTION
+  REVERSAL
+  ADJUSTMENT
 }
 
 model StatusHistory {
@@ -259,4 +282,198 @@ model TimerLog {
 
   orderService   OrderService @relation(fields: [orderServiceId], references: [id])
   user           User         @relation(fields: [userId], references: [id])
+  auditLogs      TimerAuditLog[]
+}
+
+model TimerAuditLog {
+  id                    String   @id @default(cuid())
+  timerLogId            String
+  adminUserId           String
+  previousTotalSeconds  Int
+  newTotalSeconds       Int
+  changedAt             DateTime @default(now())
+
+  timerLog  TimerLog @relation(fields: [timerLogId], references: [id])
+}
+
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+model Commission {
+  id              String           @id @default(cuid())
+  mechanicId      String
+  tenantId        String
+  startDate       DateTime
+  endDate         DateTime
+  commissionRate  Float
+  totalBase       Float
+  totalCommission Float
+  status          CommissionStatus @default(PENDING)
+  approvedAt      DateTime?
+  approvedById    String?
+  paidAt          DateTime?
+  paidById        String?
+  cancelledAt     DateTime?
+  cancelledById   String?
+  cancelReason    String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  mechanic        User             @relation(fields: [mechanicId], references: [id])
+  items           CommissionItem[]
+}
+
+model CommissionItem {
+  id              String     @id @default(cuid())
+  commissionId    String
+  orderServiceId  String
+  baseValue       Float
+  commissionValue Float
+  createdAt       DateTime   @default(now())
+
+  commission      Commission   @relation(fields: [commissionId], references: [id], onDelete: Cascade)
+  orderService    OrderService @relation(fields: [orderServiceId], references: [id])
+}
+
+
+enum WhatsAppMessageStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+enum WhatsAppMessageType {
+  APPROVAL_LINK
+  DELIVERY_NOTIFICATION
+  MAINTENANCE_REMINDER
+}
+
+model WhatsAppConfig {
+  id              String   @id @default(cuid())
+  tenantId        String   @unique
+  phoneNumberId   String?  // WhatsApp Business API phone number ID
+  accessToken     String?  // API access token (encrypted in prod)
+  businessName    String?
+  enabled         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tenant          Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model WhatsAppMessage {
+  id          String                @id @default(cuid())
+  tenantId    String
+  orderId     String?
+  type        WhatsAppMessageType
+  to          String                // phone number
+  content     String                // message body
+  status      WhatsAppMessageStatus @default(PENDING)
+  externalId  String?               // WhatsApp message ID
+  error       String?
+  sentAt      DateTime?
+  createdAt   DateTime              @default(now())
+
+  order       ServiceOrder?         @relation(fields: [orderId], references: [id])
+}
+
+enum SignatureType {
+  APPROVAL
+  DELIVERY
+}
+
+model Signature {
+  id         String        @id @default(cuid())
+  orderId    String
+  type       SignatureType
+  imageData  String        // base64 PNG
+  signerName String
+  token      String        @unique // token público para link de assinatura
+  expiresAt  DateTime      // token expira em 48h
+  signedAt   DateTime?
+
+  order      ServiceOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+enum FiscalInvoiceType {
+  NFE
+  NFSE
+}
+
+enum FiscalInvoiceStatus {
+  PENDING
+  PROCESSING
+  AUTHORIZED
+  REJECTED
+  CANCELLED
+  ERROR
+}
+
+model FiscalConfig {
+  id                String   @id @default(cuid())
+  tenantId          String   @unique
+  enabled           Boolean  @default(false)
+  environment       String   @default("homologation") // homologation | production
+  certificateBase64 String?  // PFX certificate (encrypted in prod)
+  certificatePassword String?
+  cnpj              String?
+  inscricaoEstadual String?
+  inscricaoMunicipal String?
+  razaoSocial       String?
+  nfeSeries         Int      @default(1)
+  nfseSeries        Int      @default(1)
+  nextNfeNumber     Int      @default(1)
+  nextNfseNumber    Int      @default(1)
+  cityCode          String?  // IBGE city code
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model FiscalInvoice {
+  id              String              @id @default(cuid())
+  tenantId        String
+  orderId         String
+  type            FiscalInvoiceType
+  status          FiscalInvoiceStatus @default(PENDING)
+  number          Int?
+  series          Int?
+  accessKey       String?             // chave de acesso (44 dígitos)
+  protocolNumber  String?
+  xmlContent      String?             // XML autorizado
+  pdfUrl          String?
+  totalAmount     Float
+  issueDate       DateTime?
+  cancelDate      DateTime?
+  cancelReason    String?
+  retryCount      Int                 @default(0)
+  lastError       String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  order           ServiceOrder        @relation(fields: [orderId], references: [id])
+  items           FiscalInvoiceItem[]
+}
+
+model FiscalInvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float
+  unitPrice   Float
+  totalPrice  Float
+  cfop        String?  // ex: 5102 (venda), 5933 (serviço)
+  ncm         String?  // NCM para produtos
+  serviceCode String?  // código de serviço municipal (NFS-e)
+  createdAt   DateTime @default(now())
+
+  invoice     FiscalInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 }

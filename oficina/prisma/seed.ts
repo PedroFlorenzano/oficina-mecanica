@@ -1,8 +1,11 @@
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  const passwordHash = await bcrypt.hash("password123", 10);
+
   // Create demo tenant
   const tenant = await prisma.tenant.upsert({
     where: { id: "demo-tenant" },
@@ -23,7 +26,7 @@ async function main() {
     create: {
       id: "demo-user",
       email: "admin@paiffer.com",
-      password: "$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu5bO", // password123
+      password: passwordHash,
       name: "Administrador",
       role: "ADMIN",
       tenantId: tenant.id,
@@ -33,13 +36,14 @@ async function main() {
   // Create demo mechanic
   await prisma.user.upsert({
     where: { id: "demo-mechanic" },
-    update: {},
+    update: { commissionRate: 10 },
     create: {
       id: "demo-mechanic",
       email: "mecanico@paiffer.com",
-      password: "$2a$10$K7L1OJ45/4Y2nIvhRVpCe.FSmhDdWoXehVzJptJ/op0lSsvqNu5bO",
+      password: passwordHash,
       name: "João Mecânico",
       role: "MECHANIC",
+      commissionRate: 10,
       tenantId: tenant.id,
     },
   });
@@ -125,6 +129,50 @@ async function main() {
   for (const item of stockData) {
     const existing = await prisma.stockItem.findFirst({ where: { code: item.code, tenantId: item.tenantId } });
     if (!existing) await prisma.stockItem.create({ data: item });
+  }
+
+  // Create demo commissions with real items
+  const existingCommission = await prisma.commission.findFirst({ where: { tenantId: tenant.id } });
+  if (!existingCommission) {
+    // Assign mechanic to services in completed orders
+    const completedServices = await prisma.orderService.findMany({
+      where: { order: { tenantId: tenant.id, status: { in: ["COMPLETED", "DELIVERED"] } } },
+    });
+    for (const svc of completedServices) {
+      if (!svc.mechanicId) {
+        await prisma.orderService.update({ where: { id: svc.id }, data: { mechanicId: "demo-mechanic" } });
+      }
+    }
+
+    // Reload with mechanicId set
+    const eligibleServices = await prisma.orderService.findMany({
+      where: { mechanicId: "demo-mechanic", order: { tenantId: tenant.id, status: { in: ["COMPLETED", "DELIVERED"] } } },
+    });
+
+    if (eligibleServices.length > 0) {
+      const rate = 10;
+      const items = eligibleServices.map(s => ({
+        orderServiceId: s.id,
+        baseValue: s.price,
+        commissionValue: Math.round(s.price * rate) / 100,
+      }));
+      const totalBase = items.reduce((sum, i) => sum + i.baseValue, 0);
+      const totalCommission = items.reduce((sum, i) => sum + i.commissionValue, 0);
+
+      await prisma.commission.create({
+        data: {
+          mechanicId: "demo-mechanic",
+          tenantId: tenant.id,
+          startDate: new Date("2026-05-01"),
+          endDate: new Date("2026-05-31"),
+          commissionRate: rate,
+          totalBase,
+          totalCommission,
+          status: "PENDING",
+          items: { create: items },
+        },
+      });
+    }
   }
 
   console.log("✅ Seed concluído com sucesso!");

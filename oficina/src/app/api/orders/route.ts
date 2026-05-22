@@ -1,23 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { container } from "@/infrastructure/container";
 import { CreateOrder } from "@/application/use-cases/orders/CreateOrder";
+import { ReserveStock } from "@/application/use-cases/stock/ReserveStock";
 import { handleError } from "@/lib/api-handler";
-
-const DEMO_TENANT_ID = "demo-tenant";
-const DEMO_USER_ID = "demo-user";
+import { requireAuth } from "@/lib/auth";
 
 export async function GET() {
-  const orders = await container.orderRepository.findAll(DEMO_TENANT_ID);
-  return NextResponse.json(orders);
+  try {
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+
+    const orders = await container.orderRepository.findAll(tenantId);
+    return NextResponse.json(orders);
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return handleError(error);
+  }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const userId = session.user.userId;
+
     const body = await request.json();
     const useCase = new CreateOrder(container.orderRepository, container.vehicleRepository);
-    const order = await useCase.execute(body, DEMO_TENANT_ID, DEMO_USER_ID);
+    const order = await useCase.execute(body, tenantId, userId);
+
+    // Reservar estoque para peças vinculadas a stockItemId
+    const allParts = [
+      ...(body.complaints?.flatMap((c: any) => c.parts || []) || []),
+      ...(body.parts || []),
+    ];
+
+    for (const part of allParts) {
+      if (part.stockItemId) {
+        try {
+          const reserveStock = new ReserveStock(
+            container.stockItemRepository,
+            container.stockMovementRepository
+          );
+          await reserveStock.execute(part.stockItemId, part.quantity, order.id, tenantId);
+        } catch {
+          // TODO: integrar com alertas de WhatsApp
+          // Não cancela a OS — apenas registra o erro de reserva
+          console.warn(`Falha ao reservar estoque para item ${part.stockItemId} na OS ${order.id}`);
+        }
+      }
+    }
+
     return NextResponse.json(order, { status: 201 });
   } catch (error) {
+    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

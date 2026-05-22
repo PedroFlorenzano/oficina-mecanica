@@ -1,3 +1,5 @@
+import { StockMovementData } from "./IStockMovementRepository";
+
 export interface StockItemData {
   id: string;
   code: string;
@@ -20,10 +22,16 @@ export interface IStockItemRepository {
   findById(id: string): Promise<StockItemData | null>;
   findByCode(code: string, tenantId: string): Promise<StockItemData | null>;
   findAll(tenantId: string): Promise<StockItemData[]>;
+  findLowStock(tenantId: string): Promise<StockItemData[]>;
   count(tenantId: string): Promise<number>;
   create(data: Omit<StockItemData, "id">): Promise<StockItemData>;
   update(id: string, data: Partial<Omit<StockItemData, "id">>): Promise<StockItemData>;
   delete(id: string): Promise<void>;
   countMovements(id: string): Promise<number>;
   countOrderParts(id: string): Promise<number>;
+  createEntryTransaction(
+    itemId: string,
+    movementData: Omit<StockMovementData, "id" | "createdAt">,
+    itemUpdate: Partial<Omit<StockItemData, "id">>
+  ): Promise<StockItemData>;
 }

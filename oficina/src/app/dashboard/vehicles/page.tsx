@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Car, Search, Pencil, Trash2 } from "lucide-react";
+import { Plus, Car, Search, Pencil, Trash2, History } from "lucide-react";
+import Link from "next/link";
 import VehicleForm from "./VehicleForm";
 
 interface Vehicle {
@@ -134,6 +135,14 @@ export default function VehiclesPage() {
                     >
                       <Pencil size={16} />
                     </button>
+                    <Link
+                      href={`/dashboard/vehicles/${v.id}/history`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-slate-400 hover:text-slate-700 p-1 inline-flex"
+                      title="Histórico de OS"
+                    >
+                      <History size={16} />
+                    </Link>
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(v); }}
                       className="text-slate-400 hover:text-red-600 p-1 ml-1"

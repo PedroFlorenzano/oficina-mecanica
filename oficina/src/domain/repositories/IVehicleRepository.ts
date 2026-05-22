@@ -9,6 +9,7 @@ export interface VehicleData {
   fuel: string | null;
   chassis: string | null;
   mileage: number;
+  oilReminderEnabled?: boolean;
   clientId: string;
   tenantId: string;
   client?: { id: string; name: string };

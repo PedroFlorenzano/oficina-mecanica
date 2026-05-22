@@ -1,147 +1,277 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-
-interface PistaOrder {
-  id: string;
-  number: number;
-  status: string;
-  totalAmount: number;
-  createdAt: string;
-  client: { name: string };
-  vehicle: { plate: string; brand: string; model: string };
-  complaints: { description: string }[];
-  createdBy: { name: string };
-}
-
-const statusConfig: Record<string, { label: string; bg: string; text: string }> = {
-  OPEN: { label: "AGUARDANDO INICIO DO SERVIÇO", bg: "bg-orange-500", text: "text-white" },
-  IN_PROGRESS: { label: "SERVIÇO EM ANDAMENTO", bg: "bg-blue-800", text: "text-white" },
-  WAITING_PART: { label: "AGUARDANDO PEÇAS", bg: "bg-amber-400", text: "text-amber-900" },
-  WAITING_APPROVAL: { label: "AGUARDANDO APROVAÇÃO", bg: "bg-purple-600", text: "text-white" },
-  COMPLETED: { label: "CONCLUÍDA", bg: "bg-green-600", text: "text-white" },
-};
+import { PistaOrder, OrderStatus, KanbanColumnData } from "./types";
+import { filterOrders, groupByStatus, isValidTransition } from "./utils";
+import { KANBAN_COLUMNS, STATUS_CONFIG } from "./config";
+import { KanbanBoard } from "./components/KanbanBoard";
+import { PistaFilters } from "./components/PistaFilters";
 
 export default function PistaPage() {
   const router = useRouter();
+
+  // ─── Core state ──────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<PistaOrder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filterStatus, setFilterStatus] = useState("ALL");
+  const [error, setError] = useState<string | null>(null);
   const [filterMechanic, setFilterMechanic] = useState("");
 
+  // ─── Drag state ───────────────────────────────────────────────────────────
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<OrderStatus | null>(null);
+  // fromStatus is tracked via ref — avoids triggering re-renders mid-drag
+  const fromStatusRef = useRef<OrderStatus | null>(null);
+
+  // ─── Toast error state (non-fatal, e.g. failed PATCH / invalid transition) ─
+  const [toastError, setToastError] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clean up toast timer on unmount
   useEffect(() => {
-    fetch("/api/orders/pista")
-      .then((r) => r.json())
-      .then((data) => { setOrders(data); setLoading(false); });
+    return () => {
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    };
   }, []);
 
-  const filtered = orders.filter((o) => {
-    if (filterStatus !== "ALL" && o.status !== filterStatus) return false;
-    if (filterMechanic && !o.createdBy.name.toLowerCase().includes(filterMechanic.toLowerCase())) return false;
-    return true;
-  });
+  // ─── Data fetching ────────────────────────────────────────────────────────
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/orders/pista");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data: PistaOrder[] = await res.json();
+      setOrders(data);
+    } catch {
+      setError(
+        "Falha ao carregar as ordens de serviço. Verifique sua conexão e tente novamente."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  if (loading) return <p className="p-6 text-slate-500">Carregando...</p>;
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
-  return (
-    <div>
-      <h1 className="text-2xl font-bold text-slate-800 mb-4">Pista</h1>
+  // ─── Toast helper ─────────────────────────────────────────────────────────
+  const showToast = useCallback((message: string) => {
+    setToastError(message);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setToastError(null), 5000);
+  }, []);
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">Profissional</label>
-          <input
-            type="text"
-            value={filterMechanic}
-            onChange={(e) => setFilterMechanic(e.target.value)}
-            placeholder="Filtrar por profissional..."
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-slate-500 mb-1">Status</label>
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+  // ─── Derived / computed values ────────────────────────────────────────────
+  const filteredOrders = filterOrders(orders, filterMechanic);
+  const grouped = groupByStatus(filteredOrders);
+
+  const columns: KanbanColumnData[] = KANBAN_COLUMNS.map((status) => ({
+    status,
+    label: STATUS_CONFIG[status].label,
+    color: STATUS_CONFIG[status].color,
+    orders: grouped[status],
+  }));
+
+  // ─── Drag handlers ────────────────────────────────────────────────────────
+  const clearDragState = useCallback(() => {
+    setDraggingId(null);
+    setDragOverColumn(null);
+    fromStatusRef.current = null;
+  }, []);
+
+  const handleDragStart = useCallback(
+    (orderId: string, fromStatus: OrderStatus) => {
+      setDraggingId(orderId);
+      fromStatusRef.current = fromStatus;
+    },
+    []
+  );
+
+  const handleDragEnter = useCallback((status: OrderStatus) => {
+    setDragOverColumn(status);
+  }, []);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverColumn(null);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    clearDragState();
+  }, [clearDragState]);
+
+  const handleDrop = useCallback(
+    async (toStatus: OrderStatus) => {
+      const currentDraggingId = draggingId;
+      const fromStatus = fromStatusRef.current;
+
+      // Drop on same column or no active drag → restore, no API call
+      if (!currentDraggingId || !fromStatus || toStatus === fromStatus) {
+        clearDragState();
+        return;
+      }
+
+      // Invalid transition → reject immediately, no API call
+      if (!isValidTransition(fromStatus, toStatus)) {
+        showToast("Transição de status não permitida");
+        clearDragState();
+        return;
+      }
+
+      // Optimistic update — move card in local state before API responds
+      const originalOrders = orders;
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === currentDraggingId ? { ...o, status: toStatus } : o
+        )
+      );
+      clearDragState();
+
+      // Persist via PATCH with 10 s timeout
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+        const res = await fetch("/api/orders/pista", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: currentDraggingId, status: toStatus }),
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch {
+        // Rollback optimistic update and notify user
+        setOrders(originalOrders);
+        showToast("Falha ao atualizar status da OS");
+      }
+    },
+    [draggingId, orders, clearDragState, showToast]
+  );
+
+  const handleCardClick = useCallback(
+    (orderId: string) => {
+      router.push(`/dashboard/orders/${orderId}`);
+    },
+    [router]
+  );
+
+  // ─── Loading state ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center gap-3 text-slate-500">
+          <svg
+            className="animate-spin h-6 w-6 text-blue-500"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
           >
-            <option value="ALL">Todos</option>
-            <option value="OPEN">Aguardando Início</option>
-            <option value="IN_PROGRESS">Em Andamento</option>
-            <option value="WAITING_PART">Aguardando Peças</option>
-            <option value="WAITING_APPROVAL">Aguardando Aprovação</option>
-            <option value="COMPLETED">Concluída</option>
-          </select>
+            <circle
+              className="opacity-25"
+              cx="12"
+              cy="12"
+              r="10"
+              stroke="currentColor"
+              strokeWidth="4"
+            />
+            <path
+              className="opacity-75"
+              fill="currentColor"
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+            />
+          </svg>
+          <span>Carregando ordens de serviço...</span>
         </div>
       </div>
+    );
+  }
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <p className="text-slate-400 text-sm">Nenhuma OS encontrada.</p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {filtered.map((order) => {
-            const sc = statusConfig[order.status] || { label: order.status, bg: "bg-gray-500", text: "text-white" };
-            return (
-              <div
-                key={order.id}
-                onClick={() => router.push(`/dashboard/orders/${order.id}`)}
-                className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow flex flex-col"
-              >
-                {/* Top bar */}
-                <div className="bg-slate-800 px-3 py-2 flex items-center justify-between">
-                  <span className="text-white text-sm font-bold">OS #{order.number}</span>
-                  <span className="text-slate-300 text-xs">Prisma:</span>
-                </div>
+  // ─── Fatal error state (initial GET failed) ───────────────────────────────
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4 text-center px-4">
+        <svg
+          className="h-12 w-12 text-red-300"
+          xmlns="http://www.w3.org/2000/svg"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          aria-hidden="true"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"
+          />
+        </svg>
+        <p className="text-slate-600 text-sm max-w-sm">{error}</p>
+        <button
+          onClick={fetchOrders}
+          className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
+  }
 
-                {/* Status badge */}
-                <div className="px-3 pt-3">
-                  <span className={`inline-block text-[10px] font-bold px-2 py-1 rounded ${sc.bg} ${sc.text}`}>
-                    {sc.label}
-                  </span>
-                </div>
+  // ─── Main render ──────────────────────────────────────────────────────────
+  return (
+    <div className="flex flex-col h-full">
+      <h1 className="text-2xl font-bold text-slate-800 mb-4">Pista</h1>
 
-                {/* Vehicle */}
-                <div className="px-3 pt-2">
-                  <div className="bg-slate-100 border border-slate-200 rounded px-2 py-1 text-xs text-slate-700 font-medium">
-                    {order.vehicle.model} • {order.vehicle.plate}
-                  </div>
-                </div>
+      {/* Mechanic filter */}
+      <PistaFilters value={filterMechanic} onChange={setFilterMechanic} />
 
-                {/* Complaints */}
-                <div className="px-3 pt-2 flex-1">
-                  <ul className="text-xs text-slate-600 space-y-0.5 list-disc list-inside">
-                    {order.complaints.slice(0, 3).map((c, i) => (
-                      <li key={i} className="truncate">{c.description}</li>
-                    ))}
-                    {order.complaints.length === 0 && (
-                      <li className="text-slate-400 italic">Sem reclamações</li>
-                    )}
-                  </ul>
-                </div>
-
-                {/* Client */}
-                <div className="bg-slate-700 px-3 py-1.5 mt-2">
-                  <p className="text-white text-xs font-medium truncate">{order.client.name}</p>
-                </div>
-
-                {/* Mechanic */}
-                <div className="px-3 py-1.5 border-t border-slate-100">
-                  <p className="text-xs text-slate-500">Profissional: <span className="text-slate-700 font-medium">{order.createdBy.name}</span></p>
-                </div>
-
-                {/* Footer */}
-                <div className="px-3 py-2 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-[10px] text-slate-400">{new Date(order.createdAt).toLocaleDateString("pt-BR")}</span>
-                  <span className="text-xs font-bold text-green-700">R$ {order.totalAmount.toFixed(2)}</span>
-                </div>
-              </div>
-            );
-          })}
+      {/* Non-fatal error toast (PATCH failures, invalid transitions) */}
+      {toastError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
+        >
+          <span>{toastError}</span>
+          <button
+            onClick={() => setToastError(null)}
+            className="text-red-400 hover:text-red-600 flex-shrink-0 leading-none"
+            aria-label="Fechar mensagem de erro"
+          >
+            ✕
+          </button>
         </div>
       )}
+
+      {/* Kanban board */}
+      <div className="flex-1 overflow-hidden">
+        <KanbanBoard
+          columns={columns}
+          draggingId={draggingId}
+          dragOverColumn={dragOverColumn}
+          onDragStart={handleDragStart}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onDragEnd={handleDragEnd}
+          onCardClick={handleCardClick}
+        />
+      </div>
+
+      {/* Legenda de transições permitidas */}
+      <div className="mt-4 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
+        <p className="font-semibold text-slate-600 mb-2">Transições permitidas</p>
+        <ul className="space-y-1">
+          <li><span className="font-medium text-purple-700">Aguardando Aprovação</span> → Aguardando Início ou Concluída <span className="text-slate-400">(casos simples sem serviço adicional)</span></li>
+          <li><span className="font-medium text-orange-600">Aguardando Início</span> → Aguardando Peças ou Em Andamento</li>
+          <li><span className="font-medium text-amber-600">Aguardando Peças</span> → Aguardando Início <span className="text-slate-400">(volta)</span> ou Em Andamento <span className="text-slate-400">(peças chegaram)</span></li>
+          <li><span className="font-medium text-blue-800">Em Andamento</span> → Aguardando Peças <span className="text-slate-400">(faltou algo)</span> ou Concluída</li>
+          <li><span className="font-medium text-green-700">Concluída</span> → nenhuma</li>
+        </ul>
+      </div>
     </div>
   );
 }

@@ -44,6 +44,7 @@ export class CreateOrder {
           services: (c.services || []).map((s) => ({
             description: s.description,
             price: s.price,
+            timeMinutes: s.timeMinutes || null,
             serviceId: s.serviceId || null,
             mechanicId: s.mechanicId || null,
           })),
