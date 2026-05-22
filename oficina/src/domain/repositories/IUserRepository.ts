@@ -7,6 +7,7 @@ export interface UserData {
   name: string;
   role: Role;
   active: boolean;
+  commissionRate: number;
   tenantId: string;
   failedLoginCount: number;
   lockedUntil: Date | null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, UserX, UserCheck, UserCog, BarChart2 } from "lucide-react";
+import { Plus, Edit, UserX, UserCheck, UserCog, BarChart2, DollarSign } from "lucide-react";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 import UserForm from "./UserForm";
@@ -12,6 +12,7 @@ interface User {
   email: string;
   role: string;
   active: boolean;
+  commissionRate: number;
 }
 
 const roleLabel: Record<string, string> = {
@@ -177,6 +178,16 @@ export default function UsersPage() {
                           title="Ver histórico de produtividade"
                         >
                           <BarChart2 size={16} />
+                        </Link>
+                      )}
+                      {/* Histórico de comissões para MECHANICs */}
+                      {user.role === "MECHANIC" && (
+                        <Link
+                          href={`/dashboard/users/${user.id}/commissions`}
+                          className="text-slate-400 hover:text-green-600 transition-colors"
+                          title="Ver comissões"
+                        >
+                          <DollarSign size={16} />
                         </Link>
                       )}
                       {/* Não exibir botão de desativar para o próprio usuário logado */}

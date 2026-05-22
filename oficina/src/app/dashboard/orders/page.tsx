@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, ClipboardList } from "lucide-react";
+import { Plus, ClipboardList, Search, Download } from "lucide-react";
 import Link from "next/link";
 
 interface Order {
@@ -28,6 +28,7 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/orders")
@@ -35,23 +36,71 @@ export default function OrdersPage() {
       .then((data) => { setOrders(data); setLoading(false); });
   }, []);
 
+  const filtered = orders.filter((o) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      String(o.number).includes(q) ||
+      o.client.name.toLowerCase().includes(q) ||
+      o.vehicle.plate.toLowerCase().includes(q) ||
+      o.vehicle.model.toLowerCase().includes(q)
+    );
+  });
+
+  const exportCSV = () => {
+    const header = "Nº;Cliente;Placa;Veículo;Status;Total;Data\n";
+    const rows = filtered.map((o) =>
+      `${o.number};${o.client.name};${o.vehicle.plate};${o.vehicle.model};${statusLabels[o.status]?.label || o.status};${o.totalAmount.toFixed(2)};${new Date(o.createdAt).toLocaleDateString("pt-BR")}`
+    ).join("\n");
+    const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ordens-servico-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Ordens de Serviço</h1>
-        <Link
-          href="/dashboard/orders/new"
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-        >
-          <Plus size={18} />
-          Nova OS
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={exportCSV}
+            className="flex items-center gap-2 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
+          >
+            <Download size={16} />
+            Exportar CSV
+          </button>
+          <Link
+            href="/dashboard/orders/new"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          >
+            <Plus size={18} />
+            Nova OS
+          </Link>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {/* Busca */}
+        <div className="px-4 py-3 border-b border-slate-100">
+          <div className="relative max-w-sm">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nº, cliente ou placa..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
         {loading ? (
           <p className="p-6 text-slate-500">Carregando...</p>
-        ) : orders.length === 0 ? (
+        ) : filtered.length === 0 ? (
           <div className="p-8 text-center">
             <ClipboardList size={40} className="mx-auto text-slate-300 mb-3" />
             <p className="text-slate-500">Nenhuma OS cadastrada</p>
@@ -72,7 +121,7 @@ export default function OrdersPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {orders.map((order) => {
+              {filtered.map((order) => {
                 const status = statusLabels[order.status] || { label: order.status, color: "bg-slate-100" };
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => window.location.href = `/dashboard/orders/${order.id}`}>

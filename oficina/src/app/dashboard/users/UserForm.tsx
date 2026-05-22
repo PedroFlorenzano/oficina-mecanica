@@ -9,6 +9,7 @@ interface User {
   email: string;
   role: string;
   active: boolean;
+  commissionRate?: number;
 }
 
 interface UserFormProps {
@@ -30,6 +31,7 @@ export default function UserForm({ user, onSaved, onCancel }: UserFormProps) {
   const [email, setEmail] = useState(user?.email ?? "");
   const [role, setRole] = useState(user?.role ?? "ATTENDANT");
   const [password, setPassword] = useState("");
+  const [commissionRate, setCommissionRate] = useState(user?.commissionRate?.toString() ?? "0");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -39,6 +41,12 @@ export default function UserForm({ user, onSaved, onCancel }: UserFormProps) {
     if (!isEditing && !email.trim()) errs.email = "E-mail é obrigatório";
     if (!role) errs.role = "Perfil é obrigatório";
     if (!isEditing && !password) errs.password = "Senha é obrigatória na criação";
+    if (role === "MECHANIC") {
+      const rate = parseFloat(commissionRate);
+      if (isNaN(rate) || rate < 0 || rate > 100) {
+        errs.commissionRate = "Percentual deve ser entre 0 e 100";
+      }
+    }
     return errs;
   }
 
@@ -58,13 +66,13 @@ export default function UserForm({ user, onSaved, onCancel }: UserFormProps) {
         res = await fetch(`/api/users/${user.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, role }),
+          body: JSON.stringify({ name, role, commissionRate: role === "MECHANIC" ? parseFloat(commissionRate) : undefined }),
         });
       } else {
         res = await fetch("/api/users", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, email, role, password }),
+          body: JSON.stringify({ name, email, role, password, commissionRate: role === "MECHANIC" ? parseFloat(commissionRate) : undefined }),
         });
       }
 
@@ -123,6 +131,18 @@ export default function UserForm({ user, onSaved, onCancel }: UserFormProps) {
           error={errors.role}
           required
         />
+
+        {role === "MECHANIC" && (
+          <Input
+            label="Comissão (%)"
+            type="number"
+            value={commissionRate}
+            onChange={(e) => setCommissionRate(e.target.value)}
+            error={errors.commissionRate}
+            placeholder="0 a 100"
+            hint="Percentual aplicado sobre o valor dos serviços executados"
+          />
+        )}
 
         {!isEditing && (
           <Input

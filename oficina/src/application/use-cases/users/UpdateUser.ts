@@ -15,9 +15,12 @@ export class UpdateUser {
       throw new NotFoundError("Usuário", id);
     }
 
-    const updatePayload: Partial<Pick<UserData, "name" | "role">> = {};
+    const updatePayload: Partial<Pick<UserData, "name" | "role" | "commissionRate">> = {};
     if (data.name !== undefined) updatePayload.name = data.name.trim();
     if (data.role !== undefined) updatePayload.role = data.role;
+    if (data.commissionRate !== undefined && (data.role ?? user.role) === "MECHANIC") {
+      updatePayload.commissionRate = data.commissionRate;
+    }
 
     return this.userRepo.update(id, updatePayload);
   }

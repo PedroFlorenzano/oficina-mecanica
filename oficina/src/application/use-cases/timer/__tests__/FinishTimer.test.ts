@@ -118,15 +118,21 @@ describe("FinishTimer", () => {
   });
 
   // ----------------------------------------------------------------
-  // Requirement 4.2 — estado inválido: sessão pausada
+  // Requirement 4.2 — finalizar sessão pausada (permitido)
   // ----------------------------------------------------------------
   describe("cenário: finalizar sessão pausada", () => {
-    it("deve lançar BusinessRuleError quando o TimerLog está pausado (pausedAt preenchido)", async () => {
-      const pausedLog = makeTimerLogData({ pausedAt: new Date() });
+    it("deve finalizar com sucesso usando totalSeconds já calculado ao pausar", async () => {
+      const pausedLog = makeTimerLogData({ pausedAt: new Date(), totalSeconds: 300 });
       const repo = makeRepo(pausedLog);
       const useCase = new FinishTimer(repo);
 
-      await expect(useCase.execute(BASE_DTO)).rejects.toThrow(BusinessRuleError);
+      await useCase.execute(BASE_DTO);
+
+      expect(repo.updateFinish).toHaveBeenCalledWith(
+        "timer-log-1",
+        expect.any(Date),
+        300 // totalSeconds não muda — elapsed é 0 para sessão pausada
+      );
     });
 
     it("deve lançar BusinessRuleError quando o TimerLog já está finalizado (finishedAt preenchido)", async () => {

@@ -2,9 +2,10 @@
 
 import { useState, useEffect, use, Fragment } from "react";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Printer, FileDown, XCircle } from "lucide-react";
+import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText } from "lucide-react";
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
+import OilLabel from "@/components/OilLabel";
 
 interface ComplaintData {
   id: string;
@@ -61,6 +62,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
 
+  // Estado da etiqueta de óleo
+  const [oilLabelData, setOilLabelData] = useState<any>(null);
+
+  // Estado WhatsApp
+  const [whatsAppMsg, setWhatsAppMsg] = useState("");
+
   const fetchOrder = () => {
     fetch(`/api/orders/${id}`)
       .then((r) => r.json())
@@ -113,6 +120,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const hasComplaints = order.complaints && order.complaints.length > 0;
   const canCancel = !TERMINAL_STATUSES.includes(order.status);
 
+  const handleOilLabel = async () => {
+    const res = await fetch(`/api/orders/${order.id}/oil-label`);
+    if (res.ok) setOilLabelData(await res.json());
+  };
+
+  const handleWhatsApp = async (action: "approval" | "delivery") => {
+    setWhatsAppMsg("");
+    const res = await fetch("/api/whatsapp/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, orderId: order.id }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setWhatsAppMsg(`✓ Link enviado para ${order.client.phone}`);
+    } else {
+      setWhatsAppMsg(`✗ ${data.error}`);
+    }
+    setTimeout(() => setWhatsAppMsg(""), 5000);
+  };
+
   // For orders without complaints, use flat services/parts
   const ungroupedServices = order.services.filter(s => !s.complaintId);
   const ungroupedParts = order.parts.filter(p => !p.complaintId);
@@ -144,8 +172,53 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           >
             <FileDown size={16} /> Baixar PDF
           </a>
+          <button
+            onClick={handleOilLabel}
+            className="flex items-center gap-2 px-3 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm hover:bg-amber-100 text-amber-700"
+          >
+            <Droplet size={16} /> Etiqueta Óleo
+          </button>
+          {order.status === "WAITING_APPROVAL" && (
+            <button
+              onClick={() => handleWhatsApp("approval")}
+              className="flex items-center gap-2 px-3 py-2 border border-green-300 bg-green-50 rounded-lg text-sm hover:bg-green-100 text-green-700"
+            >
+              <MessageCircle size={16} /> Enviar Aprovação
+            </button>
+          )}
+          {order.status === "COMPLETED" && (
+            <button
+              onClick={() => handleWhatsApp("delivery")}
+              className="flex items-center gap-2 px-3 py-2 border border-green-300 bg-green-50 rounded-lg text-sm hover:bg-green-100 text-green-700"
+            >
+              <MessageCircle size={16} /> Notificar Entrega
+            </button>
+          )}
+          {["COMPLETED", "DELIVERED"].includes(order.status) && (
+            <button
+              onClick={async () => {
+                const type = prompt("Tipo de nota: NFE (produtos) ou NFSE (serviços):", "NFSE");
+                if (!type || !["NFE", "NFSE"].includes(type.toUpperCase())) return;
+                const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: type.toUpperCase() }) });
+                const data = await res.json();
+                if (res.ok) setWhatsAppMsg("✓ Nota fiscal criada com sucesso");
+                else setWhatsAppMsg(`✗ ${data.error}`);
+                setTimeout(() => setWhatsAppMsg(""), 5000);
+              }}
+              className="flex items-center gap-2 px-3 py-2 border border-indigo-300 bg-indigo-50 rounded-lg text-sm hover:bg-indigo-100 text-indigo-700"
+            >
+              <FileText size={16} /> Emitir NF
+            </button>
+          )}
         </div>
       </div>
+
+      {/* WhatsApp feedback */}
+      {whatsAppMsg && (
+        <div className={`rounded-lg px-4 py-2 text-sm mb-4 ${whatsAppMsg.startsWith("✓") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          {whatsAppMsg}
+        </div>
+      )}
 
       {/* Status Actions */}
       {order.status !== "DELIVERED" && order.status !== "CANCELLED" && (
@@ -439,6 +512,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           })}
         </div>
       </div>
+
+      {/* Etiqueta de Troca de Óleo */}
+      {oilLabelData && (
+        <div className="bg-white rounded-xl shadow-sm border border-amber-200 p-5">
+          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2 flex items-center gap-2">
+            <Droplet size={16} className="text-amber-600" /> ETIQUETA DE TROCA DE ÓLEO
+          </h2>
+          <OilLabel data={oilLabelData} onClose={() => setOilLabelData(null)} />
+        </div>
+      )}
     </div>
   );
 }

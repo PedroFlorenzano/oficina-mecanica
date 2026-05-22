@@ -6,6 +6,9 @@ import { PrismaStockMovementRepository } from "./repositories/PrismaStockMovemen
 import { PrismaServiceCatalogRepository } from "./repositories/PrismaServiceCatalogRepository";
 import { PrismaUserRepository } from "./repositories/PrismaUserRepository";
 import { PrismaTimerLogRepository } from "@/infrastructure/repositories/PrismaTimerLogRepository";
+import { PrismaCommissionRepository } from "@/infrastructure/repositories/PrismaCommissionRepository";
+import { PrismaWhatsAppRepository } from "@/infrastructure/repositories/PrismaWhatsAppRepository";
+import { PrismaFiscalRepository } from "@/infrastructure/repositories/PrismaFiscalRepository";
 
 export const container = {
   clientRepository: new PrismaClientRepository(),
@@ -16,4 +19,7 @@ export const container = {
   serviceCatalogRepository: new PrismaServiceCatalogRepository(),
   userRepository: new PrismaUserRepository(),
   timerLogRepository: new PrismaTimerLogRepository(),
+  commissionRepository: new PrismaCommissionRepository(),
+  whatsAppRepository: new PrismaWhatsAppRepository(),
+  fiscalRepository: new PrismaFiscalRepository(),
 };

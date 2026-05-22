@@ -13,6 +13,10 @@ import {
   LayoutGrid,
   UserCog,
   User,
+  DollarSign,
+  BarChart3,
+  MessageCircle,
+  FileText,
 } from "lucide-react";
 
 const mainNav = [
@@ -102,6 +106,18 @@ export default function Sidebar({ role }: SidebarProps) {
           {mainNav.map((item) => (
             <NavItem key={item.href} {...item} />
           ))}
+          {(role === "ADMIN" || role === "MECHANIC") && (
+            <NavItem href="/dashboard/commissions" label="Comissões" icon={DollarSign} />
+          )}
+          {role === "ADMIN" && (
+            <NavItem href="/dashboard/reports" label="Relatórios" icon={BarChart3} />
+          )}
+          {role === "ADMIN" && (
+            <NavItem href="/dashboard/whatsapp" label="WhatsApp" icon={MessageCircle} />
+          )}
+          {role === "ADMIN" && (
+            <NavItem href="/dashboard/fiscal/invoices" label="Notas Fiscais" icon={FileText} />
+          )}
         </div>
 
         {/* Cadastros */}

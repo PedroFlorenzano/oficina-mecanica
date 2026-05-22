@@ -40,6 +40,7 @@ export class CreateUser {
       role: input.role,
       password: hashedPassword,
       active: true,
+      commissionRate: input.role === "MECHANIC" && input.commissionRate ? input.commissionRate : 0,
       tenantId,
       failedLoginCount: 0,
       lockedUntil: null,
