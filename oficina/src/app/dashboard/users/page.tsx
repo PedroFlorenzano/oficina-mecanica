@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Edit, UserX, UserCheck, UserCog } from "lucide-react";
+import { Plus, Edit, UserX, UserCheck, UserCog, BarChart2 } from "lucide-react";
 import { useSession } from "next-auth/react";
+import Link from "next/link";
 import UserForm from "./UserForm";
 
 interface User {
@@ -168,6 +169,16 @@ export default function UsersPage() {
                       >
                         <Edit size={16} />
                       </button>
+                      {/* Histórico de produtividade para não-ADMINs */}
+                      {user.role !== "ADMIN" && (
+                        <Link
+                          href={`/dashboard/users/${user.id}`}
+                          className="text-slate-400 hover:text-purple-600 transition-colors"
+                          title="Ver histórico de produtividade"
+                        >
+                          <BarChart2 size={16} />
+                        </Link>
+                      )}
                       {/* Não exibir botão de desativar para o próprio usuário logado */}
                       {user.id !== currentUserId && (
                         <button

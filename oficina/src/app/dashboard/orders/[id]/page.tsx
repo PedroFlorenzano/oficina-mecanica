@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, Fragment } from "react";
+import { useSession } from "next-auth/react";
 import { ArrowLeft, Printer, FileDown, XCircle } from "lucide-react";
 import Link from "next/link";
+import TimerControl from "@/components/timer/TimerControl";
 
 interface ComplaintData {
   id: string;
@@ -45,6 +47,10 @@ const TERMINAL_STATUSES = ["COMPLETED", "DELIVERED", "CANCELLED"];
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { data: session } = useSession();
+  const userId = session?.user?.userId ?? "";
+  const userRole = session?.user?.role ?? "";
+
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -276,11 +282,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       </thead>
                       <tbody className="divide-y">
                         {complaint.services.map((s) => (
-                          <tr key={s.id}>
-                            <td className="py-1.5 text-slate-700">{s.description}</td>
-                            <td className="py-1.5 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
-                            <td className="py-1.5 text-right font-medium text-slate-800">R$ {s.price.toFixed(2)}</td>
-                          </tr>
+                          <Fragment key={s.id}>
+                            <tr>
+                              <td className="py-1.5 text-slate-700">{s.description}</td>
+                              <td className="py-1.5 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
+                              <td className="py-1.5 text-right font-medium text-slate-800">R$ {s.price.toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                              <td colSpan={3} className="py-2 px-0">
+                                <TimerControl
+                                  orderServiceId={s.id}
+                                  userId={userId}
+                                  userRole={userRole}
+                                  serviceDescription={s.description}
+                                />
+                              </td>
+                            </tr>
+                          </Fragment>
                         ))}
                       </tbody>
                     </table>
@@ -330,11 +348,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </thead>
             <tbody className="divide-y">
               {ungroupedServices.map((s) => (
-                <tr key={s.id}>
-                  <td className="py-2 text-slate-700">{s.description}</td>
-                  <td className="py-2 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
-                  <td className="py-2 text-right font-medium text-slate-800">R$ {s.price.toFixed(2)}</td>
-                </tr>
+                <Fragment key={s.id}>
+                  <tr>
+                    <td className="py-2 text-slate-700">{s.description}</td>
+                    <td className="py-2 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
+                    <td className="py-2 text-right font-medium text-slate-800">R$ {s.price.toFixed(2)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={3} className="py-2 px-0">
+                      <TimerControl
+                        orderServiceId={s.id}
+                        userId={userId}
+                        userRole={userRole}
+                        serviceDescription={s.description}
+                      />
+                    </td>
+                  </tr>
+                </Fragment>
               ))}
             </tbody>
           </table>

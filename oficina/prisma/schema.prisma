@@ -273,4 +273,16 @@ model TimerLog {
 
   orderService   OrderService @relation(fields: [orderServiceId], references: [id])
   user           User         @relation(fields: [userId], references: [id])
+  auditLogs      TimerAuditLog[]
+}
+
+model TimerAuditLog {
+  id                    String   @id @default(cuid())
+  timerLogId            String
+  adminUserId           String
+  previousTotalSeconds  Int
+  newTotalSeconds       Int
+  changedAt             DateTime @default(now())
+
+  timerLog  TimerLog @relation(fields: [timerLogId], references: [id])
 }

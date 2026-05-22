@@ -5,6 +5,7 @@ import { PrismaStockItemRepository } from "./repositories/PrismaStockItemReposit
 import { PrismaStockMovementRepository } from "./repositories/PrismaStockMovementRepository";
 import { PrismaServiceCatalogRepository } from "./repositories/PrismaServiceCatalogRepository";
 import { PrismaUserRepository } from "./repositories/PrismaUserRepository";
+import { PrismaTimerLogRepository } from "@/infrastructure/repositories/PrismaTimerLogRepository";
 
 export const container = {
   clientRepository: new PrismaClientRepository(),
@@ -14,4 +15,5 @@ export const container = {
   stockMovementRepository: new PrismaStockMovementRepository(),
   serviceCatalogRepository: new PrismaServiceCatalogRepository(),
   userRepository: new PrismaUserRepository(),
+  timerLogRepository: new PrismaTimerLogRepository(),
 };
