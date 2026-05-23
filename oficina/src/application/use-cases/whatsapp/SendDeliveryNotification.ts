@@ -37,6 +37,16 @@ export class SendDeliveryNotification {
       content,
     });
 
-    return { message, signUrl, token: signature.token };
+    // Enviar via Evolution API
+    const { sendText } = await import("@/infrastructure/whatsapp/EvolutionApiAdapter");
+    const result = await sendText(order.client.phone, content);
+
+    if (result.success) {
+      await this.whatsAppRepo.updateMessageStatus(message.id, "SENT", result.messageId);
+    } else {
+      await this.whatsAppRepo.updateMessageStatus(message.id, "FAILED", undefined, result.error);
+    }
+
+    return { message, signUrl, token: signature.token, sent: result.success };
   }
 }
