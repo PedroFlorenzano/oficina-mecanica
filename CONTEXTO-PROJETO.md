@@ -1,5 +1,11 @@
 # Contexto do Projeto — Sistema Oficina Mecânica
 
+> **⚠️ Este arquivo existe em DOIS locais e ambos devem ser atualizados sempre:**
+> - `C:\Desenvolvimento\ProjetoOficina\CONTEXTO-PROJETO.md` (raiz)
+> - `C:\Desenvolvimento\ProjetoOficina\oficina\CONTEXTO-PROJETO.md` (dentro do app)
+>
+> Ao alterar um, copiar para o outro.
+
 ## Resumo
 
 Sistema SaaS de gestão para oficinas mecânicas automotivas brasileiras.
@@ -155,8 +161,8 @@ oficina/src/
 | 4 | Ordem de Serviço (OS) | ✅ 100% | Criação com Reclamações, status padrão WAITING_APPROVAL, cancelamento com motivo, PDF completo, integração estoque (reserva/consumo/reversão), Kanban Pista |
 | 5 | Controle de Estoque | ✅ 100% | CRUD itens, entrada com custo médio ponderado, histórico paginado de movimentos, alertas de mínimo (badge Sidebar + painel), ajuste físico (ADJUSTMENT), log imutável |
 | 6 | Emissão de NF-e/NFS-e | 🟡 70% | Infra pronta: schema, use cases, API routes, UI config + listagem + botão na OS. Falta: integração SEFAZ/Prefeitura + BullMQ |
-| 7 | Integração WhatsApp + Assinatura | 🟡 70% | Infra pronta: schema, use cases, API routes, UI config, botões na OS, página pública mobile de assinatura. Falta: integração real com WhatsApp Business API |
-| 8 | Assinatura Digital | 🟡 70% | Incluído no módulo 7 — página pública /sign/[token] mobile-first com Canvas touch. Falta: mudança automática de status da OS ao assinar |
+| 7 | Integração WhatsApp + Assinatura | 🟡 90% | Infra pronta + envio real via Evolution API implementado. Falta: webhook de status (DELIVERED/READ), lembrete preventivo automático |
+| 8 | Assinatura Digital | ✅ 100% | Incluído no módulo 7 — página pública /sign/[token] mobile-first com Canvas touch + mudança automática de status (APPROVAL→IN_PROGRESS, DELIVERY→DELIVERED) |
 | 9 | Gestão de Comissões | ✅ 100% | Comissão por mecânico sobre valor bruto dos serviços, percentual configurável (commissionRate), geração por período, fluxo PENDING→APPROVED→PAID (ou CANCELLED), 7 use cases, 7 API routes, 3 páginas UI, 31 testes unitários |
 | 10 | Etiqueta de Troca de Óleo | ✅ 100% | Botão em toda OS, preview visual, impressão popup otimizada (80mm×110mm, 1 página), dados: oficina, telefone, veículo, placa, KM, próxima troca (KM+10000, data+6meses) |
 | 11 | Cronômetro de Serviço | ✅ 100% | Model TimerLog + TimerAuditLog, use cases completos, property-based tests, API routes, componente TimerControl na tela de OS |
@@ -282,10 +288,10 @@ Componentes prontos:
 
 ## Decisões de Negócio Tomadas
 
-1. **WhatsApp** — fora do escopo agora; TODOs marcados (`// TODO: integrar com alertas de WhatsApp`)
+1. **WhatsApp** — infra de código pronta; integração real via **Evolution API** (https://evolution.chatwoot.app.br/). Conta já disponível no Evolution Manager.
 2. **Lembrete de manutenção preventiva** — o sistema registra a última troca de óleo/revisão; quando passar 6 meses ou +10.000 km, o futuro módulo de WhatsApp disparará mensagem automática. Toggle por veículo (`oilReminderEnabled`).
 3. **Plataforma** — Web-first (responsivo desktop + tablet)
-4. **Assinatura Digital** — Será implementada junto com WhatsApp: link público mobile-first para o cliente assinar no celular. Ao assinar, OS muda de status automaticamente.
+4. **Assinatura Digital** — Implementada junto com WhatsApp: link público mobile-first para o cliente assinar no celular. Ao assinar aprovação, OS muda para OPEN (Aguardando Início). Ao assinar entrega, OS muda para DELIVERED.
 5. **Catálogo de Serviços** — Pré-cadastrado, permite criação inline na OS
 6. **Múltiplos mecânicos por OS** — Suportado (por serviço via `mechanicId`)
 7. **Billing/Inadimplência** — Recebido via webhook externo
@@ -349,7 +355,7 @@ npx tsx prisma/seed.ts
 
 ---
 
-*Última atualização: 22/05/2026 — Módulos 9, 10, 11 implementados (100%). Módulos 6, 7, 8 com infra pronta (70%). Página de Relatórios, busca global e exportação CSV. 179 testes passando.*
+*Última atualização: 23/05/2026 — Integração real com Evolution API para envio de WhatsApp funcionando. Assinatura Digital muda status da OS (APPROVAL→OPEN, DELIVERY→DELIVERED). Número de teste: +55 11 95433-7557.*
 
 ---
 
@@ -570,9 +576,53 @@ OS concluída (COMPLETED) → ADMIN clica "Notificar Entrega" → link de confir
 
 ### O que falta para 100%
 
-- Integrar com WhatsApp Business API (Meta) para envio real
-- Ao assinar, mudar status da OS automaticamente
+- ~~Ao assinar, mudar status da OS automaticamente~~ ✅ (23/05/2026)
+- ~~Integrar com Evolution API para envio real de mensagens~~ ✅ (23/05/2026)
 - Webhook para receber status de entrega da mensagem (DELIVERED/READ)
+- Lembrete preventivo automático (cron/scheduler para verificar veículos com troca vencida)
+
+### Integração WhatsApp — Evolution API
+
+**Plataforma:** Evolution API v2 (https://evolution.chatwoot.app.br/)
+- **URL da instância:** `https://cunningram-evolution.cloudfy.live`
+- **Instance name:** `Teste1`
+- **Número conectado:** 5519994239392 (Pedro Florenzano)
+- **Adapter:** `src/infrastructure/whatsapp/EvolutionApiAdapter.ts`
+- **Endpoint:** `POST /message/sendText/{instance}` com `{ number, text, linkPreview: true }`
+- **Variáveis de ambiente:** `EVOLUTION_API_URL`, `EVOLUTION_API_KEY`, `EVOLUTION_INSTANCE`
+
+### Fluxo de Assinatura (implementado)
+
+```
+OS criada (WAITING_APPROVAL) → Admin clica "Enviar Aprovação"
+→ POST /api/whatsapp/send { action: "approval", orderId }
+→ SendApprovalLink gera token + monta mensagem + envia via Evolution API
+→ Cliente recebe WhatsApp com link /sign/[token]
+→ Cliente abre no celular → vê detalhes completos da OS → assina com o dedo no Canvas
+→ POST /api/public/sign/[token] → OS muda para OPEN (Aguardando Início)
+
+OS concluída (COMPLETED) → Admin clica "Notificar Entrega"
+→ Cliente recebe link → assina → OS muda para DELIVERED
+```
+
+### Página pública de assinatura (`/sign/[token]`)
+
+Mobile-first, sem autenticação. Exibe ao cliente:
+- Cabeçalho: nº da OS, veículo (marca + modelo), placa, KM
+- **Detalhes completos por reclamação:** cada reclamação com seus serviços (descrição + preço) e peças (qtd × descrição + total)
+- Total geral em destaque
+- Canvas touch para assinatura com o dedo
+- Botões: Limpar / Aprovar Orçamento (ou Confirmar Recebimento)
+
+A API `GET /api/public/sign/[token]` retorna: signerName, type, order (number, totalAmount, vehicle, plate, mileage, complaints com services e parts).
+
+### Regras importantes de telefone
+
+- **Todo número deve incluir o código do país (55 para Brasil)** para funcionar com a Evolution API
+- O adapter normaliza automaticamente: remove caracteres não-numéricos e adiciona `55` se ausente
+- Formato aceito pela API: `5511954337557` (sem +, sem espaços, sem parênteses)
+- Números cadastrados sem código do país serão corrigidos pelo adapter, mas o ideal é armazenar sempre com DDD completo (ex: `(11) 95433-7557`)
+- **Número de teste:** +55 11 95433-7557
 
 ---
 

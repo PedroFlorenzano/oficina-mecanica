@@ -34,6 +34,22 @@ export async function GET(
         totalAmount: order.totalAmount,
         vehicle: `${order.vehicle.brand} ${order.vehicle.model}`,
         plate: order.vehicle.plate,
+        mileage: order.mileage,
+        notes: order.notes,
+        complaints: order.complaints.map((c: any) => ({
+          number: c.number,
+          description: c.description,
+          services: c.services.map((s: any) => ({
+            description: s.description,
+            price: s.price,
+          })),
+          parts: c.parts.map((p: any) => ({
+            description: p.description,
+            quantity: p.quantity,
+            unitPrice: p.unitPrice,
+            totalPrice: p.totalPrice,
+          })),
+        })),
       } : null,
     });
   } catch (error) {
@@ -68,9 +84,9 @@ export async function POST(
 
     const completed = await container.whatsAppRepository.completeSignature(signature.id, body.imageData);
 
-    // TODO: Atualizar status da OS automaticamente
-    // Se type === APPROVAL → OS muda para IN_PROGRESS
-    // Se type === DELIVERY → OS muda para DELIVERED
+    // Atualizar status da OS automaticamente após assinatura
+    const newStatus = signature.type === "APPROVAL" ? "OPEN" : "DELIVERED";
+    await container.orderRepository.updateStatus(signature.orderId, newStatus, "system-signature");
 
     return NextResponse.json({ success: true, signedAt: completed.signedAt });
   } catch (error) {

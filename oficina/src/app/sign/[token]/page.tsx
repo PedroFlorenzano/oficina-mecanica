@@ -149,15 +149,52 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
           <div className="mt-3 space-y-1 text-sm text-slate-600">
             <p><strong>OS:</strong> #{data.order.number}</p>
             <p><strong>Veículo:</strong> {data.order.vehicle} — {data.order.plate}</p>
-            {data.type === "APPROVAL" && (
-              <p><strong>Valor:</strong> R$ {data.order.totalAmount.toFixed(2)}</p>
-            )}
+            {data.order.mileage > 0 && <p><strong>KM:</strong> {data.order.mileage.toLocaleString("pt-BR")}</p>}
           </div>
         )}
         <p className="text-xs text-slate-400 mt-3 text-center">
           Assinante: {data.signerName}
         </p>
       </div>
+
+      {/* Detalhes da OS */}
+      {data.type === "APPROVAL" && data.order?.complaints && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 space-y-4 max-h-[40vh] overflow-y-auto">
+          {data.order.complaints.map((c: any, i: number) => (
+            <div key={i} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
+              <p className="font-semibold text-slate-700 text-sm mb-2">
+                {c.number}. {c.description}
+              </p>
+              {c.services.length > 0 && (
+                <div className="ml-3 mb-1">
+                  <p className="text-xs font-medium text-slate-500 uppercase mb-1">Serviços</p>
+                  {c.services.map((s: any, j: number) => (
+                    <div key={j} className="flex justify-between text-xs text-slate-600">
+                      <span>{s.description}</span>
+                      <span className="font-medium">R$ {s.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {c.parts.length > 0 && (
+                <div className="ml-3">
+                  <p className="text-xs font-medium text-slate-500 uppercase mb-1">Peças</p>
+                  {c.parts.map((p: any, j: number) => (
+                    <div key={j} className="flex justify-between text-xs text-slate-600">
+                      <span>{p.quantity}x {p.description}</span>
+                      <span className="font-medium">R$ {p.totalPrice.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+          <div className="border-t-2 border-slate-300 pt-2 flex justify-between font-bold text-slate-800">
+            <span>Total</span>
+            <span>R$ {data.order.totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
 
       {/* Canvas */}
       <div className="flex-1 bg-white rounded-xl shadow-sm border-2 border-dashed border-slate-300 overflow-hidden mb-4 relative">

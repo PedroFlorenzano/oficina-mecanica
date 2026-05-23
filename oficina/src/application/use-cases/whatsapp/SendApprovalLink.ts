@@ -29,7 +29,7 @@ export class SendApprovalLink {
 
     const content = `Olá ${order.client.name}! Seu orçamento da OS #${order.number} está pronto.\n\nValor total: R$ ${order.totalAmount.toFixed(2)}\n\nPara aprovar, acesse o link abaixo e assine digitalmente:\n${signUrl}\n\nLink válido por 48h.`;
 
-    // Registrar mensagem (envio real será feito pelo adapter externo)
+    // Registrar mensagem e enviar via Evolution API
     const message = await this.whatsAppRepo.createMessage({
       tenantId,
       orderId,
@@ -38,9 +38,16 @@ export class SendApprovalLink {
       content,
     });
 
-    // TODO: Integrar com WhatsApp Business API para envio real
-    // await whatsAppAdapter.send(config, message);
+    // Enviar via Evolution API
+    const { sendText } = await import("@/infrastructure/whatsapp/EvolutionApiAdapter");
+    const result = await sendText(order.client.phone, content);
 
-    return { message, signUrl, token: signature.token };
+    if (result.success) {
+      await this.whatsAppRepo.updateMessageStatus(message.id, "SENT", result.messageId);
+    } else {
+      await this.whatsAppRepo.updateMessageStatus(message.id, "FAILED", undefined, result.error);
+    }
+
+    return { message, signUrl, token: signature.token, sent: result.success };
   }
 }
