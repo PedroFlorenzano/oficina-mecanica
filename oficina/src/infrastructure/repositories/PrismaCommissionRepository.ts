@@ -1,6 +1,8 @@
 import { prisma } from "@/infrastructure/database/prisma";
+import { Prisma, CommissionStatus } from "@prisma/client";
 import {
   ICommissionRepository,
+  CommissionData,
   CommissionFilters,
   EligibleService,
   CommissionSummary,
@@ -9,7 +11,7 @@ import {
 } from "@/domain/repositories/ICommissionRepository";
 
 export class PrismaCommissionRepository implements ICommissionRepository {
-  async create(data: CreateCommissionData): Promise<any> {
+  async create(data: CreateCommissionData): Promise<CommissionData> {
     return prisma.commission.create({
       data: {
         mechanicId: data.mechanicId,
@@ -31,14 +33,14 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     });
   }
 
-  async findById(id: string, tenantId: string): Promise<any | null> {
+  async findById(id: string, tenantId: string): Promise<CommissionData | null> {
     return prisma.commission.findFirst({
       where: { id, tenantId },
       include: { mechanic: { select: { name: true } } },
     });
   }
 
-  async findByIdWithItems(id: string, tenantId: string): Promise<any | null> {
+  async findByIdWithItems(id: string, tenantId: string): Promise<CommissionData | null> {
     return prisma.commission.findFirst({
       where: { id, tenantId },
       include: {
@@ -63,13 +65,12 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     });
   }
 
-  async findAll(tenantId: string, filters: CommissionFilters): Promise<any[]> {
-    const where: any = { tenantId };
+  async findAll(tenantId: string, filters: CommissionFilters): Promise<CommissionData[]> {
+    const where: Prisma.CommissionWhereInput = { tenantId };
     if (filters.mechanicId) where.mechanicId = filters.mechanicId;
-    if (filters.status) where.status = filters.status;
+    if (filters.status) where.status = filters.status as CommissionStatus;
     if (filters.startDate || filters.endDate) {
-      where.startDate = {};
-      if (filters.startDate) where.startDate.gte = new Date(filters.startDate);
+      if (filters.startDate) where.startDate = { gte: new Date(filters.startDate) };
       if (filters.endDate) where.endDate = { lte: new Date(filters.endDate) };
     }
 
@@ -80,9 +81,9 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     });
   }
 
-  async findByMechanic(mechanicId: string, tenantId: string, filters: CommissionFilters): Promise<any[]> {
-    const where: any = { tenantId, mechanicId };
-    if (filters.status) where.status = filters.status;
+  async findByMechanic(mechanicId: string, tenantId: string, filters: CommissionFilters): Promise<CommissionData[]> {
+    const where: Prisma.CommissionWhereInput = { tenantId, mechanicId };
+    if (filters.status) where.status = filters.status as CommissionStatus;
 
     return prisma.commission.findMany({
       where,
@@ -91,7 +92,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     });
   }
 
-  async findOverlapping(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<any | null> {
+  async findOverlapping(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<CommissionData | null> {
     return prisma.commission.findFirst({
       where: {
         mechanicId,
@@ -103,7 +104,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     });
   }
 
-  async updateStatus(id: string, data: UpdateCommissionStatusData): Promise<any> {
+  async updateStatus(id: string, data: UpdateCommissionStatusData): Promise<CommissionData> {
     return prisma.commission.update({
       where: { id },
       data,

@@ -1,10 +1,10 @@
-import { ICommissionRepository } from "@/domain/repositories/ICommissionRepository";
+import { ICommissionRepository, CommissionData } from "@/domain/repositories/ICommissionRepository";
 import { NotFoundError, ValidationError, ForbiddenError } from "@/domain/errors/DomainError";
 
 export class ApproveCommission {
   constructor(private commissionRepo: ICommissionRepository) {}
 
-  async execute(id: string, tenantId: string, approvedById: string, userRole: string): Promise<any> {
+  async execute(id: string, tenantId: string, approvedById: string, userRole: string): Promise<CommissionData> {
     if (userRole !== "ADMIN") {
       throw new ForbiddenError("Apenas administradores podem aprovar comissões");
     }

@@ -6,4 +6,5 @@ export interface CreateUserDTO {
   role: Role;
   password: string;
   commissionRate?: number;
+  customPermissions?: string;
 }

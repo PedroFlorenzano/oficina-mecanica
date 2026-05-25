@@ -1,4 +1,4 @@
-import { IWhatsAppRepository } from "@/domain/repositories/IWhatsAppRepository";
+import { IWhatsAppRepository, WhatsAppMessageData } from "@/domain/repositories/IWhatsAppRepository";
 import { ValidationError } from "@/domain/errors/DomainError";
 
 interface ReminderInput {
@@ -13,7 +13,7 @@ interface ReminderInput {
 export class SendMaintenanceReminder {
   constructor(private whatsAppRepo: IWhatsAppRepository) {}
 
-  async execute(input: ReminderInput, tenantId: string): Promise<any> {
+  async execute(input: ReminderInput, tenantId: string): Promise<{ message: WhatsAppMessageData }> {
     if (!input.clientPhone) {
       throw new ValidationError("Telefone do cliente é obrigatório");
     }

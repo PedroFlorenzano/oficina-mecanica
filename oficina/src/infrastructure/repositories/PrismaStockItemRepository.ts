@@ -1,4 +1,5 @@
 import { prisma } from "../database/prisma";
+import { Prisma } from "@prisma/client";
 import { IStockItemRepository, StockItemData } from "@/domain/repositories/IStockItemRepository";
 import { StockMovementData } from "@/domain/repositories/IStockMovementRepository";
 import { BusinessRuleError } from "@/domain/errors/DomainError";
@@ -66,7 +67,7 @@ export class PrismaStockItemRepository implements IStockItemRepository {
     }
 
     const [, updatedItem] = await prisma.$transaction([
-      prisma.stockMovement.create({ data: movementData as any }),
+      prisma.stockMovement.create({ data: movementData as Prisma.StockMovementUncheckedCreateInput }),
       prisma.stockItem.update({ where: { id: itemId }, data: itemUpdate }),
     ]);
 

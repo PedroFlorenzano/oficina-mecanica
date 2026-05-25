@@ -1,15 +1,15 @@
-import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepository";
+import { IServiceOrderRepository, OrderData } from "@/domain/repositories/IServiceOrderRepository";
 import { NotFoundError, ValidationError, BusinessRuleError } from "@/domain/errors/DomainError";
-import { VALID_TRANSITIONS, PISTA_STATUSES } from "@/domain/value-objects/OrderStatusTransitions";
+import { VALID_TRANSITIONS, PISTA_STATUSES, PistaStatus } from "@/domain/value-objects/OrderStatusTransitions";
 
 export class UpdatePistaStatus {
   constructor(private orderRepo: IServiceOrderRepository) {}
 
-  async execute(id: string, toStatus: string, userId: string): Promise<any> {
+  async execute(id: string, toStatus: string, userId: string): Promise<OrderData | null> {
     if (!toStatus) {
       throw new ValidationError("Campo status é obrigatório");
     }
-    if (!PISTA_STATUSES.includes(toStatus as any)) {
+    if (!PISTA_STATUSES.includes(toStatus as PistaStatus)) {
       throw new ValidationError(`Status inválido: ${toStatus}`);
     }
 
@@ -30,5 +30,5 @@ export class UpdatePistaStatus {
 }
 
 export function isValidTransition(from: string, to: string): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to as any) ?? false;
+  return VALID_TRANSITIONS[from]?.includes(to as PistaStatus) ?? false;
 }

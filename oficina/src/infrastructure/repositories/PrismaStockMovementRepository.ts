@@ -1,4 +1,5 @@
 import { prisma } from "../database/prisma";
+import { Prisma } from "@prisma/client";
 import {
   IStockMovementRepository,
   PaginatedMovements,
@@ -7,7 +8,7 @@ import {
 
 export class PrismaStockMovementRepository implements IStockMovementRepository {
   async create(data: Omit<StockMovementData, "id" | "createdAt">): Promise<StockMovementData> {
-    return prisma.stockMovement.create({ data: data as any }) as unknown as StockMovementData;
+    return prisma.stockMovement.create({ data: data as Prisma.StockMovementUncheckedCreateInput }) as unknown as StockMovementData;
   }
 
   async findPendingReservations(orderId: string): Promise<StockMovementData[]> {

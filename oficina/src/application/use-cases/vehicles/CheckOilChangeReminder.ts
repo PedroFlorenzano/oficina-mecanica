@@ -19,7 +19,6 @@ export class CheckOilChangeReminder {
   ) {}
 
   async execute(vehicleId: string, tenantId: string): Promise<OilChangeAlert | null> {
-    // TODO: integrar com auth
     const vehicle = await this.vehicleRepo.findById(vehicleId);
     if (!vehicle || vehicle.tenantId !== tenantId) {
       throw new NotFoundError("Veículo não encontrado");

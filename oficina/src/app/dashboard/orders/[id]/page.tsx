@@ -174,6 +174,16 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           >
             <FileDown size={16} /> Baixar PDF
           </a>
+          {order.status === "WAITING_APPROVAL" && (
+            <a
+              href={`/api/orders/${order.id}/budget`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 px-3 py-2 border border-purple-300 bg-purple-50 rounded-lg text-sm hover:bg-purple-100 text-purple-700"
+            >
+              <FileText size={16} /> Orçamento
+            </a>
+          )}
           <button
             onClick={handleOilLabel}
             className="flex items-center gap-2 px-3 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm hover:bg-amber-100 text-amber-700"

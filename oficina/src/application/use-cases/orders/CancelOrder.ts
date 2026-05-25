@@ -10,7 +10,7 @@ export class CancelOrder {
     private reverseReservations: ReverseStockReservations
   ) {}
 
-  async execute(orderId: string, reason: string, tenantId: string) {
+  async execute(orderId: string, reason: string, tenantId: string, userId: string) {
     if (!reason || !reason.trim()) {
       throw new ValidationError("Motivo do cancelamento é obrigatório");
     }
@@ -29,6 +29,6 @@ export class CancelOrder {
     // Estorna reservas de estoque antes de persistir o cancelamento
     await this.reverseReservations.execute(orderId);
 
-    return this.orderRepo.cancel(orderId, reason.trim(), "DEMO_USER_ID"); // TODO: integrar com auth
+    return this.orderRepo.cancel(orderId, reason.trim(), userId);
   }
 }

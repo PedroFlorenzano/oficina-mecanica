@@ -1,4 +1,4 @@
-import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepository";
+import { IServiceOrderRepository, OrderData } from "@/domain/repositories/IServiceOrderRepository";
 import { NotFoundError, ValidationError } from "@/domain/errors/DomainError";
 import { ConfirmStockConsumption } from "@/application/use-cases/stock/ConfirmStockConsumption";
 
@@ -8,7 +8,7 @@ export class UpdateOrderStatus {
     private confirmStockConsumption?: ConfirmStockConsumption
   ) {}
 
-  async execute(id: string, status: string, userId: string): Promise<any> {
+  async execute(id: string, status: string, userId: string): Promise<OrderData | null> {
     if (!status) {
       throw new ValidationError("Status é obrigatório");
     }

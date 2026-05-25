@@ -1,4 +1,4 @@
-import { IFiscalRepository } from "@/domain/repositories/IFiscalRepository";
+import { IFiscalRepository, FiscalInvoiceData } from "@/domain/repositories/IFiscalRepository";
 import { ValidationError, NotFoundError } from "@/domain/errors/DomainError";
 
 const MAX_RETRIES = 3;
@@ -6,7 +6,7 @@ const MAX_RETRIES = 3;
 export class RetryInvoice {
   constructor(private fiscalRepo: IFiscalRepository) {}
 
-  async execute(invoiceId: string, tenantId: string): Promise<any> {
+  async execute(invoiceId: string, tenantId: string): Promise<FiscalInvoiceData> {
     const invoice = await this.fiscalRepo.findInvoiceById(invoiceId, tenantId);
     if (!invoice) {
       throw new NotFoundError("Nota Fiscal", invoiceId);

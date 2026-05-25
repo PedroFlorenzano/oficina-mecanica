@@ -8,6 +8,7 @@ export interface UserData {
   role: Role;
   active: boolean;
   commissionRate: number;
+  customPermissions: string | null;
   tenantId: string;
   failedLoginCount: number;
   lockedUntil: Date | null;

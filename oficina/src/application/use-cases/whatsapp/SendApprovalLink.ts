@@ -1,6 +1,13 @@
-import { IWhatsAppRepository } from "@/domain/repositories/IWhatsAppRepository";
+import { IWhatsAppRepository, WhatsAppMessageData } from "@/domain/repositories/IWhatsAppRepository";
 import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepository";
 import { ValidationError, NotFoundError } from "@/domain/errors/DomainError";
+
+interface SendApprovalLinkResult {
+  message: WhatsAppMessageData;
+  signUrl: string;
+  token: string;
+  sent: boolean;
+}
 
 export class SendApprovalLink {
   constructor(
@@ -8,7 +15,7 @@ export class SendApprovalLink {
     private orderRepo: IServiceOrderRepository
   ) {}
 
-  async execute(orderId: string, tenantId: string, baseUrl: string): Promise<any> {
+  async execute(orderId: string, tenantId: string, baseUrl: string): Promise<SendApprovalLinkResult> {
     const order = await this.orderRepo.findById(orderId);
     if (!order || order.tenantId !== tenantId) {
       throw new NotFoundError("Ordem de Serviço", orderId);

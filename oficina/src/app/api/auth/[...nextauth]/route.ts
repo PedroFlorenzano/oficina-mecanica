@@ -1,5 +1,6 @@
 import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
+import { Role } from "@prisma/client";
 import { container } from "@/infrastructure/container";
 import { LoginUser } from "@/application/use-cases/users/LoginUser";
 
@@ -15,9 +16,9 @@ export const authOptions: AuthOptions = {
         if (!credentials?.email || !credentials?.password) return null;
         try {
           const useCase = new LoginUser(container.userRepository);
-          // UserPayload uses `userId` instead of NextAuth's required `id`.
-          // We cast to `any` here; the jwt callback reads `user.userId` explicitly.
-          return (await useCase.execute(credentials.email, credentials.password)) as any;
+          const payload = await useCase.execute(credentials.email, credentials.password);
+          if (!payload) return null;
+          return { id: payload.userId, userId: payload.userId, tenantId: payload.tenantId, role: payload.role as Role, name: payload.name, customPermissions: payload.customPermissions };
         } catch {
           return null;
         }
@@ -27,9 +28,11 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.userId = (user as any).userId;
-        token.tenantId = (user as any).tenantId;
-        token.role = (user as any).role;
+        const u = user as { userId: string; tenantId: string; role: Role; customPermissions?: string | null };
+        token.userId = u.userId;
+        token.tenantId = u.tenantId;
+        token.role = u.role;
+        token.customPermissions = u.customPermissions;
       }
       return token;
     },
@@ -37,6 +40,7 @@ export const authOptions: AuthOptions = {
       session.user.userId = token.userId;
       session.user.tenantId = token.tenantId;
       session.user.role = token.role;
+      session.user.customPermissions = token.customPermissions;
       return session;
     },
   },

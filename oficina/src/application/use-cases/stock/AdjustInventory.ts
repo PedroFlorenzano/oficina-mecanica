@@ -14,7 +14,6 @@ export class AdjustInventory {
     input: AdjustInventoryDTO,
     tenantId: string
   ): Promise<StockItemData> {
-    // TODO: integrar com auth — verificar tenantId do item contra tenantId do usuário autenticado
     if (input.newQuantity === undefined || input.newQuantity < 0) {
       throw new ValidationError("Quantidade não pode ser negativa");
     }

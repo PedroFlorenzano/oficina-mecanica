@@ -1,10 +1,10 @@
-import { ICommissionRepository } from "@/domain/repositories/ICommissionRepository";
+import { ICommissionRepository, CommissionSummary } from "@/domain/repositories/ICommissionRepository";
 import { ForbiddenError } from "@/domain/errors/DomainError";
 
 export class GetMechanicCommissionSummary {
   constructor(private commissionRepo: ICommissionRepository) {}
 
-  async execute(mechanicId: string, tenantId: string, userId: string, userRole: string): Promise<any> {
+  async execute(mechanicId: string, tenantId: string, userId: string, userRole: string): Promise<CommissionSummary> {
     if (userRole === "ATTENDANT") {
       throw new ForbiddenError("Sem permissão para acessar comissões");
     }

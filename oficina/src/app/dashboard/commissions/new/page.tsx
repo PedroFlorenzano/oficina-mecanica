@@ -23,7 +23,7 @@ export default function NewCommissionPage() {
     fetch("/api/users")
       .then((r) => { if (!r.ok) return []; return r.json(); })
       .then((users) =>
-        setMechanics(Array.isArray(users) ? users.filter((u: any) => u.role === "MECHANIC" && u.active) : [])
+        setMechanics(Array.isArray(users) ? users.filter((u: { role: string; active: boolean }) => u.role === "MECHANIC" && u.active) : [])
       )
       .catch(() => {});
   }, []);

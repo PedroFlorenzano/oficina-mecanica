@@ -28,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
     }
 
-    const where: any = { mechanicId: targetUserId, tenantId };
+    const where: Record<string, unknown> = { mechanicId: targetUserId, tenantId };
     if (startDate) where.startDate = { ...(where.startDate || {}), gte: new Date(startDate) };
     if (endDate) where.endDate = { ...(where.endDate || {}), lte: new Date(endDate + "T23:59:59.999Z") };
 

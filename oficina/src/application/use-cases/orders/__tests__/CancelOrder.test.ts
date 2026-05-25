@@ -54,12 +54,12 @@ describe("CancelOrder", () => {
     });
 
     const useCase = new CancelOrder(orderRepo, reverseReservations);
-    await useCase.execute("order-1", "Cliente desistiu do serviço", "tenant-1");
+    await useCase.execute("order-1", "Cliente desistiu do serviço", "tenant-1", "user-1");
 
     // Verifica que reverse foi chamado ANTES de cancel
     expect(callOrder).toEqual(["reverse", "cancel"]);
     expect(reverseReservations.execute).toHaveBeenCalledWith("order-1");
-    expect(orderRepo.cancel).toHaveBeenCalledWith("order-1", "Cliente desistiu do serviço", "DEMO_USER_ID");
+    expect(orderRepo.cancel).toHaveBeenCalledWith("order-1", "Cliente desistiu do serviço", "user-1");
   });
 
   it("deve lançar ValidationError quando motivo está vazio", async () => {
@@ -67,9 +67,9 @@ describe("CancelOrder", () => {
     const reverseReservations = makeReverseReservations();
     const useCase = new CancelOrder(orderRepo, reverseReservations);
 
-    await expect(useCase.execute("order-1", "", "tenant-1")).rejects.toThrow(ValidationError);
-    await expect(useCase.execute("order-1", "  ", "tenant-1")).rejects.toThrow(ValidationError);
-    await expect(useCase.execute("order-1", "", "tenant-1")).rejects.toThrow("Motivo do cancelamento é obrigatório");
+    await expect(useCase.execute("order-1", "", "tenant-1", "user-1")).rejects.toThrow(ValidationError);
+    await expect(useCase.execute("order-1", "  ", "tenant-1", "user-1")).rejects.toThrow(ValidationError);
+    await expect(useCase.execute("order-1", "", "tenant-1", "user-1")).rejects.toThrow("Motivo do cancelamento é obrigatório");
   });
 
   it("deve lançar NotFoundError quando OS não existe", async () => {
@@ -77,8 +77,8 @@ describe("CancelOrder", () => {
     const reverseReservations = makeReverseReservations();
     const useCase = new CancelOrder(orderRepo, reverseReservations);
 
-    await expect(useCase.execute("inexistente", "motivo", "tenant-1")).rejects.toThrow(NotFoundError);
-    await expect(useCase.execute("inexistente", "motivo", "tenant-1")).rejects.toThrow("Ordem de serviço não encontrada");
+    await expect(useCase.execute("inexistente", "motivo", "tenant-1", "user-1")).rejects.toThrow(NotFoundError);
+    await expect(useCase.execute("inexistente", "motivo", "tenant-1", "user-1")).rejects.toThrow("Ordem de serviço não encontrada");
   });
 
   it("deve lançar NotFoundError quando OS é de outro tenant", async () => {
@@ -86,7 +86,7 @@ describe("CancelOrder", () => {
     const reverseReservations = makeReverseReservations();
     const useCase = new CancelOrder(orderRepo, reverseReservations);
 
-    await expect(useCase.execute("order-1", "motivo", "tenant-1")).rejects.toThrow(NotFoundError);
+    await expect(useCase.execute("order-1", "motivo", "tenant-1", "user-1")).rejects.toThrow(NotFoundError);
   });
 
   it.each(["COMPLETED", "DELIVERED", "CANCELLED"])(
@@ -96,8 +96,8 @@ describe("CancelOrder", () => {
       const reverseReservations = makeReverseReservations();
       const useCase = new CancelOrder(orderRepo, reverseReservations);
 
-      await expect(useCase.execute("order-1", "motivo", "tenant-1")).rejects.toThrow(BusinessRuleError);
-      await expect(useCase.execute("order-1", "motivo", "tenant-1")).rejects.toThrow(
+      await expect(useCase.execute("order-1", "motivo", "tenant-1", "user-1")).rejects.toThrow(BusinessRuleError);
+      await expect(useCase.execute("order-1", "motivo", "tenant-1", "user-1")).rejects.toThrow(
         `Não é possível cancelar uma OS com status ${status}`
       );
     }
@@ -108,8 +108,8 @@ describe("CancelOrder", () => {
     const reverseReservations = makeReverseReservations();
     const useCase = new CancelOrder(orderRepo, reverseReservations);
 
-    await useCase.execute("order-1", "  motivo com espaços  ", "tenant-1");
+    await useCase.execute("order-1", "  motivo com espaços  ", "tenant-1", "user-1");
 
-    expect(orderRepo.cancel).toHaveBeenCalledWith("order-1", "motivo com espaços", "DEMO_USER_ID");
+    expect(orderRepo.cancel).toHaveBeenCalledWith("order-1", "motivo com espaços", "user-1");
   });
 });

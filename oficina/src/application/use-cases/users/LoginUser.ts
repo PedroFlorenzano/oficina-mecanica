@@ -9,6 +9,7 @@ export interface UserPayload {
   role: Role;
   name: string;
   email: string;
+  customPermissions: string | null;
 }
 
 export class LoginUser {
@@ -53,6 +54,7 @@ export class LoginUser {
       role: user.role,
       name: user.name,
       email: user.email,
+      customPermissions: user.customPermissions,
     };
   }
 }

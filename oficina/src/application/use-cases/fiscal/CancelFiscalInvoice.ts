@@ -1,10 +1,10 @@
-import { IFiscalRepository } from "@/domain/repositories/IFiscalRepository";
+import { IFiscalRepository, FiscalInvoiceData } from "@/domain/repositories/IFiscalRepository";
 import { ValidationError, NotFoundError } from "@/domain/errors/DomainError";
 
 export class CancelFiscalInvoice {
   constructor(private fiscalRepo: IFiscalRepository) {}
 
-  async execute(invoiceId: string, reason: string, tenantId: string): Promise<any> {
+  async execute(invoiceId: string, reason: string, tenantId: string): Promise<FiscalInvoiceData> {
     if (!reason || reason.trim().length < 15) {
       throw new ValidationError("Motivo do cancelamento deve ter no mínimo 15 caracteres");
     }

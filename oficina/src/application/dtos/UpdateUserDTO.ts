@@ -4,4 +4,5 @@ export interface UpdateUserDTO {
   name?: string;
   role?: Role;
   commissionRate?: number;
+  customPermissions?: string;
 }
