@@ -10,6 +10,7 @@ export interface StockItemData {
   minQuantity: number;
   quantity: number;
   location: string | null;
+  supplier: string | null;
   costPrice: number;
   sellPrice: number;
   avgCost: number;

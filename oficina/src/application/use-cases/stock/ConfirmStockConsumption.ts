@@ -39,6 +39,7 @@ export class ConfirmStockConsumption {
         balanceAfter,
         stockItemId: part.stockItemId,
         document: null,
+        supplier: null,
       });
     }
 

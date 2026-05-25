@@ -15,7 +15,7 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 **Repositório:** https://github.com/PedroFlorenzano/oficina-mecanica
 **Branch principal:** main
 **Branch de desenvolvimento atual:** feature/autenticacao-perfis
-**Última atualização:** 24/05/2026
+**Última atualização:** 25/05/2026
 
 ---
 
@@ -703,6 +703,7 @@ OS concluída → ADMIN clica "Emitir NF" → escolhe NFE (produtos) ou NFSE (se
 - Comunicação com SEFAZ (webservice) e Prefeitura (API REST)
 - Certificado digital A1 (upload + validação)
 - DANFE/DANFSE em PDF
+- Incluir fornecedor (`stockItem.supplier`) nos itens da NF-e para rastreabilidade de garantia
 
 ---
 
@@ -713,3 +714,47 @@ OS concluída → ADMIN clica "Emitir NF" → escolhe NFE (produtos) ou NFSE (se
 - **Exportação CSV**: botão na listagem de OS, exporta dados filtrados com BOM UTF-8 para Excel
 - **Tela de comissões por mecânico** (`/dashboard/users/[id]/commissions`): histórico com filtro por período, cards de resumo, lista expansível com detalhes dos serviços
 - **Etiqueta de Troca de Óleo**: botão em toda OS, preview visual, impressão otimizada 80mm×110mm
+
+---
+
+## Melhorias de Estoque e Fornecedor (implementado em 25/05/2026)
+
+### Localização (gaveta) visível no estoque
+
+- **Listagem** (`/dashboard/stock`): nova coluna **"Local"** na tabela mostrando onde o item está (ex: "Gaveta 3", "Prateleira A3")
+- **Detalhe do item** (`/dashboard/stock/[id]`): banner amarelo em destaque com ícone 📍 mostrando a localização
+
+### Fornecedor no item de estoque (`StockItem.supplier`)
+
+- Novo campo `supplier` (String?) no model `StockItem`
+- **Cadastro/edição de item**: campo "Fornecedor Padrão" no formulário
+- O fornecedor é exibido automaticamente nas peças da OS e no PDF
+
+### Fornecedor na entrada de estoque (`StockMovement.supplier`)
+
+- Novo campo `supplier` (String?) no model `StockMovement`
+- **Modal "Registrar Entrada"** (botão verde na página de detalhe do item): campos quantidade, custo unitário, fornecedor e nº nota fiscal
+- **Histórico de movimentações**: nova coluna "Fornecedor" na tabela — facilita reclamações de garantia
+
+### Fornecedor nas peças da OS
+
+- **Tela de detalhe da OS** (`/dashboard/orders/[id]`): coluna "Fornecedor" nas tabelas de peças (reclamações e peças avulsas)
+- **PDF da OS**: coluna "Fornecedor" nas tabelas de peças impressas
+- O dado vem de `OrderPart → StockItem.supplier` (join automático via Prisma)
+
+### Auto-vinculação de peças ao estoque
+
+- Ao criar uma OS, se a peça não veio com `stockItemId` mas a descrição bate com um item de estoque do tenant, o sistema vincula automaticamente
+- Corrigido bug no Combobox de peças: o `onChange` chamado após `onSelect` não reseta mais o `stockItemId`
+
+### Schema adicionado
+
+```prisma
+// StockItem — novo campo:
+supplier  String?
+
+// StockMovement — novo campo:
+supplier  String?
+```
+
+*Última atualização: 25/05/2026 — Melhorias de estoque: localização visível, fornecedor no item/entrada/OS/PDF, auto-vinculação de peças.*

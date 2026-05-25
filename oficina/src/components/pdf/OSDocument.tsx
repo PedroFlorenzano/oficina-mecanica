@@ -235,6 +235,7 @@ export function OSDocument({ order }: { order: any }) {
                         <Text style={[styles.fieldLabel, { marginBottom: 3 }]}>PEÇAS / PRODUTOS</Text>
                         <View style={styles.tableHeader}>
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
+                          <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Fornecedor</Text>
                           <Text style={[styles.tableHeaderText, styles.colQty]}>Qtd</Text>
                           <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
@@ -245,6 +246,7 @@ export function OSDocument({ order }: { order: any }) {
                             style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}
                           >
                             <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
+                            <Text style={[styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
                             <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
                             <Text style={[styles.cellTextMuted, styles.colUnit]}>{formatMoney(p.unitPrice)}</Text>
                             <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(p.totalPrice)}</Text>
@@ -292,6 +294,7 @@ export function OSDocument({ order }: { order: any }) {
             <View style={styles.card}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
+                <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Fornecedor</Text>
                 <Text style={[styles.tableHeaderText, styles.colQty]}>Qtd</Text>
                 <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
@@ -299,6 +302,7 @@ export function OSDocument({ order }: { order: any }) {
               {ungroupedParts.map((p: any, idx: number) => (
                 <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
                   <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
+                  <Text style={[styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
                   <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
                   <Text style={[styles.cellTextMuted, styles.colUnit]}>{formatMoney(p.unitPrice)}</Text>
                   <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(p.totalPrice)}</Text>

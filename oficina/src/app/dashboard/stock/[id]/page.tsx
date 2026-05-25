@@ -5,7 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
   ArrowLeft,
+  MapPin,
   Package,
+  PackagePlus,
   SlidersHorizontal,
 } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
@@ -41,6 +43,7 @@ interface StockMovement {
   quantity: number;
   reason: string;
   document: string | null;
+  supplier: string | null;
   balanceBefore: number;
   balanceAfter: number;
   stockItemId: string;
@@ -90,6 +93,15 @@ export default function StockItemDetailPage() {
   const [adjustLoading, setAdjustLoading] = useState(false);
   const [adjustError, setAdjustError] = useState("");
 
+  // Entry modal state
+  const [showEntryModal, setShowEntryModal] = useState(false);
+  const [entryQty, setEntryQty] = useState("");
+  const [entryCost, setEntryCost] = useState("");
+  const [entrySupplier, setEntrySupplier] = useState("");
+  const [entryDocument, setEntryDocument] = useState("");
+  const [entryLoading, setEntryLoading] = useState(false);
+  const [entryError, setEntryError] = useState("");
+
   const fetchItem = useCallback(async () => {
     const res = await fetch(`/api/stock/${id}`);
     if (!res.ok) return;
@@ -124,6 +136,7 @@ export default function StockItemDetailPage() {
     fetchMovements(newPage);
   };
 
+  // Adjust handlers
   const handleOpenAdjust = () => {
     setAdjustQty(item?.quantity?.toString() ?? "");
     setAdjustReason("");
@@ -154,6 +167,41 @@ export default function StockItemDetailPage() {
     setAdjustLoading(false);
   };
 
+  // Entry handlers
+  const handleOpenEntry = () => {
+    setEntryQty("");
+    setEntryCost("");
+    setEntrySupplier("");
+    setEntryDocument("");
+    setEntryError("");
+    setShowEntryModal(true);
+  };
+
+  const handleEntrySubmit = async () => {
+    setEntryLoading(true);
+    setEntryError("");
+    const res = await fetch(`/api/stock/${id}/entry`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        quantity: Number(entryQty),
+        unitCost: Number(entryCost),
+        supplier: entrySupplier.trim() || undefined,
+        document: entryDocument.trim() || undefined,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      setEntryError(data.error || "Erro ao registrar entrada");
+      setEntryLoading(false);
+      return;
+    }
+    await Promise.all([fetchItem(), fetchMovements(1)]);
+    setPage(1);
+    setShowEntryModal(false);
+    setEntryLoading(false);
+  };
+
   const newQtyNum = Number(adjustQty);
   const adjustIsNoOp = item !== null && !isNaN(newQtyNum) && newQtyNum === item.quantity;
 
@@ -163,9 +211,7 @@ export default function StockItemDetailPage() {
     movements ? Math.max(1, Math.ceil(movements.total / movements.pageSize)) : 1;
 
   if (loading) {
-    return (
-      <div className="p-6 text-slate-500">Carregando...</div>
-    );
+    return <div className="p-6 text-slate-500">Carregando...</div>;
   }
 
   if (!item) {
@@ -195,16 +241,34 @@ export default function StockItemDetailPage() {
 
       <PageHeader
         title={item.description}
-        description={`Código: ${item.code}${item.brand ? ` · ${item.brand}` : ""}${item.location ? ` · ${item.location}` : ""}`}
+        description={`Código: ${item.code}${item.brand ? ` · ${item.brand}` : ""}`}
         action={
-          <button
-            onClick={handleOpenAdjust}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
-          >
-            <SlidersHorizontal size={16} /> Ajustar Estoque
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={handleOpenEntry}
+              className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 text-sm font-medium"
+            >
+              <PackagePlus size={16} /> Registrar Entrada
+            </button>
+            <button
+              onClick={handleOpenAdjust}
+              className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              <SlidersHorizontal size={16} /> Ajustar Estoque
+            </button>
+          </div>
         }
       />
+
+      {/* Localização em destaque */}
+      {item.location && (
+        <div className="mb-4 flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl">
+          <MapPin size={18} className="text-amber-600" />
+          <span className="text-sm font-medium text-amber-800">
+            Localização: <span className="font-bold">{item.location}</span>
+          </span>
+        </div>
+      )}
 
       {/* Saldo atual */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -262,6 +326,7 @@ export default function StockItemDetailPage() {
                 <TableHead>Qtd</TableHead>
                 <TableHead>Saldo Antes</TableHead>
                 <TableHead>Saldo Depois</TableHead>
+                <TableHead>Fornecedor</TableHead>
                 <TableHead>Motivo</TableHead>
               </TableHeader>
               <TableBody>
@@ -290,6 +355,9 @@ export default function StockItemDetailPage() {
                     </TableCell>
                     <TableCell className="text-slate-600">{mov.balanceBefore}</TableCell>
                     <TableCell className="text-slate-600">{mov.balanceAfter}</TableCell>
+                    <TableCell className="text-slate-600 text-xs">
+                      {mov.supplier || "—"}
+                    </TableCell>
                     <TableCell className="text-slate-600 text-xs">{mov.reason}</TableCell>
                   </TableRow>
                 ))}
@@ -337,7 +405,6 @@ export default function StockItemDetailPage() {
               {adjustError}
             </div>
           )}
-
           <div>
             <p className="text-sm text-slate-600 mb-4">
               Saldo atual:{" "}
@@ -346,7 +413,6 @@ export default function StockItemDetailPage() {
               </span>
             </p>
           </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Nova Quantidade *
@@ -365,7 +431,6 @@ export default function StockItemDetailPage() {
               </p>
             )}
           </div>
-
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
               Motivo do Ajuste *
@@ -378,7 +443,6 @@ export default function StockItemDetailPage() {
               placeholder="Ex: Contagem física, perda, avaria..."
             />
           </div>
-
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleAdjustSubmit}
@@ -390,6 +454,94 @@ export default function StockItemDetailPage() {
             <button
               type="button"
               onClick={() => setShowAdjustModal(false)}
+              className="px-4 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-100 text-sm"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal de entrada */}
+      <Modal
+        isOpen={showEntryModal}
+        onClose={() => setShowEntryModal(false)}
+        title="Registrar Entrada de Estoque"
+        size="md"
+      >
+        <div className="space-y-4">
+          {entryError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {entryError}
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Quantidade *
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={entryQty}
+                onChange={(e) => setEntryQty(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="0"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">
+                Custo Unitário (R$) *
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={entryCost}
+                onChange={(e) => setEntryCost(e.target.value)}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                placeholder="0,00"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Fornecedor
+            </label>
+            <input
+              type="text"
+              value={entrySupplier}
+              onChange={(e) => setEntrySupplier(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Ex: Auto Peças Silva, Bosch, etc."
+            />
+            <p className="text-xs text-slate-400 mt-1">
+              Registre o fornecedor para facilitar reclamações de garantia
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Nº Nota Fiscal
+            </label>
+            <input
+              type="text"
+              value={entryDocument}
+              onChange={(e) => setEntryDocument(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              placeholder="Ex: NF 12345"
+            />
+          </div>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={handleEntrySubmit}
+              disabled={entryLoading || !entryQty || Number(entryQty) <= 0 || !entryCost || Number(entryCost) < 0}
+              className="flex-1 bg-green-600 text-white py-2.5 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+            >
+              {entryLoading ? "Salvando..." : "Confirmar Entrada"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowEntryModal(false)}
               className="px-4 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-100 text-sm"
             >
               Cancelar

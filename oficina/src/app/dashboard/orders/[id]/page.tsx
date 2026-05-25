@@ -12,7 +12,7 @@ interface ComplaintData {
   number: number;
   description: string;
   services: { id: string; description: string; price: number; timeMinutes?: number | null }[];
-  parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number }[];
+  parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; stockItem?: { supplier?: string | null } | null }[];
 }
 
 interface Order {
@@ -29,7 +29,7 @@ interface Order {
   createdBy: { name: string };
   complaints: ComplaintData[];
   services: { id: string; description: string; price: number; timeMinutes?: number | null; complaintId: string | null }[];
-  parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; complaintId: string | null }[];
+  parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; complaintId: string | null; stockItem?: { supplier?: string | null } | null }[];
   statusHistory: { id: string; fromStatus: string | null; toStatus: string; createdAt: string }[];
 }
 
@@ -383,10 +383,20 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="mb-3">
                     <p className="text-xs font-bold text-slate-500 mb-1">PEÇAS</p>
                     <table className="w-full text-sm">
+                      <thead className="text-xs text-slate-400">
+                        <tr>
+                          <th className="text-left py-1">Descrição</th>
+                          <th className="text-left py-1">Fornecedor</th>
+                          <th className="text-center py-1 w-12">Qtd</th>
+                          <th className="text-right py-1 w-24">Unit.</th>
+                          <th className="text-right py-1 w-28">Total</th>
+                        </tr>
+                      </thead>
                       <tbody className="divide-y">
                         {complaint.parts.map((p) => (
                           <tr key={p.id}>
                             <td className="py-1.5 text-slate-700">{p.description}</td>
+                            <td className="py-1.5 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
                             <td className="py-1.5 text-center text-slate-600">{p.quantity}x</td>
                             <td className="py-1.5 text-right text-slate-600">R$ {p.unitPrice.toFixed(2)}</td>
                             <td className="py-1.5 text-right font-medium text-slate-800">R$ {p.totalPrice.toFixed(2)}</td>
@@ -452,6 +462,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <thead className="text-xs text-slate-500 border-b">
               <tr>
                 <th className="text-left py-2">Descrição</th>
+                <th className="text-left py-2">Fornecedor</th>
                 <th className="text-center py-2">Qtd</th>
                 <th className="text-right py-2">R$ Unit</th>
                 <th className="text-right py-2">R$ Total</th>
@@ -461,6 +472,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               {ungroupedParts.map((p) => (
                 <tr key={p.id}>
                   <td className="py-2 text-slate-700">{p.description}</td>
+                  <td className="py-2 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
                   <td className="py-2 text-center text-slate-600">{p.quantity}</td>
                   <td className="py-2 text-right text-slate-600">R$ {p.unitPrice.toFixed(2)}</td>
                   <td className="py-2 text-right font-medium text-slate-800">R$ {p.totalPrice.toFixed(2)}</td>

@@ -38,6 +38,7 @@ export class ReserveStock {
       balanceAfter,
       stockItemId,
       document: null,
+      supplier: null,
     });
 
     await this.stockItemRepo.update(stockItemId, { quantity: balanceAfter });

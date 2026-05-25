@@ -43,6 +43,7 @@ export class RegisterStockEntry {
         quantity: input.quantity,
         reason: input.reason ?? "Entrada de estoque",
         document: input.document ?? null,
+        supplier: input.supplier ?? null,
         orderId: null,
         balanceBefore,
         balanceAfter,

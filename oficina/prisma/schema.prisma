@@ -217,6 +217,7 @@ model StockItem {
   minQuantity  Int      @default(0)
   quantity     Int      @default(0)
   location     String?
+  supplier     String?
   costPrice    Float    @default(0)
   sellPrice    Float    @default(0)
   avgCost      Float    @default(0)
@@ -239,6 +240,7 @@ model StockMovement {
   quantity      Int
   reason        String
   document      String?
+  supplier      String?
   orderId       String?
   balanceBefore Int          @default(0)
   balanceAfter  Int          @default(0)

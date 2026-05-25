@@ -32,6 +32,7 @@ export class CreateStockItem {
       minQuantity: input.minQuantity ? Number(input.minQuantity) : 0,
       quantity: input.quantity ? Number(input.quantity) : 0,
       location: input.location || null,
+      supplier: input.supplier || null,
       costPrice,
       sellPrice: input.sellPrice ? Number(input.sellPrice) : 0,
       avgCost: costPrice,

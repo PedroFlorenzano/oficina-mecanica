@@ -35,6 +35,7 @@ export class IssueFiscalInvoice {
     }
 
     // Montar itens da nota
+    // TODO: Incluir fornecedor (stockItem.supplier) nos itens da NF-e para rastreabilidade de garantia
     const items = type === "NFE"
       ? (order.parts || []).map((p: any) => ({ description: p.description, quantity: p.quantity, unitPrice: p.unitPrice, totalPrice: p.totalPrice, cfop: "5102", ncm: "" }))
       : (order.services || []).map((s: any) => ({ description: s.description, quantity: 1, unitPrice: s.price, totalPrice: s.price, serviceCode: "" }));

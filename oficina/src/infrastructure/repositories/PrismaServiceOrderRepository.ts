@@ -13,7 +13,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
           orderBy: { number: "asc" },
           include: {
             services: true,
-            parts: true,
+            parts: { include: { stockItem: true } },
           },
         },
         services: { include: { service: true } },
@@ -107,13 +107,21 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
 
       if (c.parts && c.parts.length > 0) {
         for (const p of c.parts) {
+          let stockItemId = p.stockItemId || null;
+          if (!stockItemId) {
+            const match = await prisma.stockItem.findFirst({
+              where: { description: p.description, tenantId: data.tenantId },
+              select: { id: true },
+            });
+            if (match) stockItemId = match.id;
+          }
           await prisma.orderPart.create({
             data: {
               description: p.description,
               quantity: p.quantity,
               unitPrice: p.unitPrice,
               totalPrice: p.quantity * p.unitPrice,
-              stockItemId: p.stockItemId || null,
+              stockItemId,
               orderId: order.id,
               complaintId: complaint.id,
             },
