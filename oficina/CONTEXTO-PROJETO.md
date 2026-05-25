@@ -769,8 +769,8 @@ unitCost  Float?    // Custo unitário no momento da movimentação (para relat�
 2. **Navegação quebrada (botão voltar)** — Múltiplas causas corrigidas:
    - `router.replace` em vez de `router.push` no login e após salvar formulários
    - `Link` em vez de `router.back()` para navegação explícita
-   - `staleTimes.dynamic: 0` no `next.config.ts` (desabilita Router Cache stale)
    - `error.tsx` e `not-found.tsx` no dashboard para evitar tela vazia
+   - **`RemountOnNavigate`** wrapper no layout do dashboard: detecta mudança de pathname e força `window.location.replace(pathname)` (hard navigation) — resolve o problema do Next.js App Router não re-executar `useEffect` em navegação soft entre páginas client
 
 ### Correções críticas de segurança e integridade
 
@@ -788,6 +788,7 @@ unitCost  Float?    // Custo unitário no momento da movimentação (para relat�
 
 ### Novos arquivos de infraestrutura
 
+- `src/components/RemountOnNavigate.tsx` — Wrapper no layout que força hard navigation ao mudar de rota (resolve useEffect não executando em navegação soft do App Router)
 - `src/app/dashboard/error.tsx` — Error boundary do dashboard
 - `src/app/dashboard/not-found.tsx` — Página 404 do dashboard
 - `src/lib/useAuthFetch.ts` — Hook para fetch com redirect em 401
