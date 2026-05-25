@@ -9,3 +9,4 @@ export { default as Modal } from "./Modal";
 export { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "./Table";
 export { default as PageHeader } from "./PageHeader";
 export { default as EmptyState } from "./EmptyState";
+export { default as Toast } from "./Toast";

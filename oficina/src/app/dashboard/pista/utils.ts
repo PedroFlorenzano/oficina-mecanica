@@ -1,6 +1,7 @@
 import { OrderStatus, PistaOrder } from "./types";
 import { KANBAN_COLUMNS } from "./config";
 import { VALID_TRANSITIONS } from "@/domain/value-objects/OrderStatusTransitions";
+import type { PistaStatus } from "@/domain/value-objects/OrderStatusTransitions";
 
 /**
  * Agrupa as OS por status, garantindo que todas as colunas estejam presentes.
@@ -35,7 +36,7 @@ export function filterOrders(orders: PistaOrder[], q: string): PistaOrder[] {
  * Reexportada de OrderStatusTransitions.
  */
 export function isValidTransition(from: string, to: string): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to as any) ?? false;
+  return VALID_TRANSITIONS[from]?.includes(to as PistaStatus) ?? false;
 }
 
 /**

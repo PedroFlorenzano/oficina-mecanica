@@ -31,6 +31,10 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [sortField, setSortField] = useState<string>("number");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const router = useRouter();
 
   const [showFilters, setShowFilters] = useState(false);
@@ -50,18 +54,19 @@ export default function OrdersPage() {
   const fetchOrders = useCallback(() => {
     setLoading(true);
     const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("pageSize", "15");
     if (statusFilter) params.set("status", statusFilter);
     if (startDate) params.set("startDate", startDate);
     if (endDate) params.set("endDate", endDate);
     if (mechanicId) params.set("mechanicId", mechanicId);
     if (clientId) params.set("clientId", clientId);
-    const qs = params.toString();
-    fetch(`/api/orders${qs ? `?${qs}` : ""}`)
+    fetch(`/api/orders?${params.toString()}`)
       .then((res) => { if (!res.ok) throw new Error("Falha"); return res.json(); })
-      .then(setOrders)
+      .then((res) => { setOrders(res.data); setTotalPages(Math.ceil(res.total / res.pageSize)); })
       .catch(() => setError("Erro ao carregar ordens de serviço"))
       .finally(() => setLoading(false));
-  }, [statusFilter, startDate, endDate, mechanicId, clientId]);
+  }, [page, statusFilter, startDate, endDate, mechanicId, clientId]);
 
   useEffect(() => {
     fetchOrders();
@@ -82,6 +87,30 @@ export default function OrdersPage() {
       o.vehicle.model.toLowerCase().includes(q)
     );
   });
+
+  const sorted = [...filtered].sort((a, b) => {
+    let aVal: string | number, bVal: string | number;
+    switch (sortField) {
+      case "number": aVal = a.number; bVal = b.number; break;
+      case "client.name": aVal = a.client.name.toLowerCase(); bVal = b.client.name.toLowerCase(); break;
+      case "status": aVal = a.status; bVal = b.status; break;
+      case "totalAmount": aVal = a.totalAmount; bVal = b.totalAmount; break;
+      case "createdAt": aVal = a.createdAt; bVal = b.createdAt; break;
+      default: return 0;
+    }
+    if (aVal < bVal) return sortDir === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDir === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const toggleSort = (field: string) => {
+    if (sortField === field) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortField(field); setSortDir("asc"); }
+  };
+
+  const SortIcon = ({ field }: { field: string }) => (
+    <span className="ml-1 text-xs">{sortField === field ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>
+  );
 
   const exportCSV = () => {
     const header = "Nº;Cliente;Placa;Veículo;Status;Total;Data\n";
@@ -175,8 +204,8 @@ export default function OrdersPage() {
                   {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <button onClick={fetchOrders} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Aplicar</button>
-              <button onClick={() => { setStatusFilter(""); setStartDate(""); setEndDate(""); setMechanicId(""); setClientId(""); }} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">Limpar</button>
+              <button onClick={() => { setPage(1); fetchOrders(); }} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Aplicar</button>
+              <button onClick={() => { setStatusFilter(""); setStartDate(""); setEndDate(""); setMechanicId(""); setClientId(""); setPage(1); }} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">Limpar</button>
             </div>
           )}
         </div>
@@ -195,16 +224,16 @@ export default function OrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Nº</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Cliente</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("number")}>Nº<SortIcon field="number" /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("client.name")}>Cliente<SortIcon field="client.name" /></th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Veículo</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Total</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600">Data</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("status")}>Status<SortIcon field="status" /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("totalAmount")}>Total<SortIcon field="totalAmount" /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data<SortIcon field="createdAt" /></th>
               </tr>
             </thead>
             <tbody className="divide-y">
-              {filtered.map((order) => {
+              {sorted.map((order) => {
                 const status = statusLabels[order.status] || { label: order.status, color: "bg-slate-100" };
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
@@ -229,6 +258,26 @@ export default function OrdersPage() {
           </table>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Anterior
+          </button>
+          <span className="text-sm text-slate-600">Página {page} de {totalPages}</span>
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="px-4 py-2 border border-slate-200 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Próxima
+          </button>
+        </div>
+      )}
     </div>
   );
 }

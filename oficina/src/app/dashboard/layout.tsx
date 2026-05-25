@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
 import RemountOnNavigate from "@/components/RemountOnNavigate";
+import GlobalSearch from "@/components/GlobalSearch";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -36,6 +37,7 @@ export default async function DashboardLayout({
   return (
     <div className="flex min-h-screen">
       <Sidebar role={role} customPermissions={customPermissions} />
+      <GlobalSearch />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">

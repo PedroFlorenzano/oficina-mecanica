@@ -88,15 +88,15 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
 
       // Preencher formulário com dados atuais
       setComplaints(
-        orderData.complaints.map((c: any) => ({
+        orderData.complaints.map((c: OrderData["complaints"][number]) => ({
           description: c.description,
-          services: c.services.map((s: any) => ({
+          services: c.services.map((s: OrderData["complaints"][number]["services"][number]) => ({
             description: s.description,
             price: s.price,
             timeMinutes: s.timeMinutes || 0,
             serviceId: s.serviceId || undefined,
           })),
-          parts: c.parts.map((p: any) => ({
+          parts: c.parts.map((p: OrderData["complaints"][number]["parts"][number]) => ({
             description: p.description,
             brand: p.stockItem?.brand || "",
             quantity: p.quantity,
