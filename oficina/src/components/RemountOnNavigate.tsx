@@ -1,13 +1,23 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useRef, useEffect } from "react";
 
 /**
- * Wrapper que força remount dos children quando a rota muda.
- * Resolve o problema do Next.js App Router não re-executar useEffect
- * em navegação soft (componente preservado no Router Cache).
+ * Força reload completo (como F5) quando a rota muda via navegação soft.
+ * Resolve o problema do Next.js App Router não re-executar useEffect.
  */
 export default function RemountOnNavigate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  return <div key={pathname}>{children}</div>;
+  const router = useRouter();
+  const prevPathname = useRef(pathname);
+
+  useEffect(() => {
+    if (prevPathname.current !== pathname) {
+      prevPathname.current = pathname;
+      router.refresh();
+    }
+  }, [pathname, router]);
+
+  return <>{children}</>;
 }
