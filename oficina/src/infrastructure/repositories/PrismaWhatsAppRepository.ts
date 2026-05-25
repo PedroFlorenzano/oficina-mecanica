@@ -32,6 +32,10 @@ export class PrismaWhatsAppRepository implements IWhatsAppRepository {
     }) as unknown as Promise<WhatsAppMessageData>;
   }
 
+  async findByExternalId(externalId: string): Promise<WhatsAppMessageData | null> {
+    return prisma.whatsAppMessage.findFirst({ where: { externalId } }) as unknown as Promise<WhatsAppMessageData | null>;
+  }
+
   async getMessages(tenantId: string, orderId?: string): Promise<WhatsAppMessageData[]> {
     const where: any = { tenantId };
     if (orderId) where.orderId = orderId;

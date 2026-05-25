@@ -45,6 +45,7 @@ export interface IWhatsAppRepository {
   upsertConfig(tenantId: string, data: Partial<WhatsAppConfigData>): Promise<WhatsAppConfigData>;
   createMessage(data: CreateMessageData): Promise<WhatsAppMessageData>;
   updateMessageStatus(id: string, status: string, externalId?: string, error?: string): Promise<WhatsAppMessageData>;
+  findByExternalId(externalId: string): Promise<WhatsAppMessageData | null>;
   getMessages(tenantId: string, orderId?: string): Promise<WhatsAppMessageData[]>;
   createSignatureToken(orderId: string, type: "APPROVAL" | "DELIVERY", signerName: string): Promise<SignatureData>;
   findSignatureByToken(token: string): Promise<SignatureData | null>;

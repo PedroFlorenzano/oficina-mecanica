@@ -15,12 +15,24 @@ export interface VehicleData {
   client?: { id: string; name: string };
 }
 
+export interface VehicleWithClient {
+  id: string;
+  plate: string;
+  brand: string;
+  model: string;
+  mileage: number;
+  clientId: string;
+  tenantId: string;
+  client: { name: string; phone: string | null };
+}
+
 export interface IVehicleRepository {
   findById(id: string): Promise<VehicleData | null>;
   findByPlate(plate: string, tenantId: string): Promise<VehicleData | null>;
   findByPlateExcluding(plate: string, tenantId: string, excludeId: string): Promise<VehicleData | null>;
   search(query: string, tenantId: string): Promise<VehicleData[]>;
   findAll(tenantId: string): Promise<VehicleData[]>;
+  findWithReminderEnabled(tenantId: string): Promise<VehicleWithClient[]>;
   create(data: Omit<VehicleData, "id" | "client">): Promise<VehicleData>;
   update(id: string, data: Partial<Omit<VehicleData, "id" | "client">>): Promise<VehicleData>;
   updateMileage(id: string, mileage: number): Promise<void>;

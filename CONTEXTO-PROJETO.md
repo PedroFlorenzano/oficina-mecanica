@@ -15,7 +15,7 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 **Repositório:** https://github.com/PedroFlorenzano/oficina-mecanica
 **Branch principal:** main
 **Branch de desenvolvimento atual:** feature/autenticacao-perfis
-**Última atualização:** 22/05/2026
+**Última atualização:** 24/05/2026
 
 ---
 
@@ -161,7 +161,7 @@ oficina/src/
 | 4 | Ordem de Serviço (OS) | ✅ 100% | Criação com Reclamações, status padrão WAITING_APPROVAL, cancelamento com motivo, PDF completo, integração estoque (reserva/consumo/reversão), Kanban Pista |
 | 5 | Controle de Estoque | ✅ 100% | CRUD itens, entrada com custo médio ponderado, histórico paginado de movimentos, alertas de mínimo (badge Sidebar + painel), ajuste físico (ADJUSTMENT), log imutável |
 | 6 | Emissão de NF-e/NFS-e | 🟡 70% | Infra pronta: schema, use cases, API routes, UI config + listagem + botão na OS. Falta: integração SEFAZ/Prefeitura + BullMQ |
-| 7 | Integração WhatsApp + Assinatura | 🟡 90% | Infra pronta + envio real via Evolution API implementado. Falta: webhook de status (DELIVERED/READ), lembrete preventivo automático |
+| 7 | Integração WhatsApp + Assinatura | ✅ 100% | Envio real via Evolution API, webhook de status (DELIVERED/READ), notificação automática ao mover OS na Pista, lembrete preventivo automático (cron), assinatura digital mobile-first |
 | 8 | Assinatura Digital | ✅ 100% | Incluído no módulo 7 — página pública /sign/[token] mobile-first com Canvas touch + mudança automática de status (APPROVAL→IN_PROGRESS, DELIVERY→DELIVERED) |
 | 9 | Gestão de Comissões | ✅ 100% | Comissão por mecânico sobre valor bruto dos serviços, percentual configurável (commissionRate), geração por período, fluxo PENDING→APPROVED→PAID (ou CANCELLED), 7 use cases, 7 API routes, 3 páginas UI, 31 testes unitários |
 | 10 | Etiqueta de Troca de Óleo | ✅ 100% | Botão em toda OS, preview visual, impressão popup otimizada (80mm×110mm, 1 página), dados: oficina, telefone, veículo, placa, KM, próxima troca (KM+10000, data+6meses) |
@@ -355,7 +355,7 @@ npx tsx prisma/seed.ts
 
 ---
 
-*Última atualização: 23/05/2026 — Integração real com Evolution API para envio de WhatsApp funcionando. Assinatura Digital muda status da OS (APPROVAL→OPEN, DELIVERY→DELIVERED). Número de teste: +55 11 95433-7557.*
+*Última atualização: 24/05/2026 — Módulo WhatsApp 100%: webhook de status, lembrete preventivo automático, notificação ao mover OS na Pista.*
 
 ---
 
@@ -571,6 +571,8 @@ OS concluída (COMPLETED) → ADMIN clica "Notificar Entrega" → link de confir
 | `/api/whatsapp/config` | GET/PUT | Configuração | ADMIN |
 | `/api/whatsapp/send` | POST | Enviar mensagem (approval/delivery/reminder) | Autenticado |
 | `/api/whatsapp/logs` | GET | Histórico de mensagens | Autenticado |
+| `/api/whatsapp/webhook` | POST | Receber status da Evolution API | Público |
+| `/api/whatsapp/reminders` | GET | Disparar lembretes preventivos (cron) | CRON_SECRET |
 | `/api/public/sign/[token]` | GET | Dados da OS para assinatura | Público |
 | `/api/public/sign/[token]` | POST | Registrar assinatura | Público |
 
@@ -578,8 +580,51 @@ OS concluída (COMPLETED) → ADMIN clica "Notificar Entrega" → link de confir
 
 - ~~Ao assinar, mudar status da OS automaticamente~~ ✅ (23/05/2026)
 - ~~Integrar com Evolution API para envio real de mensagens~~ ✅ (23/05/2026)
-- Webhook para receber status de entrega da mensagem (DELIVERED/READ)
-- Lembrete preventivo automático (cron/scheduler para verificar veículos com troca vencida)
+- ~~Webhook para receber status de entrega da mensagem (DELIVERED/READ)~~ ✅ (24/05/2026)
+- ~~Lembrete preventivo automático (cron/scheduler para verificar veículos com troca vencida)~~ ✅ (24/05/2026)
+- ~~Notificação automática ao mover OS na Pista~~ ✅ (24/05/2026)
+
+### Notificação automática de status (implementado em 24/05/2026)
+
+Toda vez que uma OS é movida na tela Pista (Kanban), o cliente recebe automaticamente uma mensagem no WhatsApp com o novo status.
+
+- **Use case:** `SendStatusNotification` (`src/application/use-cases/whatsapp/SendStatusNotification.ts`)
+- **Integração:** fire-and-forget na rota `PATCH /api/orders/pista` — não bloqueia resposta nem falha se WhatsApp der erro
+- **Mensagem:** inclui nome do cliente, nº da OS, veículo/placa e status em pt-BR
+- **Silencioso:** se o cliente não tiver telefone cadastrado, ignora sem erro
+
+### Webhook de status (implementado em 24/05/2026)
+
+Recebe atualizações de status de entrega da Evolution API e atualiza o registro da mensagem no banco.
+
+- **Rota:** `POST /api/whatsapp/webhook` (pública, sem auth)
+- **Mapeamento:** `DELIVERY_ACK` → DELIVERED, `READ/PLAYED` → READ, `SERVER_ACK` → SENT, `ERROR/FAILED` → FAILED
+- **Busca:** localiza mensagem pelo `externalId` (messageId retornado pela Evolution ao enviar)
+- **Método adicionado:** `findByExternalId(externalId)` no `IWhatsAppRepository`
+
+### Lembrete preventivo automático (implementado em 24/05/2026)
+
+Scheduler que verifica veículos com troca de óleo vencida e envia lembrete via WhatsApp.
+
+- **Use case:** `SendOilChangeReminders` (`src/application/use-cases/whatsapp/SendOilChangeReminders.ts`)
+- **Rota:** `GET /api/whatsapp/reminders` (pública, protegida por `CRON_SECRET`)
+- **Critérios de alerta:** KM atual ≥ última troca + 4.000 km OU tempo > 6 meses desde última troca
+- **Requisitos:** veículo com `oilReminderEnabled=true`, cliente com telefone, WhatsApp habilitado no tenant
+- **Retorno:** `{ sent: N, skipped: N }`
+
+### Configuração
+
+**Webhook da Evolution API:**
+- Na Evolution API, configure o webhook apontando para: `https://seu-dominio/api/whatsapp/webhook`
+- Eventos: `messages.update` (status de entrega)
+
+**Cron de lembretes preventivos:**
+- Adicionar `CRON_SECRET=sua-chave-secreta` no `.env`
+- Configurar scheduler externo (Vercel Cron, crontab, etc.) para chamar diariamente:
+  ```
+  GET https://seu-dominio/api/whatsapp/reminders?secret=sua-chave-secreta
+  ```
+  Ou via header: `Authorization: Bearer sua-chave-secreta`
 
 ### Integração WhatsApp — Evolution API
 
