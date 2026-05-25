@@ -35,6 +35,7 @@ export class AdjustInventory {
         quantity: Math.abs(balanceAfter - balanceBefore),
         reason: input.reason.trim(),
         document: null,
+        supplier: null,
         orderId: null,
         balanceBefore,
         balanceAfter,

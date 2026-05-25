@@ -7,6 +7,7 @@ export interface CreateStockItemDTO {
   minQuantity?: number;
   quantity?: number;
   location?: string;
+  supplier?: string;
   costPrice?: number;
   sellPrice?: number;
   profitMargin?: number;

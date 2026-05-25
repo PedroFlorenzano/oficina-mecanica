@@ -13,6 +13,7 @@ interface StockItem {
   minQuantity: number;
   quantity: number;
   location?: string | null;
+  supplier?: string | null;
   costPrice: number;
   sellPrice: number;
   profitMargin?: number | null;
@@ -53,6 +54,7 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
     brand: item?.brand || "",
     unit: item?.unit || "UN",
     location: item?.location || "",
+    supplier: item?.supplier || "",
     observations: "",
     minQuantity: item?.minQuantity?.toString() || "0",
     quantity: item?.quantity?.toString() || "0",
@@ -179,6 +181,14 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
                       onChange={(e) => setForm({ ...form, brand: e.target.value })}
                       className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Fornecedor Padrão</label>
+                  <input type="text" value={form.supplier}
+                    onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                    placeholder="Ex: Auto Peças Silva, Bosch, etc."
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 </div>
               </div>
             </div>

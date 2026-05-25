@@ -130,6 +130,7 @@ export default function StockPage() {
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Código</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Descrição</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Marca</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Local</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Qtd</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Custo</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Venda</th>
@@ -146,6 +147,7 @@ export default function StockPage() {
                   <td className="px-4 py-3 font-mono text-slate-800">{item.code}</td>
                   <td className="px-4 py-3 text-slate-700">{item.description}</td>
                   <td className="px-4 py-3 text-slate-600">{item.brand || "—"}</td>
+                  <td className="px-4 py-3 text-slate-600 text-xs font-medium">{item.location || "—"}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-flex items-center gap-1 ${

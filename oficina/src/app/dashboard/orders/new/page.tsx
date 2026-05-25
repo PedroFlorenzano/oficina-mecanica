@@ -392,7 +392,9 @@ export default function NewOrderPage() {
                               value={p.description}
                               onChange={(val) => {
                                 const u = [...complaints];
-                                u[ci].parts[pi] = { ...u[ci].parts[pi], description: val, stockItemId: undefined };
+                                const current = u[ci].parts[pi];
+                                const matchedItem = stockItems.find(st => st.description === val);
+                                u[ci].parts[pi] = { ...current, description: val, stockItemId: matchedItem ? matchedItem.id : undefined };
                                 setComplaints(u);
                               }}
                               onSelect={(opt) => {

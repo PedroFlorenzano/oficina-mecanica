@@ -10,6 +10,7 @@ export interface UpdateStockItemDTO {
   minQuantity?: number;
   quantity?: number;
   location?: string;
+  supplier?: string;
   costPrice?: number;
   sellPrice?: number;
   profitMargin?: number;
@@ -33,6 +34,7 @@ export class UpdateStockItem {
       minQuantity: input.minQuantity != null ? Number(input.minQuantity) : 0,
       quantity: input.quantity != null ? Number(input.quantity) : 0,
       location: input.location || null,
+      supplier: input.supplier || null,
       costPrice: input.costPrice != null ? Number(input.costPrice) : 0,
       sellPrice: input.sellPrice != null ? Number(input.sellPrice) : 0,
       profitMargin: input.profitMargin != null ? Number(input.profitMargin) : 0,

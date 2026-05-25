@@ -3,4 +3,5 @@ export interface RegisterStockEntryDTO {
   unitCost: number;
   reason?: string;
   document?: string;
+  supplier?: string;
 }

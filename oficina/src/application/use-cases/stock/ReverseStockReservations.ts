@@ -27,6 +27,7 @@ export class ReverseStockReservations {
         balanceAfter,
         stockItemId: reservation.stockItemId,
         document: null,
+        supplier: null,
       });
 
       await this.stockItemRepo.update(reservation.stockItemId, {
