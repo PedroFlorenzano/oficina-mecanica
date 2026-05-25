@@ -1,23 +1,27 @@
 "use client";
 
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useRef, useEffect } from "react";
 
 /**
- * Força reload completo (como F5) quando a rota muda via navegação soft.
- * Resolve o problema do Next.js App Router não re-executar useEffect.
+ * Detecta navegação soft e força os componentes filhos a re-executar effects.
  */
 export default function RemountOnNavigate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
+  const isFirstRender = useRef(true);
   const prevPathname = useRef(pathname);
 
   useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
     if (prevPathname.current !== pathname) {
       prevPathname.current = pathname;
-      router.refresh();
+      // Força hard navigation (equivalente a F5)
+      window.location.replace(pathname);
     }
-  }, [pathname, router]);
+  }, [pathname]);
 
   return <>{children}</>;
 }
