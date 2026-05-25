@@ -961,32 +961,43 @@ customPermissions  String?  // JSON: {"resource": ["read","create","update","del
 
 ---
 
-## Mudanças rápidas que agregam valor
+## Melhorias de UX implementadas (25/05/2026 — sessão 3)
 
-### UI / UX (~5-15 min cada)
+| Melhoria | Status |
+|----------|--------|
+| Paginação na listagem de OS (15/página) | ✅ |
+| Ordenação nas tabelas (Nº, Cliente, Status, Total, Data) | ✅ |
+| Toast de sucesso (componente reutilizável) | ✅ |
+| Hook `useUnsavedChanges` (confirmação ao sair) | ✅ |
+| Busca rápida global Ctrl+K (OS, clientes, veículos) | ✅ |
+| `.env.example` com todas as variáveis | ✅ |
+| README profissional (setup, módulos, arquitetura) | ✅ |
+| Tipagem `any` reduzida de 112 → 12 | ✅ |
 
-| # | Melhoria | Descrição |
-|---|----------|-----------|
-| 1 | Paginação na listagem de OS | Hoje carrega todas. Adicionar limit/offset na API e botões "Anterior/Próxima" |
-| 2 | Confirmação antes de sair do formulário | Se está editando e clica em outro link, perguntar "Deseja sair sem salvar?" |
-| 3 | Toast de sucesso | Ao salvar cliente, veículo, OS, etc. mostrar toast verde "Salvo com sucesso" |
-| 4 | Ordenação nas tabelas | Clicar no cabeçalho da coluna para ordenar (nº, data, total, status) na listagem de OS |
-| 5 | Badge "Inativo" na listagem de clientes | Mostrar em vermelho quando `showInactive` está ativo |
-| 6 | Busca rápida global (Ctrl+K) | Buscar OS por nº, cliente por nome, placa — modal de busca |
+---
 
-### Dados / Backend (~5-10 min cada)
+## Pendente
 
-| # | Melhoria | Descrição |
-|---|----------|-----------|
-| 7 | Seed atualizado | Dados demo para comissões com status variados, cronômetros finalizados |
-| 8 | Validação de placa no frontend | Máscara de placa (ABC1D23 ou ABC-1234) no formulário de veículo |
-| 9 | Contagem de OS por cliente | Mostrar na listagem de clientes quantas OS cada um tem |
-| 10 | Exportar relatório em PDF | Botão na página de relatórios para gerar PDF do resumo financeiro |
-
-### Qualidade (~5 min cada)
+### Próximas melhorias rápidas
 
 | # | Melhoria | Descrição |
 |---|----------|-----------|
-| 11 | Tipar os 33 `any` restantes | Interfaces locais para dados de fetch nas páginas de UI |
-| 12 | Criar `.env.example` | Arquivo com todas as variáveis de ambiente necessárias (sem valores reais) |
-| 13 | README profissional | Substituir o README padrão do Next.js por um com setup, features, arquitetura |
+| 1 | Seed atualizado | Dados demo para comissões com status variados, cronômetros finalizados |
+| 2 | Validação de placa no frontend | Máscara de placa (ABC1D23 ou ABC-1234) no formulário de veículo |
+| 3 | Contagem de OS por cliente | Mostrar na listagem de clientes quantas OS cada um tem |
+| 4 | Exportar relatório em PDF | Botão na página de relatórios para gerar PDF do resumo financeiro |
+| 5 | Tipar os 12 `any` restantes | Cosméticos em callbacks de UI |
+
+### Manual / Apresentação da Plataforma
+
+Criar documento de apresentação comercial e manual do usuário:
+- **Público-alvo:** Donos de oficinas mecânicas que avaliam o sistema
+- **Conteúdo sugerido:**
+  - Visão geral do sistema e proposta de valor
+  - Screenshots das telas principais (Dashboard, OS, Pista, Estoque)
+  - Fluxo completo de uma OS (criação → aprovação → execução → entrega)
+  - Módulos disponíveis com descrição resumida
+  - Diferenciais vs concorrentes (Reclamações, WhatsApp, Assinatura Digital, Cronômetro)
+  - Planos e preços (quando definidos)
+  - Requisitos técnicos (navegador, internet)
+- **Formato:** Markdown + PDF exportável (ou landing page futura)
