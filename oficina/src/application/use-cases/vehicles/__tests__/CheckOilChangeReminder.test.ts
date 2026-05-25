@@ -24,6 +24,7 @@ const makeVehicleRepo = (vehicle: VehicleData | null): IVehicleRepository => ({
   findByPlateExcluding: jest.fn(),
   search: jest.fn(),
   findAll: jest.fn(),
+  findWithReminderEnabled: jest.fn(),
   create: jest.fn(),
   update: jest.fn(),
   updateMileage: jest.fn(),

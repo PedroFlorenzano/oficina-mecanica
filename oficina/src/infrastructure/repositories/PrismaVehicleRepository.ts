@@ -1,5 +1,5 @@
 import { prisma } from "../database/prisma";
-import { IVehicleRepository, VehicleData } from "@/domain/repositories/IVehicleRepository";
+import { IVehicleRepository, VehicleData, VehicleWithClient } from "@/domain/repositories/IVehicleRepository";
 
 export class PrismaVehicleRepository implements IVehicleRepository {
   async findById(id: string): Promise<VehicleData | null> {
@@ -43,6 +43,13 @@ export class PrismaVehicleRepository implements IVehicleRepository {
       include: { client: { select: { id: true, name: true } } },
       orderBy: { plate: "asc" },
     }) as unknown as VehicleData[];
+  }
+
+  async findWithReminderEnabled(tenantId: string): Promise<VehicleWithClient[]> {
+    return prisma.vehicle.findMany({
+      where: { tenantId, oilReminderEnabled: true },
+      include: { client: { select: { name: true, phone: true } } },
+    }) as unknown as VehicleWithClient[];
   }
 
   async create(data: Omit<VehicleData, "id" | "client">): Promise<VehicleData> {
