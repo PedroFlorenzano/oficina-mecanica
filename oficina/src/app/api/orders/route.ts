@@ -29,17 +29,25 @@ export async function GET(request: NextRequest) {
     }
     if (mechanicId) where.services = { some: { mechanicId } };
 
-    const { prisma } = await import("@/infrastructure/database/prisma");
-    const orders = await prisma.serviceOrder.findMany({
-      where,
-      include: {
-        client: { select: { name: true } },
-        vehicle: { select: { plate: true, model: true } },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "15");
 
-    return NextResponse.json(orders);
+    const { prisma } = await import("@/infrastructure/database/prisma");
+    const [data, total] = await Promise.all([
+      prisma.serviceOrder.findMany({
+        where,
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        orderBy: { createdAt: "desc" },
+        include: {
+          client: { select: { name: true } },
+          vehicle: { select: { plate: true, model: true } },
+        },
+      }),
+      prisma.serviceOrder.count({ where }),
+    ]);
+
+    return NextResponse.json({ data, total, page, pageSize });
   } catch (error) {
     if (error instanceof Response) return error;
     return handleError(error);

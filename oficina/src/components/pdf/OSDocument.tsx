@@ -1,5 +1,56 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+interface OSServiceItem {
+  id: string;
+  description: string;
+  price: number;
+  timeMinutes?: number | null;
+  complaintId?: string | null;
+}
+
+interface OSPartItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  complaintId?: string | null;
+  stockItem?: { supplier?: string | null } | null;
+}
+
+interface OSComplaint {
+  id: string;
+  number: number;
+  description: string;
+  services: OSServiceItem[];
+  parts: OSPartItem[];
+}
+
+interface OSStatusHistory {
+  id?: string;
+  fromStatus: string | null;
+  toStatus: string;
+  createdAt: string | Date;
+  user?: { name: string };
+}
+
+interface OSOrderData {
+  number: number;
+  status: string;
+  createdAt: string | Date;
+  totalAmount: number;
+  mileage: number;
+  notes?: string | null;
+  cancelReason?: string | null;
+  createdBy?: { name: string } | null;
+  client?: { name: string; document: string; phone?: string | null; email?: string | null; address?: string | null } | null;
+  vehicle?: { plate: string; brand: string; model: string; year?: number; color?: string | null; mileage?: number } | null;
+  complaints?: OSComplaint[];
+  services?: OSServiceItem[];
+  parts?: OSPartItem[];
+  statusHistory?: OSStatusHistory[];
+}
+
 const styles = StyleSheet.create({
   page: { padding: 36, fontSize: 9, fontFamily: "Helvetica" },
 
@@ -99,15 +150,15 @@ function formatMinutes(min?: number | null) {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
-export function OSDocument({ order }: { order: any }) {
+export function OSDocument({ order }: { order: OSOrderData }) {
   const hasComplaints = order.complaints && order.complaints.length > 0;
 
   // Serviços e peças não vinculados a reclamações (OS legadas)
-  const ungroupedServices = (order.services || []).filter((s: any) => !s.complaintId);
-  const ungroupedParts = (order.parts || []).filter((p: any) => !p.complaintId);
+  const ungroupedServices = (order.services || []).filter((s: OSServiceItem) => !s.complaintId);
+  const ungroupedParts = (order.parts || []).filter((p: OSPartItem) => !p.complaintId);
 
-  const totalServices = (order.services || []).reduce((s: number, sv: any) => s + (sv.price || 0), 0);
-  const totalParts = (order.parts || []).reduce((s: number, p: any) => s + (p.totalPrice || 0), 0);
+  const totalServices = (order.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.price || 0), 0);
+  const totalParts = (order.parts || []).reduce((s: number, p: OSPartItem) => s + (p.totalPrice || 0), 0);
 
   return (
     <Document>
@@ -193,9 +244,9 @@ export function OSDocument({ order }: { order: any }) {
         {hasComplaints && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reclamações / Serviços</Text>
-            {order.complaints.map((c: any) => {
-              const cSvcTotal = (c.services || []).reduce((s: number, sv: any) => s + (sv.price || 0), 0);
-              const cPrtTotal = (c.parts || []).reduce((s: number, p: any) => s + (p.totalPrice || 0), 0);
+            {order.complaints!.map((c: OSComplaint) => {
+              const cSvcTotal = (c.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.price || 0), 0);
+              const cPrtTotal = (c.parts || []).reduce((s: number, p: OSPartItem) => s + (p.totalPrice || 0), 0);
               const cSubtotal = cSvcTotal + cPrtTotal;
 
               return (
@@ -214,7 +265,7 @@ export function OSDocument({ order }: { order: any }) {
                           <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
                         </View>
-                        {(c.services || []).map((sv: any, idx: number) => (
+                        {(c.services || []).map((sv: OSServiceItem, idx: number) => (
                           <View
                             key={sv.id}
                             style={idx === c.services.length - 1 ? styles.tableRowLast : styles.tableRow}
@@ -240,7 +291,7 @@ export function OSDocument({ order }: { order: any }) {
                           <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
                         </View>
-                        {(c.parts || []).map((p: any, idx: number) => (
+                        {(c.parts || []).map((p: OSPartItem, idx: number) => (
                           <View
                             key={p.id}
                             style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}
@@ -276,7 +327,7 @@ export function OSDocument({ order }: { order: any }) {
                 <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
               </View>
-              {ungroupedServices.map((sv: any, idx: number) => (
+              {ungroupedServices.map((sv: OSServiceItem, idx: number) => (
                 <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
                   <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
                   <Text style={[styles.cellTextMuted, styles.colTime]}>{formatMinutes(sv.timeMinutes)}</Text>
@@ -299,7 +350,7 @@ export function OSDocument({ order }: { order: any }) {
                 <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
               </View>
-              {ungroupedParts.map((p: any, idx: number) => (
+              {ungroupedParts.map((p: OSPartItem, idx: number) => (
                 <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
                   <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
                   <Text style={[styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
@@ -353,7 +404,7 @@ export function OSDocument({ order }: { order: any }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Histórico de Status</Text>
             <View style={styles.card}>
-              {[...(order.statusHistory || [])].reverse().map((h: any) => (
+              {[...(order.statusHistory || [])].reverse().map((h: OSStatusHistory) => (
                 <View key={h.id} style={styles.historyRow}>
                   <Text style={styles.historyDate}>{formatDate(h.createdAt)}</Text>
                   <Text style={styles.historyStatus}>

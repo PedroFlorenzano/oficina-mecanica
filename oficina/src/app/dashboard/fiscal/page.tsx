@@ -3,8 +3,20 @@
 import { useState, useEffect } from "react";
 import { PageHeader, Card, Input, Select, Button } from "@/components/ui";
 
+interface FiscalConfig {
+  enabled: boolean;
+  environment: string;
+  cnpj: string;
+  inscricaoEstadual: string;
+  inscricaoMunicipal: string;
+  razaoSocial: string;
+  cityCode: string;
+  nfeSeries: number;
+  nfseSeries: number;
+}
+
 export default function FiscalConfigPage() {
-  const [config, setConfig] = useState<any>({ enabled: false, environment: "homologation", cnpj: "", inscricaoEstadual: "", inscricaoMunicipal: "", razaoSocial: "", cityCode: "", nfeSeries: 1, nfseSeries: 1 });
+  const [config, setConfig] = useState<FiscalConfig>({ enabled: false, environment: "homologation", cnpj: "", inscricaoEstadual: "", inscricaoMunicipal: "", razaoSocial: "", cityCode: "", nfeSeries: 1, nfseSeries: 1 });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);

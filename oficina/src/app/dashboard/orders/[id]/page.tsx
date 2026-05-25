@@ -15,6 +15,18 @@ interface ComplaintData {
   parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; stockItem?: { supplier?: string | null } | null }[];
 }
 
+interface OilLabelData {
+  shopName: string;
+  shopPhone: string | null;
+  vehicle: string;
+  plate: string;
+  currentKm: number;
+  nextKm: number;
+  currentDate: string;
+  nextDate: string;
+  orderNumber: number;
+}
+
 interface Order {
   id: string;
   number: number;
@@ -63,7 +75,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [cancelError, setCancelError] = useState("");
 
   // Estado da etiqueta de óleo
-  const [oilLabelData, setOilLabelData] = useState<any>(null);
+  const [oilLabelData, setOilLabelData] = useState<OilLabelData | null>(null);
 
   // Estado WhatsApp
   const [whatsAppMsg, setWhatsAppMsg] = useState("");

@@ -2,10 +2,43 @@
 
 import { useState, useEffect, useRef, use } from "react";
 
+interface SignComplaintService {
+  description: string;
+  price: number;
+}
+
+interface SignComplaintPart {
+  description: string;
+  quantity: number;
+  totalPrice: number;
+}
+
+interface SignComplaint {
+  number: number;
+  description: string;
+  services: SignComplaintService[];
+  parts: SignComplaintPart[];
+}
+
+interface SignOrderData {
+  number: number;
+  vehicle: string;
+  plate: string;
+  mileage: number;
+  totalAmount: number;
+  complaints?: SignComplaint[];
+}
+
+interface SignData {
+  type: "APPROVAL" | "DELIVERY";
+  signerName: string;
+  order: SignOrderData;
+}
+
 export default function SignPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [data, setData] = useState<any>(null);
+  const [data, setData] = useState<SignData | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -123,6 +156,8 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
     );
   }
 
+  if (!data) return null;
+
   if (success) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-green-50 p-6">
@@ -160,7 +195,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
       {/* Detalhes da OS */}
       {data.type === "APPROVAL" && data.order?.complaints && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 space-y-4 max-h-[40vh] overflow-y-auto">
-          {data.order.complaints.map((c: any, i: number) => (
+          {data.order.complaints.map((c: SignComplaint, i: number) => (
             <div key={i} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
               <p className="font-semibold text-slate-700 text-sm mb-2">
                 {c.number}. {c.description}
@@ -168,7 +203,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
               {c.services.length > 0 && (
                 <div className="ml-3 mb-1">
                   <p className="text-xs font-medium text-slate-500 uppercase mb-1">Serviços</p>
-                  {c.services.map((s: any, j: number) => (
+                  {c.services.map((s: SignComplaintService, j: number) => (
                     <div key={j} className="flex justify-between text-xs text-slate-600">
                       <span>{s.description}</span>
                       <span className="font-medium">R$ {s.price.toFixed(2)}</span>
@@ -179,7 +214,7 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
               {c.parts.length > 0 && (
                 <div className="ml-3">
                   <p className="text-xs font-medium text-slate-500 uppercase mb-1">Peças</p>
-                  {c.parts.map((p: any, j: number) => (
+                  {c.parts.map((p: SignComplaintPart, j: number) => (
                     <div key={j} className="flex justify-between text-xs text-slate-600">
                       <span>{p.quantity}x {p.description}</span>
                       <span className="font-medium">R$ {p.totalPrice.toFixed(2)}</span>

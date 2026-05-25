@@ -255,7 +255,7 @@ export default function ClientsPage() {
             <tbody className="divide-y">
               {clients.map((client) => (
                 <tr key={client.id} className={`hover:bg-slate-50 ${!client.active ? "opacity-60" : ""}`}>
-                  <td className="px-4 py-3 font-medium text-slate-800">{client.name}</td>
+                  <td className="px-4 py-3 font-medium text-slate-800">{client.name}{!client.active && <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600 font-medium">Inativo</span>}</td>
                   <td className="px-4 py-3 text-slate-600">
                     <span className="inline-block bg-slate-100 text-xs px-2 py-0.5 rounded mr-2">{client.docType}</span>
                     {client.document}

@@ -2,7 +2,24 @@ import { IssueFiscalInvoice } from "@/application/use-cases/fiscal/IssueFiscalIn
 import { IFiscalRepository } from "@/domain/repositories/IFiscalRepository";
 import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepository";
 
-const makeOrder = (parts: any[], services: any[]) => ({
+interface TestPart {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  used: boolean;
+}
+
+interface TestService {
+  description: string;
+  price: number;
+}
+
+interface TestFiscalConfig {
+  enabled: boolean;
+}
+
+const makeOrder = (parts: TestPart[], services: TestService[]) => ({
   id: "order-1",
   number: 42,
   status: "COMPLETED",
@@ -13,7 +30,7 @@ const makeOrder = (parts: any[], services: any[]) => ({
   complaints: [],
 });
 
-const makeRepos = (order: any, config: any = { enabled: true }) => {
+const makeRepos = (order: ReturnType<typeof makeOrder>, config: TestFiscalConfig = { enabled: true }) => {
   const fiscalRepo: Partial<IFiscalRepository> = {
     getConfig: jest.fn().mockResolvedValue(config),
     findInvoicesByOrder: jest.fn().mockResolvedValue([]),

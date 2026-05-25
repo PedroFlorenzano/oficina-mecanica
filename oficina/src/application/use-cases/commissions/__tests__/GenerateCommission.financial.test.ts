@@ -20,7 +20,7 @@ const makeEligibleServices = (prices: number[]) =>
     orderId: `order-${i}`,
   }));
 
-const makeRepos = (mechanic: any, services: any[]) => {
+const makeRepos = (mechanic: ReturnType<typeof makeMechanic>, services: ReturnType<typeof makeEligibleServices>) => {
   const commissionRepo: Partial<ICommissionRepository> = {
     findOverlapping: jest.fn().mockResolvedValue(null),
     getEligibleServices: jest.fn().mockResolvedValue(services),

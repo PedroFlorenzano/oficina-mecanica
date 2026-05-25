@@ -3,6 +3,7 @@ import {
   PISTA_STATUSES,
   VALID_TRANSITIONS,
 } from '@/domain/value-objects/OrderStatusTransitions';
+import type { PistaStatus } from '@/domain/value-objects/OrderStatusTransitions';
 import { groupByStatus, filterOrders, formatDate, formatCurrency } from '@/app/dashboard/pista/utils';
 import { KANBAN_COLUMNS, STATUS_CONFIG } from '@/app/dashboard/pista/config';
 import type { PistaOrder, OrderStatus } from '@/app/dashboard/pista/types';
@@ -12,7 +13,7 @@ import { ValidationError } from '@/domain/errors/DomainError';
 // Inline reimplementation of isValidTransition to test the domain data directly
 // (mirrors the logic in UpdatePistaStatus.ts / utils.ts)
 function isValidTransition(from: string, to: string): boolean {
-  return VALID_TRANSITIONS[from]?.includes(to as any) ?? false;
+  return VALID_TRANSITIONS[from]?.includes(to as PistaStatus) ?? false;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,7 +61,7 @@ describe('Kanban Property Tests', () => {
         fc.constantFrom(...PISTA_STATUSES),
         (from, to) => {
           const result = isValidTransition(from, to);
-          const expected = VALID_TRANSITIONS[from]?.includes(to as any) ?? false;
+          const expected = VALID_TRANSITIONS[from]?.includes(to as PistaStatus) ?? false;
           return result === expected;
         }
       ),
@@ -345,9 +346,9 @@ describe('Kanban Property Tests', () => {
 
     await fc.assert(
       fc.asyncProperty(
-        fc.string().filter(s => !VALID_STATUSES.has(s as any)),
+        fc.string().filter(s => !VALID_STATUSES.has(s as unknown as PistaStatus)),
         async (invalidStatus) => {
-          const useCase = new UpdatePistaStatus(mockRepo as any);
+          const useCase = new UpdatePistaStatus(mockRepo as unknown as ConstructorParameters<typeof UpdatePistaStatus>[0]);
           await expect(useCase.execute('any-id', invalidStatus, 'user-1'))
             .rejects.toBeInstanceOf(ValidationError);
           // Confirm no DB call was made
