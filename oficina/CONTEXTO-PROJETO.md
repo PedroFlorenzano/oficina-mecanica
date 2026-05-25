@@ -753,8 +753,143 @@ OS concluída → ADMIN clica "Emitir NF" → escolhe NFE (produtos) ou NFSE (se
 // StockItem — novo campo:
 supplier  String?
 
-// StockMovement — novo campo:
+// StockMovement — novos campos:
 supplier  String?
+unitCost  Float?    // Custo unitário no momento da movimentação (para relatórios e NF-e)
 ```
 
-*Última atualização: 25/05/2026 — Melhorias de estoque: localização visível, fornecedor no item/entrada/OS/PDF, auto-vinculação de peças.*
+---
+
+## Auditoria e Correções de Segurança (25/05/2026)
+
+### Bugs de UI corrigidos
+
+1. **Combobox cortado na OS** — O dropdown era cortado pelo `overflow-hidden` do container da reclamação. Corrigido com `createPortal` para renderizar no `document.body` com posicionamento dinâmico (scroll/resize aware).
+
+2. **Navegação quebrada (botão voltar)** — Múltiplas causas corrigidas:
+   - `router.replace` em vez de `router.push` no login e após salvar formulários
+   - `Link` em vez de `router.back()` para navegação explícita
+   - `staleTimes.dynamic: 0` no `next.config.ts` (desabilita Router Cache stale)
+   - `error.tsx` e `not-found.tsx` no dashboard para evitar tela vazia
+
+### Correções críticas de segurança e integridade
+
+| Problema | Correção |
+|----------|----------|
+| `createWithComplaints` sem transação (dados parciais) | Envolvido em `prisma.$transaction` |
+| Race condition no nº da OS (duplicados) | `getNextNumber` dentro da mesma transação |
+| Webhook WhatsApp sem validação de origem | Verifica `apikey` header (`WEBHOOK_SECRET` ou `EVOLUTION_API_KEY`) |
+| Rota reminders aberta sem `CRON_SECRET` | Retorna 503 se não configurado |
+| Reserva de estoque silenciosa | Retorna `stockWarnings` na resposta da API |
+| 13+ páginas sem verificar `res.ok` | Adicionado em todas as páginas client |
+| Query SQLite-specific (`active = 1`) | Prisma `findMany` + filtro em memória (portável) |
+| Tipagem `any` no repositório de OS | Tipos Prisma concretos (`OrderDetail`, `OrderWithClient`, `ActiveOrder`) |
+| Testes não compilando (campo supplier) | Corrigido em todos os mocks |
+
+### Novos arquivos de infraestrutura
+
+- `src/app/dashboard/error.tsx` — Error boundary do dashboard
+- `src/app/dashboard/not-found.tsx` — Página 404 do dashboard
+- `src/lib/useAuthFetch.ts` — Hook para fetch com redirect em 401
+
+---
+
+## Análise Financeira e Correções (25/05/2026)
+
+### Cálculos validados (corretos)
+
+- **totalAmount da OS** = soma de serviços + (qtd × unitPrice) por reclamação ✓
+- **CMP** = `(saldo × avgCost + qtd × unitCost) / novoSaldo` com arredondamento 2 casas ✓
+- **Comissão** = `Math.round(price × rate) / 100` com snapshot do rate ✓
+- **totalCommission** = soma item a item (pode ter ±1 centavo vs cálculo global) ✓
+
+### Bugs financeiros corrigidos
+
+| Problema | Impacto | Correção |
+|----------|---------|----------|
+| NF-e incluía peças com `used=false` | Nota fiscal com valor maior que o real | Filtro `p.used !== false` no `IssueFiscalInvoice` |
+| `StockMovement` não gravava custo no momento | Relatório de lucro bruto incorreto | Novo campo `unitCost` (Float?) gravado em todas as movimentações |
+| Relatório usava `avgCost` atual | Lucro bruto distorcido | Usa `m.unitCost ?? m.stockItem.avgCost` (fallback para dados antigos) |
+
+### Schema adicionado
+
+```prisma
+// StockMovement — novo campo:
+unitCost  Float?  // Custo unitário no momento da movimentação
+```
+
+### Testes financeiros criados (23 testes)
+
+- `CreateOrder.financial.test.ts` — 4 testes de totalAmount
+- `RegisterStockEntry.financial.test.ts` — 8 testes de CMP
+- `GenerateCommission.financial.test.ts` — 5 testes de comissões
+- `IssueFiscalInvoice.financial.test.ts` — 6 testes de NF-e/NFS-e
+
+---
+
+## Edição de OS em WAITING_APPROVAL (25/05/2026)
+
+### O que foi construído
+
+Permite editar uma OS que ainda está aguardando aprovação do cliente. O atendente pode remover reclamações inteiras, serviços ou peças que o cliente não aprovou, e o sistema recalcula tudo automaticamente.
+
+### Regras de negócio
+
+- **Só edita em WAITING_APPROVAL** — qualquer outro status rejeita com erro
+- **Mínimo 1 reclamação** com ao menos 1 serviço com preço > 0
+- **Recalcula totalAmount** automaticamente
+- **Reverte reservas de estoque** das peças removidas
+- **Reserva estoque** das novas peças adicionadas
+- **Comissões não são afetadas** (só existem para OS COMPLETED/DELIVERED)
+- **Retorna `stockWarnings`** se alguma reserva falhar (saldo insuficiente)
+
+### Fluxo
+
+```
+Cliente não aprova serviço → Atendente clica "Editar Orçamento" na OS
+→ Tela de edição com dados atuais preenchidos
+→ Remove reclamação/serviço/peça indesejada
+→ Salvar → PUT /api/orders/[id]
+→ Reverte reservas antigas → Substitui dados → Recalcula total → Reserva novas peças
+→ Volta para detalhe da OS com valores atualizados
+```
+
+### Arquivos criados/modificados
+
+- `src/application/dtos/UpdateOrderDTO.ts` — DTO de edição
+- `src/application/use-cases/orders/UpdateOrder.ts` — Use case com validações
+- `src/app/api/orders/[id]/route.ts` — Rota PUT adicionada
+- `src/infrastructure/repositories/PrismaServiceOrderRepository.ts` — Método `replaceComplaints` com `$transaction`
+- `src/domain/repositories/IServiceOrderRepository.ts` — Interface atualizada
+- `src/app/dashboard/orders/[id]/edit/page.tsx` — Tela de edição (formulário completo)
+- `src/app/dashboard/orders/[id]/page.tsx` — Botão "Editar Orçamento" (só em WAITING_APPROVAL)
+
+### API
+
+| Rota | Método | Ação | Condição |
+|------|--------|------|----------|
+| `/api/orders/[id]` | PUT | Editar OS completa | Apenas WAITING_APPROVAL |
+
+### Testes
+
+- `UpdateOrder.test.ts` — 10 testes cobrindo validações, cálculos e fluxo de estoque
+
+---
+
+## Contagem de Testes
+
+**Total: 212 testes unitários passando** (24 suites)
+
+| Módulo | Testes |
+|--------|--------|
+| Timer (cronômetro) | 86 + 7 properties |
+| Comissões | 31 + 5 financeiros |
+| Estoque | 8 + 8 financeiros |
+| OS (criação/cancelamento/edição) | 4 + 10 + 4 financeiros |
+| NF-e | 6 financeiros |
+| Clientes/Veículos | 6 |
+| Kanban | 7 properties |
+| TimerControl (componente) | 9 |
+| Imutabilidade StockMovement | 3 |
+
+*Última atualização: 25/05/2026 — Auditoria de segurança, correções financeiras, edição de OS em WAITING_APPROVAL, 212 testes passando.*

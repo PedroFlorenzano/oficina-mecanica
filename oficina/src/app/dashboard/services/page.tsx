@@ -23,10 +23,16 @@ export default function ServicesPage() {
 
   const fetchServices = async () => {
     setLoading(true);
-    const res = await fetch("/api/services");
-    const data = await res.json();
-    setServices(data);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/services");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setServices(data);
+    } catch {
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchServices(); }, []);

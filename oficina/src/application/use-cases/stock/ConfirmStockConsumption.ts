@@ -40,6 +40,7 @@ export class ConfirmStockConsumption {
         stockItemId: part.stockItemId,
         document: null,
         supplier: null,
+        unitCost: item.avgCost,
       });
     }
 

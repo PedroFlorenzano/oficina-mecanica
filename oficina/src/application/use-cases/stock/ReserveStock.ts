@@ -39,6 +39,7 @@ export class ReserveStock {
       stockItemId,
       document: null,
       supplier: null,
+      unitCost: item.avgCost,
     });
 
     await this.stockItemRepo.update(stockItemId, { quantity: balanceAfter });

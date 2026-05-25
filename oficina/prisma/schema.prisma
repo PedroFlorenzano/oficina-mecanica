@@ -241,6 +241,7 @@ model StockMovement {
   reason        String
   document      String?
   supplier      String?
+  unitCost      Float?
   orderId       String?
   balanceBefore Int          @default(0)
   balanceAfter  Int          @default(0)

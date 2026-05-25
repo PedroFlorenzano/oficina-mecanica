@@ -31,19 +31,24 @@ export default function StockPage() {
 
   const fetchItems = async () => {
     setLoading(true);
-    const [itemsRes, alertsRes] = await Promise.all([
-      fetch("/api/stock"),
-      fetch("/api/stock/alerts"),
-    ]);
-    const itemsData = await itemsRes.json();
-    setItems(itemsData);
-
-    if (alertsRes.ok) {
-      const alertsData = await alertsRes.json();
-      setLowStockItems(Array.isArray(alertsData) ? alertsData : []);
+    try {
+      const [itemsRes, alertsRes] = await Promise.all([
+        fetch("/api/stock"),
+        fetch("/api/stock/alerts"),
+      ]);
+      if (itemsRes.ok) {
+        const itemsData = await itemsRes.json();
+        setItems(itemsData);
+      }
+      if (alertsRes.ok) {
+        const alertsData = await alertsRes.json();
+        setLowStockItems(Array.isArray(alertsData) ? alertsData : []);
+      }
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   useEffect(() => {

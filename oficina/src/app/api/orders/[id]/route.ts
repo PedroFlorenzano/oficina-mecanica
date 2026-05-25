@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { container } from "@/infrastructure/container";
 import { UpdateOrderStatus } from "@/application/use-cases/orders/UpdateOrderStatus";
+import { UpdateOrder } from "@/application/use-cases/orders/UpdateOrder";
 import { CancelOrder } from "@/application/use-cases/orders/CancelOrder";
 import { ReverseStockReservations } from "@/application/use-cases/stock/ReverseStockReservations";
 import { ConfirmStockConsumption } from "@/application/use-cases/stock/ConfirmStockConsumption";
@@ -63,6 +64,29 @@ export async function PATCH(
     const useCase = new UpdateOrderStatus(container.orderRepository, confirmStockConsumption);
     const updated = await useCase.execute(id, body.status, userId);
     return NextResponse.json(updated);
+  } catch (error) {
+    if (error instanceof Response) return error;
+    return handleError(error);
+  }
+}
+
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const { id } = await params;
+    const body = await request.json();
+
+    const useCase = new UpdateOrder(
+      container.orderRepository,
+      container.stockItemRepository,
+      container.stockMovementRepository
+    );
+    const result = await useCase.execute(id, body, tenantId);
+    return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Response) return error;
     return handleError(error);

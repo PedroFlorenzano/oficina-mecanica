@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, X } from "lucide-react";
 
 export interface ComboboxOption {
@@ -40,6 +41,7 @@ export default function Combobox({
 }: ComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -50,10 +52,37 @@ export default function Combobox({
       (opt.sublabel && opt.sublabel.toLowerCase().includes(value.toLowerCase()))
   );
 
+  // Update dropdown position when open
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) return;
+
+    const updatePosition = () => {
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect();
+        setDropdownPos({
+          top: rect.bottom + window.scrollY,
+          left: rect.left + window.scrollX,
+          width: rect.width,
+        });
+      }
+    };
+
+    updatePosition();
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [isOpen]);
+
   // Close on outside click
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current && !containerRef.current.contains(e.target as Node) &&
+        listRef.current && !listRef.current.contains(e.target as Node)
+      ) {
         setIsOpen(false);
         setHighlightedIndex(-1);
       }
@@ -181,12 +210,13 @@ export default function Combobox({
         </div>
       </div>
 
-      {/* Dropdown */}
-      {isOpen && (
+      {/* Dropdown via portal to escape overflow:hidden containers */}
+      {isOpen && typeof document !== "undefined" && createPortal(
         <ul
           ref={listRef}
           role="listbox"
-          className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg 
+          style={{ position: "absolute", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+          className="z-[9999] bg-white border border-slate-200 rounded-lg shadow-lg 
             max-h-60 overflow-y-auto overscroll-contain custom-scrollbar"
         >
           {filtered.length === 0 ? (
@@ -229,7 +259,8 @@ export default function Combobox({
               </li>
             ))
           )}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

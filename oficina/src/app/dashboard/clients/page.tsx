@@ -30,13 +30,19 @@ export default function ClientsPage() {
 
   const fetchClients = async (query = "", inactive = showInactive) => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (query) params.set("search", query);
-    if (inactive) params.set("includeInactive", "true");
-    const res = await fetch(`/api/clients?${params.toString()}`);
-    const data = await res.json();
-    setClients(data);
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (query) params.set("search", query);
+      if (inactive) params.set("includeInactive", "true");
+      const res = await fetch(`/api/clients?${params.toString()}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setClients(data);
+    } catch {
+      setClients([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {

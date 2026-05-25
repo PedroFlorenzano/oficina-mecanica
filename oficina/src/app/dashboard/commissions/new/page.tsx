@@ -21,10 +21,11 @@ export default function NewCommissionPage() {
 
   useEffect(() => {
     fetch("/api/users")
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) return []; return r.json(); })
       .then((users) =>
-        setMechanics(users.filter((u: any) => u.role === "MECHANIC" && u.active))
-      );
+        setMechanics(Array.isArray(users) ? users.filter((u: any) => u.role === "MECHANIC" && u.active) : [])
+      )
+      .catch(() => {});
   }, []);
 
   const selectedMechanic = mechanics.find((m) => m.id === mechanicId);
@@ -48,7 +49,7 @@ export default function NewCommissionPage() {
     }
 
     const commission = await res.json();
-    router.push(`/dashboard/commissions/${commission.id}`);
+    router.replace(`/dashboard/commissions/${commission.id}`);
   }
 
   return (

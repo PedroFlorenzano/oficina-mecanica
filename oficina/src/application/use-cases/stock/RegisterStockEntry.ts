@@ -44,6 +44,7 @@ export class RegisterStockEntry {
         reason: input.reason ?? "Entrada de estoque",
         document: input.document ?? null,
         supplier: input.supplier ?? null,
+        unitCost: input.unitCost,
         orderId: null,
         balanceBefore,
         balanceAfter,

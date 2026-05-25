@@ -36,6 +36,7 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/users");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       setUsers(data);
     } catch {

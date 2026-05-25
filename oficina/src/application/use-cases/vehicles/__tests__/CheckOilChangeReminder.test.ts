@@ -44,6 +44,7 @@ const makeOrderRepo = (oilOrders: { mileage: number; createdAt: Date }[]): IServ
   findByVehicleId: jest.fn(),
   findOilChangeOrders: jest.fn().mockResolvedValue(oilOrders),
   cancel: jest.fn(),
+  replaceComplaints: jest.fn(),
 });
 
 describe("CheckOilChangeReminder", () => {

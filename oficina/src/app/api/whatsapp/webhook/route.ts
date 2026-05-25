@@ -11,9 +11,22 @@ const STATUS_MAP: Record<string, string> = {
   FAILED: "FAILED",
 };
 
-// Rota pública — Evolution API não envia auth headers
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || process.env.EVOLUTION_API_KEY || "";
+
+// Rota pública — Evolution API envia webhook com apikey no header
 export async function POST(request: NextRequest) {
   try {
+    // Validar origem: verificar apikey header ou query param
+    if (WEBHOOK_SECRET) {
+      const apikey = request.headers.get("apikey") || request.nextUrl.searchParams.get("apikey");
+      if (apikey !== WEBHOOK_SECRET) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else {
+      // Se nenhum secret configurado, rejeitar por segurança
+      return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+    }
+
     const body = await request.json();
 
     // Evolution API v2 envia evento "messages.update" com array de status

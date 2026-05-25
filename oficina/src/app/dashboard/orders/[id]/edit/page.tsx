@@ -1,20 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { Combobox, ComboboxOption } from "@/components/ui";
-
-interface Client {
-  id: string;
-  name: string;
-  document: string;
-  phone: string | null;
-  email: string | null;
-  address: string | null;
-  vehicles: { id: string; plate: string; brand: string; model: string; year: number; color: string | null; mileage: number }[];
-}
 
 interface CatalogService {
   id: string;
@@ -56,60 +46,70 @@ interface ComplaintItem {
   expanded: boolean;
 }
 
-export default function NewOrderPage() {
+interface OrderData {
+  id: string;
+  number: number;
+  status: string;
+  notes: string | null;
+  client: { name: string };
+  vehicle: { plate: string; brand: string; model: string };
+  complaints: {
+    description: string;
+    services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null }[];
+    parts: { description: string; quantity: number; unitPrice: number; totalPrice: number; stockItemId?: string | null; stockItem?: { brand?: string | null } | null }[];
+  }[];
+}
+
+export default function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
   const router = useRouter();
-  const [clients, setClients] = useState<Client[]>([]);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [vehicleId, setVehicleId] = useState("");
-  const [mileageIn, setMileageIn] = useState(0);
-  const [complaints, setComplaints] = useState<ComplaintItem[]>([
-    { description: "", services: [{ description: "", price: 0, timeMinutes: 0 }], parts: [], expanded: true },
-  ]);
+
+  const [order, setOrder] = useState<OrderData | null>(null);
+  const [complaints, setComplaints] = useState<ComplaintItem[]>([]);
+  const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
-  const [clientSearch, setClientSearch] = useState("");
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
-  const clientAbortRef = useRef<AbortController | null>(null);
 
+  // Carregar dados da OS + catálogos
   useEffect(() => {
-    fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }).then(setCatalogServices).catch(() => {});
-    fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }).then(setStockItems).catch(() => {});
-  }, []);
+    Promise.all([
+      fetch(`/api/orders/${id}`).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }),
+      fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }),
+    ]).then(([orderData, services, stock]) => {
+      setOrder(orderData);
+      setCatalogServices(services);
+      setStockItems(stock);
+      setNotes(orderData.notes || "");
 
-  useEffect(() => {
-    clientAbortRef.current?.abort();
-    const controller = new AbortController();
-    clientAbortRef.current = controller;
-
-    const url = clientSearch.length >= 2
-      ? `/api/clients?search=${encodeURIComponent(clientSearch)}`
-      : clientSearch.length === 0 && !selectedClient
-        ? "/api/clients"
-        : null;
-
-    if (url) {
-      fetch(url, { signal: controller.signal })
-        .then((res) => { if (!res.ok) return []; return res.json(); })
-        .then(setClients)
-        .catch(() => {});
-    }
-
-    return () => controller.abort();
-  }, [clientSearch, selectedClient]);
-
-  const selectClient = (client: Client) => {
-    setSelectedClient(client);
-    setClientSearch(client.name);
-    setVehicleId("");
-  };
-
-  const clientOptions: ComboboxOption[] = clients.map((c) => ({
-    id: c.id,
-    label: c.name,
-    sublabel: `${c.document} • ${c.phone || ""}`,
-  }));
+      // Preencher formulário com dados atuais
+      setComplaints(
+        orderData.complaints.map((c: any) => ({
+          description: c.description,
+          services: c.services.map((s: any) => ({
+            description: s.description,
+            price: s.price,
+            timeMinutes: s.timeMinutes || 0,
+            serviceId: s.serviceId || undefined,
+          })),
+          parts: c.parts.map((p: any) => ({
+            description: p.description,
+            brand: p.stockItem?.brand || "",
+            quantity: p.quantity,
+            unitPrice: p.unitPrice,
+            stockItemId: p.stockItemId || undefined,
+          })),
+          expanded: true,
+        }))
+      );
+    }).catch(() => {
+      setError("Erro ao carregar OS");
+    }).finally(() => setLoading(false));
+  }, [id]);
 
   const serviceOptions: ComboboxOption[] = catalogServices.map((s) => ({
     id: s.id,
@@ -151,7 +151,6 @@ export default function NewOrderPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedClient || !vehicleId) { setError("Selecione um cliente e veículo"); return; }
     const validComplaints = complaints.filter(c => c.description.trim());
     if (validComplaints.length === 0) { setError("Adicione ao menos uma reclamação com descrição"); return; }
     if (!validComplaints.some(c => c.services.some(s => s.description && s.price > 0))) {
@@ -159,13 +158,11 @@ export default function NewOrderPage() {
     }
     setSaving(true);
     setError("");
-    const res = await fetch("/api/orders", {
-      method: "POST",
+    const res = await fetch(`/api/orders/${id}`, {
+      method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        clientId: selectedClient.id,
-        vehicleId,
-        mileage: mileageIn,
+        notes,
         complaints: validComplaints.map(c => ({
           description: c.description,
           services: c.services.filter(s => s.description).map(s => ({
@@ -183,17 +180,29 @@ export default function NewOrderPage() {
         })),
       }),
     });
-    if (!res.ok) { const data = await res.json(); setError(data.error || "Erro ao criar OS"); setSaving(false); return; }
-    router.replace("/dashboard/orders");
+    if (!res.ok) { const data = await res.json(); setError(data.error || "Erro ao salvar OS"); setSaving(false); return; }
+    router.replace(`/dashboard/orders/${id}`);
   };
 
-  const selectedVehicle = selectedClient?.vehicles.find(v => v.id === vehicleId);
+  if (loading) return <div className="p-6 text-slate-500">Carregando...</div>;
+  if (!order) return <div className="p-6 text-red-600">OS não encontrada</div>;
+  if (order.status !== "WAITING_APPROVAL") {
+    return (
+      <div className="p-6">
+        <p className="text-red-600 mb-4">Esta OS não pode ser editada (status: {order.status})</p>
+        <Link href={`/dashboard/orders/${id}`} className="text-blue-600 hover:underline">← Voltar</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl">
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/dashboard/orders" className="text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
-        <h1 className="text-2xl font-bold text-slate-800">Orçamento de O.S.</h1>
+        <Link href={`/dashboard/orders/${id}`} className="text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Editar Orçamento — OS #{order.number}</h1>
+          <p className="text-sm text-slate-500">{order.client.name} • {order.vehicle.plate} {order.vehicle.brand} {order.vehicle.model}</p>
+        </div>
       </div>
 
       {error && (
@@ -201,94 +210,18 @@ export default function NewOrderPage() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-
-        {/* CLIENTE */}
+        {/* Observações */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">CLIENTE</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="md:col-span-2">
-              <Combobox
-                options={clientOptions}
-                value={clientSearch}
-                onChange={(val) => {
-                  setClientSearch(val);
-                  if (selectedClient && val !== selectedClient.name) {
-                    setSelectedClient(null);
-                  }
-                }}
-                onSelect={(opt) => {
-                  const client = clients.find(c => c.id === opt.id);
-                  if (client) selectClient(client);
-                }}
-                placeholder="Buscar cliente..."
-                label="NOME"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">CPF/CNPJ</label>
-              <input type="text" readOnly value={selectedClient?.document || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">TELEFONE</label>
-              <input type="text" readOnly value={selectedClient?.phone || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">E-MAIL</label>
-              <input type="text" readOnly value={selectedClient?.email || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">ENDEREÇO</label>
-              <input type="text" readOnly value={selectedClient?.address || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-          </div>
+          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">OBSERVAÇÕES</h2>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Observações da OS..."
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[60px]"
+          />
         </div>
 
-        {/* VEÍCULO */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">VEÍCULO</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="md:col-span-2">
-              <label className="block text-xs font-medium text-slate-600 mb-1">VEÍCULO *</label>
-              <select value={vehicleId}
-                onChange={(e) => { setVehicleId(e.target.value); const v = selectedClient?.vehicles.find((v) => v.id === e.target.value); if (v) setMileageIn(v.mileage); }}
-                disabled={!selectedClient}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100">
-                <option value="">Selecione...</option>
-                {selectedClient?.vehicles.map((v) => (
-                  <option key={v.id} value={v.id}>{v.plate} - {v.brand} {v.model} ({v.year}) {v.color || ""}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">PLACA</label>
-              <input type="text" readOnly value={selectedVehicle?.plate || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">COR</label>
-              <input type="text" readOnly value={selectedVehicle?.color || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">KM ENTRADA *</label>
-              <input type="number" value={mileageIn || ""} onChange={(e) => setMileageIn(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">MARCA</label>
-              <input type="text" readOnly value={selectedVehicle?.brand || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">MODELO</label>
-              <input type="text" readOnly value={selectedVehicle?.model || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">ANO</label>
-              <input type="text" readOnly value={selectedVehicle?.year || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
-            </div>
-          </div>
-        </div>
-
-        {/* RECLAMAÇÕES DO CLIENTE */}
+        {/* RECLAMAÇÕES */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-800">RECLAMAÇÕES DO CLIENTE</h2>
@@ -299,10 +232,10 @@ export default function NewOrderPage() {
           </div>
 
           {complaints.map((complaint, ci) => (
-            <div key={ci} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-              {/* Complaint Header */}
+            <div key={ci} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
+              {/* Header */}
               <div
-                className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-200 cursor-pointer"
+                className="flex items-center justify-between px-5 py-3 bg-slate-50 border-b border-slate-200 cursor-pointer rounded-t-xl"
                 onClick={() => toggleComplaint(ci)}
               >
                 <div className="flex items-center gap-3">
@@ -322,7 +255,7 @@ export default function NewOrderPage() {
 
               {complaint.expanded && (
                 <div className="p-5 space-y-4">
-                  {/* Description */}
+                  {/* Descrição */}
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">DESCRIÇÃO DA RECLAMAÇÃO *</label>
                     <input type="text" value={complaint.description}
@@ -331,7 +264,7 @@ export default function NewOrderPage() {
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   </div>
 
-                  {/* Services within complaint */}
+                  {/* Serviços */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-700">Serviços</h3>
@@ -353,12 +286,7 @@ export default function NewOrderPage() {
                               const svc = catalogServices.find(sv => sv.id === opt.id);
                               if (svc) {
                                 const u = [...complaints];
-                                u[ci].services[si] = {
-                                  description: svc.description,
-                                  price: svc.defaultPrice,
-                                  timeMinutes: svc.estimatedTime || 0,
-                                  serviceId: svc.id,
-                                };
+                                u[ci].services[si] = { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id };
                                 setComplaints(u);
                               }
                             }}
@@ -366,16 +294,14 @@ export default function NewOrderPage() {
                           />
                           <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1">Preço (R$)</label>
-                            <input type="number" value={s.price || ""}
+                            <input type="number" value={s.price || ""} step="0.01"
                               onChange={(e) => { const u = [...complaints]; u[ci].services[si].price = Number(e.target.value); setComplaints(u); }}
-                              placeholder="Valor"
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Tempo (min)</label>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Tempo</label>
                             <input type="number" value={s.timeMinutes || ""}
                               onChange={(e) => { const u = [...complaints]; u[ci].services[si].timeMinutes = Number(e.target.value); setComplaints(u); }}
-                              placeholder="Min"
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           {complaint.services.length > 1 && (
@@ -387,7 +313,7 @@ export default function NewOrderPage() {
                     </div>
                   </div>
 
-                  {/* Parts within complaint */}
+                  {/* Peças */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-700">Peças</h3>
@@ -405,22 +331,14 @@ export default function NewOrderPage() {
                               value={p.description}
                               onChange={(val) => {
                                 const u = [...complaints];
-                                const current = u[ci].parts[pi];
-                                const matchedItem = stockItems.find(st => st.description === val);
-                                u[ci].parts[pi] = { ...current, description: val, stockItemId: matchedItem ? matchedItem.id : undefined };
+                                u[ci].parts[pi] = { ...u[ci].parts[pi], description: val, stockItemId: undefined };
                                 setComplaints(u);
                               }}
                               onSelect={(opt) => {
                                 const item = stockItems.find(st => st.id === opt.id);
                                 if (item) {
                                   const u = [...complaints];
-                                  u[ci].parts[pi] = {
-                                    description: item.description,
-                                    brand: item.brand || "",
-                                    quantity: 1,
-                                    unitPrice: item.sellPrice,
-                                    stockItemId: item.id,
-                                  };
+                                  u[ci].parts[pi] = { description: item.description, brand: item.brand || "", quantity: u[ci].parts[pi].quantity || 1, unitPrice: item.sellPrice, stockItemId: item.id };
                                   setComplaints(u);
                                 }
                               }}
@@ -430,19 +348,19 @@ export default function NewOrderPage() {
                               <label className="block text-xs font-medium text-slate-600 mb-1">Marca</label>
                               <input type="text" value={p.brand}
                                 onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].brand = e.target.value; setComplaints(u); }}
-                                placeholder="Marca" className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
+                                className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
                             <div>
                               <label className="block text-xs font-medium text-slate-600 mb-1">Qtd</label>
                               <input type="number" value={p.quantity || ""}
                                 onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].quantity = Number(e.target.value); setComplaints(u); }}
-                                placeholder="Qtd" className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
+                                className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
                             <div>
                               <label className="block text-xs font-medium text-slate-600 mb-1">R$ Unit</label>
-                              <input type="number" value={p.unitPrice || ""}
+                              <input type="number" value={p.unitPrice || ""} step="0.01"
                                 onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].unitPrice = Number(e.target.value); setComplaints(u); }}
-                                placeholder="R$ Unit" className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
+                                className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
                             <button type="button" onClick={() => { const u = [...complaints]; u[ci].parts = u[ci].parts.filter((_, idx) => idx !== pi); setComplaints(u); }}
                               className="text-red-400 hover:text-red-600 pb-1"><Trash2 size={14} /></button>
@@ -462,30 +380,21 @@ export default function NewOrderPage() {
           ))}
         </div>
 
-        {/* TOTAL GERAL */}
+        {/* TOTAL */}
         <div className="bg-white rounded-xl shadow-sm border-2 border-slate-300 p-5">
-          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">TOTAL</h2>
-          <div className="space-y-2">
-            {complaints.filter(c => c.description).map((c, i) => (
-              <div key={i} className="flex justify-between text-sm">
-                <span className="text-slate-600">Reclamação #{i + 1}: {c.description}</span>
-                <span className="font-medium text-slate-700">R$ {getComplaintTotal(c).toFixed(2)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between pt-3 border-t border-slate-200">
-              <span className="text-sm font-bold text-slate-800">TOTAL GERAL</span>
-              <span className="text-2xl font-bold text-green-600">R$ {totalGeral.toFixed(2)}</span>
-            </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm font-bold text-slate-800">TOTAL GERAL</span>
+            <span className="text-2xl font-bold text-green-600">R$ {totalGeral.toFixed(2)}</span>
           </div>
         </div>
 
-        {/* Submit */}
+        {/* Botões */}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm">
-            {saving ? "Criando OS..." : "Criar Ordem de Serviço"}
+            {saving ? "Salvando..." : "Salvar Alterações"}
           </button>
-          <Link href="/dashboard/orders"
+          <Link href={`/dashboard/orders/${id}`}
             className="px-6 py-3 border border-slate-300 rounded-lg hover:bg-slate-100 text-sm font-medium flex items-center">
             Cancelar
           </Link>

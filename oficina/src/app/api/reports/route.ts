@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 import { prisma } from "@/infrastructure/database/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,12 +17,12 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    const dateFilter: any = {};
+    const dateFilter: Prisma.DateTimeFilter = {};
     if (startDate) dateFilter.gte = new Date(startDate);
     if (endDate) dateFilter.lte = new Date(endDate + "T23:59:59.999Z");
     const hasDateFilter = startDate || endDate;
 
-    const orderWhere: any = { tenantId };
+    const orderWhere: Prisma.ServiceOrderWhereInput = { tenantId };
     if (hasDateFilter) orderWhere.createdAt = dateFilter;
 
     const [orders, completedOrders, cancelledCount, stockMovements] = await Promise.all([
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
           stockItem: { tenantId },
           ...(hasDateFilter ? { createdAt: dateFilter } : {}),
         },
-        select: { type: true, quantity: true, stockItem: { select: { avgCost: true, sellPrice: true } } },
+        select: { type: true, quantity: true, unitCost: true, stockItem: { select: { avgCost: true, sellPrice: true } } },
       }),
     ]);
 
@@ -49,10 +50,10 @@ export async function GET(request: NextRequest) {
     const totalRevenue = completedOrders.reduce((s, o) => s + o.totalAmount, 0);
     const avgTicket = completedOrders.length > 0 ? totalRevenue / completedOrders.length : 0;
 
-    // Custo de peças consumidas
+    // Custo de peças consumidas (usa unitCost gravado no momento do consumo, fallback para avgCost atual)
     const partsCost = stockMovements
       .filter(m => m.type === "CONSUMPTION")
-      .reduce((s, m) => s + m.quantity * m.stockItem.avgCost, 0);
+      .reduce((s, m) => s + m.quantity * (m.unitCost ?? m.stockItem.avgCost), 0);
 
     // Faturamento por status
     const byStatus: Record<string, { count: number; total: number }> = {};

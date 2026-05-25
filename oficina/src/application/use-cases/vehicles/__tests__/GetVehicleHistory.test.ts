@@ -56,6 +56,7 @@ const makeOrderRepo = (orders: OrderSummary[] = []): IServiceOrderRepository => 
   findByVehicleId: jest.fn().mockResolvedValue(orders),
   findOilChangeOrders: jest.fn(),
   cancel: jest.fn(),
+  replaceComplaints: jest.fn(),
 });
 
 describe("GetVehicleHistory", () => {

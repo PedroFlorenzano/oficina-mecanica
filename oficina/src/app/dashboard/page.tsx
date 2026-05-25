@@ -35,11 +35,13 @@ const statusConfig: Record<string, { label: string; color: string }> = {
 export default function DashboardPage() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/dashboard/summary")
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error("Falha ao carregar"); return r.json(); })
       .then(setSummary)
+      .catch(() => setError("Erro ao carregar dados do dashboard"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -77,6 +79,10 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-slate-800 mb-6">Dashboard</h1>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+      )}
 
       {/* Summary cards — clicáveis */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
