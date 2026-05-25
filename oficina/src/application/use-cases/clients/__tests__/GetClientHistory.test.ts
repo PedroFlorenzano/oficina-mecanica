@@ -56,6 +56,7 @@ const makeOrderRepo = (orders: OrderSummary[] = []): IServiceOrderRepository => 
   findByVehicleId: jest.fn(),
   findOilChangeOrders: jest.fn(),
   cancel: jest.fn(),
+  replaceComplaints: jest.fn(),
 });
 
 describe("GetClientHistory", () => {

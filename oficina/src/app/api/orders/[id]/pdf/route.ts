@@ -19,7 +19,7 @@ export async function GET(
     return new NextResponse(buffer as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="OS-${order.number}.pdf"`,
+        "Content-Disposition": `attachment; filename="OS-${order?.number ?? id}.pdf"`,
       },
     });
   } catch (error) {

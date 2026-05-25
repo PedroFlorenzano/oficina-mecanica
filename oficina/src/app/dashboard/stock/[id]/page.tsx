@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -218,12 +219,12 @@ export default function StockItemDetailPage() {
     return (
       <div className="p-6">
         <p className="text-red-600">Item não encontrado.</p>
-        <button
-          onClick={() => router.back()}
+        <Link
+          href="/dashboard/stock"
           className="mt-4 flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
         >
           <ArrowLeft size={16} /> Voltar
-        </button>
+        </Link>
       </div>
     );
   }
@@ -231,12 +232,12 @@ export default function StockItemDetailPage() {
   return (
     <div>
       <div className="mb-2">
-        <button
-          onClick={() => router.push("/dashboard/stock")}
+        <Link
+          href="/dashboard/stock"
           className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4"
         >
           <ArrowLeft size={15} /> Voltar ao Estoque
-        </button>
+        </Link>
       </div>
 
       <PageHeader

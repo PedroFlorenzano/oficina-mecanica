@@ -5,6 +5,7 @@ export interface StockMovementData {
   reason: string;
   document: string | null;
   supplier: string | null;
+  unitCost: number | null;
   orderId: string | null;
   balanceBefore: number;
   balanceAfter: number;

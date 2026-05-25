@@ -29,10 +29,16 @@ export default function VehiclesPage() {
 
   const fetchVehicles = async (query = "") => {
     setLoading(true);
-    const res = await fetch(`/api/vehicles?search=${encodeURIComponent(query)}`);
-    const data = await res.json();
-    setVehicles(data);
-    setLoading(false);
+    try {
+      const res = await fetch(`/api/vehicles?search=${encodeURIComponent(query)}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setVehicles(data);
+    } catch {
+      setVehicles([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { fetchVehicles(); }, []);

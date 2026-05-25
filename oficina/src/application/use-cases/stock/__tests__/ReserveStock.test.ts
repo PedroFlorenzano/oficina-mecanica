@@ -13,6 +13,7 @@ const makeItem = (overrides: Partial<StockItemData> = {}): StockItemData => ({
   minQuantity: 2,
   quantity: 10,
   location: null,
+  supplier: null,
   costPrice: 25.0,
   sellPrice: 45.0,
   avgCost: 25.0,

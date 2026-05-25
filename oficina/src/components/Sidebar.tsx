@@ -79,7 +79,7 @@ export default function Sidebar({ role }: SidebarProps) {
 
   useEffect(() => {
     fetch("/api/stock/alerts")
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) return []; return r.json(); })
       .then((data: unknown[]) => setAlertCount(Array.isArray(data) ? data.length : 0))
       .catch(() => {}); // falha silenciosa — não bloquear navegação
   }, []);

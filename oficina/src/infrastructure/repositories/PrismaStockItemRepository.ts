@@ -24,15 +24,12 @@ export class PrismaStockItemRepository implements IStockItemRepository {
   }
 
   async findLowStock(tenantId: string): Promise<StockItemData[]> {
-    // SQLite não suporta comparação entre colunas no where do Prisma — usar $queryRaw
-    const results = await prisma.$queryRaw<StockItemData[]>`
-      SELECT * FROM "StockItem"
-      WHERE "tenantId" = ${tenantId}
-        AND "active" = 1
-        AND "quantity" <= "minQuantity"
-      ORDER BY "description" ASC
-    `;
-    return results;
+    // Prisma não suporta comparação entre colunas — buscar ativos e filtrar em memória
+    const items = await prisma.stockItem.findMany({
+      where: { tenantId, active: true },
+      orderBy: { description: "asc" },
+    });
+    return items.filter((item) => item.quantity <= item.minQuantity) as unknown as StockItemData[];
   }
 
   async count(tenantId: string): Promise<number> {

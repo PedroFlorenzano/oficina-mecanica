@@ -60,9 +60,10 @@ export interface IServiceOrderRepository {
   getNextNumber(tenantId: string): Promise<number>;
   createWithComplaints(data: CreateOrderData): Promise<any>;
   createLegacy(data: LegacyCreateOrderData): Promise<any>;
-  updateStatus(id: string, status: string, userId: string): Promise<any>;
+  updateStatus(id: string, status: string, userId: string): Promise<OrderData | null>;
+  replaceComplaints(orderId: string, tenantId: string, complaints: ComplaintInput[], totalAmount: number, notes: string | null): Promise<any>;
   findByClientId(clientId: string, tenantId: string): Promise<OrderSummary[]>;
   findByVehicleId(vehicleId: string, tenantId: string): Promise<OrderSummary[]>;
   findOilChangeOrders(vehicleId: string, tenantId: string): Promise<{ mileage: number; createdAt: Date }[]>;
-  cancel(id: string, reason: string, userId: string): Promise<any>;
+  cancel(id: string, reason: string, userId: string): Promise<OrderData | null>;
 }

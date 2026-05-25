@@ -27,7 +27,7 @@ export default function LoginForm() {
     if (result?.error) {
       setError("E-mail ou senha inválidos");
     } else {
-      router.push("/dashboard");
+      router.replace("/dashboard");
     }
   }
 

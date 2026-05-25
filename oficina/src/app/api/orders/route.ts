@@ -34,6 +34,7 @@ export async function POST(request: NextRequest) {
       ...(body.parts || []),
     ];
 
+    const stockWarnings: string[] = [];
     for (const part of allParts) {
       if (part.stockItemId) {
         try {
@@ -42,15 +43,17 @@ export async function POST(request: NextRequest) {
             container.stockMovementRepository
           );
           await reserveStock.execute(part.stockItemId, part.quantity, order.id, tenantId);
-        } catch {
-          // TODO: integrar com alertas de WhatsApp
-          // Não cancela a OS — apenas registra o erro de reserva
-          console.warn(`Falha ao reservar estoque para item ${part.stockItemId} na OS ${order.id}`);
+        } catch (err: unknown) {
+          const msg = err instanceof Error ? err.message : "Erro desconhecido";
+          stockWarnings.push(`${part.description || part.stockItemId}: ${msg}`);
         }
       }
     }
 
-    return NextResponse.json(order, { status: 201 });
+    return NextResponse.json(
+      { ...order, stockWarnings: stockWarnings.length > 0 ? stockWarnings : undefined },
+      { status: 201 }
+    );
   } catch (error) {
     if (error instanceof Response) return error;
     return handleError(error);

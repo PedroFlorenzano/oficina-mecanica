@@ -29,11 +29,14 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/orders")
-      .then((res) => res.json())
-      .then((data) => { setOrders(data); setLoading(false); });
+      .then((res) => { if (!res.ok) throw new Error("Falha ao carregar"); return res.json(); })
+      .then((data) => { setOrders(data); })
+      .catch(() => setError("Erro ao carregar ordens de serviço"))
+      .finally(() => setLoading(false));
   }, []);
 
   const filtered = orders.filter((o) => {
@@ -63,6 +66,9 @@ export default function OrdersPage() {
 
   return (
     <div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+      )}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Ordens de Serviço</h1>
         <div className="flex items-center gap-3">

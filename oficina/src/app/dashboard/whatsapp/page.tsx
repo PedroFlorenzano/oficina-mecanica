@@ -12,8 +12,9 @@ export default function WhatsAppConfigPage() {
 
   useEffect(() => {
     fetch("/api/whatsapp/config")
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
       .then((data) => { setConfig({ phoneNumberId: data.phoneNumberId || "", accessToken: data.accessToken || "", businessName: data.businessName || "", enabled: data.enabled || false }); })
+      .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
 

@@ -39,13 +39,14 @@ export default function VehicleHistoryPage({ params }: { params: Promise<{ id: s
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/vehicles/${id}`).then((r) => r.json()),
-      fetch(`/api/vehicles/${id}/history`).then((r) => r.json()),
+      fetch(`/api/vehicles/${id}`).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(`/api/vehicles/${id}/history`).then((r) => { if (!r.ok) return []; return r.json(); }),
     ]).then(([vehicleData, ordersData]) => {
       setVehicle(vehicleData);
       setOrders(Array.isArray(ordersData) ? ordersData : []);
-      setLoading(false);
-    });
+    }).catch(() => {
+      setVehicle(null);
+    }).finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <p className="p-6 text-slate-500">Carregando...</p>;

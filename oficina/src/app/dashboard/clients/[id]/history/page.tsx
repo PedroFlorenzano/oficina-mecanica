@@ -37,13 +37,14 @@ export default function ClientHistoryPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     Promise.all([
-      fetch(`/api/clients/${id}`).then((r) => r.json()),
-      fetch(`/api/clients/${id}/history`).then((r) => r.json()),
+      fetch(`/api/clients/${id}`).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
+      fetch(`/api/clients/${id}/history`).then((r) => { if (!r.ok) return []; return r.json(); }),
     ]).then(([clientData, ordersData]) => {
       setClient(clientData);
       setOrders(Array.isArray(ordersData) ? ordersData : []);
-      setLoading(false);
-    });
+    }).catch(() => {
+      setClient(null);
+    }).finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <p className="p-6 text-slate-500">Carregando...</p>;

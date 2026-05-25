@@ -72,8 +72,10 @@ export default function CommissionDetailPage() {
 
   useEffect(() => {
     fetch(`/api/commissions/${id}`)
-      .then((r) => r.json())
-      .then((data) => { setCommission(data); setLoading(false); });
+      .then((r) => { if (!r.ok) throw new Error(); return r.json(); })
+      .then((data) => { setCommission(data); })
+      .catch(() => { setCommission(null); })
+      .finally(() => setLoading(false));
   }, [id]);
 
   const refetch = async () => {

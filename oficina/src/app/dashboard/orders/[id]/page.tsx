@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, Fragment } from "react";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText } from "lucide-react";
+import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil } from "lucide-react";
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
@@ -70,8 +70,10 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const fetchOrder = () => {
     fetch(`/api/orders/${id}`)
-      .then((r) => r.json())
-      .then((data) => { setOrder(data); setLoading(false); });
+      .then((r) => { if (!r.ok) throw new Error("Falha"); return r.json(); })
+      .then((data) => { setOrder(data); })
+      .catch(() => { setOrder(null); })
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => { fetchOrder(); }, [id]);
@@ -178,6 +180,14 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           >
             <Droplet size={16} /> Etiqueta Óleo
           </button>
+          {order.status === "WAITING_APPROVAL" && (
+            <Link
+              href={`/dashboard/orders/${order.id}/edit`}
+              className="flex items-center gap-2 px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg text-sm hover:bg-blue-100 text-blue-700"
+            >
+              <Pencil size={16} /> Editar Orçamento
+            </Link>
+          )}
           {order.status === "WAITING_APPROVAL" && (
             <button
               onClick={() => handleWhatsApp("approval")}

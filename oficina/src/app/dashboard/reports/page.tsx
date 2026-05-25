@@ -34,12 +34,17 @@ export default function ReportsPage() {
 
   const fetchData = useCallback(async (start?: string, end?: string) => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (start) params.set("startDate", start);
-    if (end) params.set("endDate", end);
-    const res = await fetch(`/api/reports?${params}`);
-    if (res.ok) setData(await res.json());
-    setLoading(false);
+    try {
+      const params = new URLSearchParams();
+      if (start) params.set("startDate", start);
+      if (end) params.set("endDate", end);
+      const res = await fetch(`/api/reports?${params}`);
+      if (res.ok) setData(await res.json());
+    } catch {
+      // silencioso
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

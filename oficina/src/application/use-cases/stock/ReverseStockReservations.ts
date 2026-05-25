@@ -28,6 +28,7 @@ export class ReverseStockReservations {
         stockItemId: reservation.stockItemId,
         document: null,
         supplier: null,
+        unitCost: reservation.unitCost ?? item.avgCost,
       });
 
       await this.stockItemRepo.update(reservation.stockItemId, {

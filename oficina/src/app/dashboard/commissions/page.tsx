@@ -65,17 +65,22 @@ export default function CommissionsPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const params = new URLSearchParams();
-    if (statusFilter) params.set("status", statusFilter);
+    try {
+      const params = new URLSearchParams();
+      if (statusFilter) params.set("status", statusFilter);
 
-    const [commRes, sumRes] = await Promise.all([
-      fetch(`/api/commissions?${params}`),
-      fetch("/api/commissions/summary"),
-    ]);
+      const [commRes, sumRes] = await Promise.all([
+        fetch(`/api/commissions?${params}`),
+        fetch("/api/commissions/summary"),
+      ]);
 
-    if (commRes.ok) setCommissions(await commRes.json());
-    if (sumRes.ok) setSummary(await sumRes.json());
-    setLoading(false);
+      if (commRes.ok) setCommissions(await commRes.json());
+      if (sumRes.ok) setSummary(await sumRes.json());
+    } catch {
+      // silencioso — dados ficam vazios
+    } finally {
+      setLoading(false);
+    }
   }, [statusFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);

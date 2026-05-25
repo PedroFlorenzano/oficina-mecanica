@@ -36,6 +36,7 @@ export class AdjustInventory {
         reason: input.reason.trim(),
         document: null,
         supplier: null,
+        unitCost: item.avgCost,
         orderId: null,
         balanceBefore,
         balanceAfter,

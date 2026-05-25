@@ -36,14 +36,14 @@ export async function GET(
         plate: order.vehicle.plate,
         mileage: order.mileage,
         notes: order.notes,
-        complaints: order.complaints.map((c: any) => ({
+        complaints: order.complaints.map((c: { number: number; description: string; services: { description: string; price: number }[]; parts: { description: string; quantity: number; unitPrice: number; totalPrice: number }[] }) => ({
           number: c.number,
           description: c.description,
-          services: c.services.map((s: any) => ({
+          services: c.services.map((s) => ({
             description: s.description,
             price: s.price,
           })),
-          parts: c.parts.map((p: any) => ({
+          parts: c.parts.map((p) => ({
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
