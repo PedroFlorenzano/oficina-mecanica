@@ -26,22 +26,21 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
+    setLoading(true);
     fetch("/api/orders")
       .then((res) => { if (!res.ok) throw new Error("Falha"); return res.json(); })
-      .then((data) => { if (!cancelled) setOrders(data); })
-      .catch(() => { if (!cancelled) setError("Erro ao carregar ordens de serviço"); });
-    return () => { cancelled = true; };
+      .then(setOrders)
+      .catch(() => setError("Erro ao carregar ordens de serviço"))
+      .finally(() => setLoading(false));
   }, []);
 
-  const loading = orders === null && !error;
-
-  const filtered = (orders || []).filter((o) => {
+  const filtered = orders.filter((o) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
