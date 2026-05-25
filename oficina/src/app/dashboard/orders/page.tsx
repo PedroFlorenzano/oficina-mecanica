@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Plus, ClipboardList, Search, Download } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Plus, ClipboardList, Search, Download, Filter } from "lucide-react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface Order {
@@ -30,15 +31,46 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
+  const router = useRouter();
+
+  const [showFilters, setShowFilters] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [mechanicId, setMechanicId] = useState("");
+  const [clientId, setClientId] = useState("");
+  const [mechanics, setMechanics] = useState<{ id: string; name: string }[]>([]);
+  const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
+    fetch("/api/users").then(r => r.json()).then(setMechanics).catch(() => {});
+    fetch("/api/clients").then(r => r.json()).then(setClients).catch(() => {});
+  }, []);
+
+  const fetchOrders = useCallback(() => {
     setLoading(true);
-    fetch("/api/orders")
+    const params = new URLSearchParams();
+    if (statusFilter) params.set("status", statusFilter);
+    if (startDate) params.set("startDate", startDate);
+    if (endDate) params.set("endDate", endDate);
+    if (mechanicId) params.set("mechanicId", mechanicId);
+    if (clientId) params.set("clientId", clientId);
+    const qs = params.toString();
+    fetch(`/api/orders${qs ? `?${qs}` : ""}`)
       .then((res) => { if (!res.ok) throw new Error("Falha"); return res.json(); })
       .then(setOrders)
       .catch(() => setError("Erro ao carregar ordens de serviço"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [statusFilter, startDate, endDate, mechanicId, clientId]);
+
+  useEffect(() => {
+    fetchOrders();
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) fetchOrders();
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, [fetchOrders]);
 
   const filtered = orders.filter((o) => {
     if (!search.trim()) return true;
@@ -93,16 +125,60 @@ export default function OrdersPage() {
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Busca */}
         <div className="px-4 py-3 border-b border-slate-100">
-          <div className="relative max-w-sm">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Buscar por nº, cliente ou placa..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+          <div className="flex items-center gap-3">
+            <div className="relative max-w-sm flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nº, cliente ou placa..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-1.5 px-3 py-2 border rounded-lg text-sm font-medium transition-colors ${showFilters ? "border-blue-300 bg-blue-50 text-blue-700" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+            >
+              <Filter size={14} />
+              Filtros
+            </button>
           </div>
+          {showFilters && (
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Status</label>
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="border border-slate-200 rounded-lg text-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Todos</option>
+                  {Object.entries(statusLabels).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">De</label>
+                <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="border border-slate-200 rounded-lg text-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Até</label>
+                <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="border border-slate-200 rounded-lg text-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Mecânico</label>
+                <select value={mechanicId} onChange={e => setMechanicId(e.target.value)} className="border border-slate-200 rounded-lg text-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Todos</option>
+                  {mechanics.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-slate-500 mb-1">Cliente</label>
+                <select value={clientId} onChange={e => setClientId(e.target.value)} className="border border-slate-200 rounded-lg text-sm px-2 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                  <option value="">Todos</option>
+                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <button onClick={fetchOrders} className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors">Aplicar</button>
+              <button onClick={() => { setStatusFilter(""); setStartDate(""); setEndDate(""); setMechanicId(""); setClientId(""); }} className="px-3 py-2 border border-slate-200 text-slate-600 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors">Limpar</button>
+            </div>
+          )}
         </div>
 
         {loading ? (
@@ -131,7 +207,7 @@ export default function OrdersPage() {
               {filtered.map((order) => {
                 const status = statusLabels[order.status] || { label: order.status, color: "bg-slate-100" };
                 return (
-                  <tr key={order.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => window.location.href = `/dashboard/orders/${order.id}`}>
+                  <tr key={order.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
                     <td className="px-4 py-3 font-mono font-medium text-slate-800">#{order.number}</td>
                     <td className="px-4 py-3 text-slate-700">{order.client.name}</td>
                     <td className="px-4 py-3 text-slate-600">{order.vehicle.plate} - {order.vehicle.model}</td>

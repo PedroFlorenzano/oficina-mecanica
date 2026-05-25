@@ -44,14 +44,36 @@ export interface UpdateCommissionStatusData {
   cancelReason?: string;
 }
 
+export interface CommissionData {
+  id: string;
+  mechanicId: string;
+  tenantId: string;
+  startDate: Date;
+  endDate: Date;
+  commissionRate: number;
+  totalBase: number;
+  totalCommission: number;
+  status: string;
+  approvedAt: Date | null;
+  approvedById: string | null;
+  paidAt: Date | null;
+  paidById: string | null;
+  cancelledAt: Date | null;
+  cancelledById: string | null;
+  cancelReason: string | null;
+  createdAt: Date;
+  mechanic?: { name: string };
+  items?: { id: string; orderServiceId: string; baseValue: number; commissionValue: number }[];
+}
+
 export interface ICommissionRepository {
-  create(data: CreateCommissionData): Promise<any>;
-  findById(id: string, tenantId: string): Promise<any | null>;
-  findByIdWithItems(id: string, tenantId: string): Promise<any | null>;
-  findAll(tenantId: string, filters: CommissionFilters): Promise<any[]>;
-  findByMechanic(mechanicId: string, tenantId: string, filters: CommissionFilters): Promise<any[]>;
-  findOverlapping(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<any | null>;
-  updateStatus(id: string, data: UpdateCommissionStatusData): Promise<any>;
+  create(data: CreateCommissionData): Promise<CommissionData>;
+  findById(id: string, tenantId: string): Promise<CommissionData | null>;
+  findByIdWithItems(id: string, tenantId: string): Promise<CommissionData | null>;
+  findAll(tenantId: string, filters: CommissionFilters): Promise<CommissionData[]>;
+  findByMechanic(mechanicId: string, tenantId: string, filters: CommissionFilters): Promise<CommissionData[]>;
+  findOverlapping(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<CommissionData | null>;
+  updateStatus(id: string, data: UpdateCommissionStatusData): Promise<CommissionData>;
   getEligibleServices(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<EligibleService[]>;
   getMechanicSummary(mechanicId: string, tenantId: string): Promise<CommissionSummary>;
 }

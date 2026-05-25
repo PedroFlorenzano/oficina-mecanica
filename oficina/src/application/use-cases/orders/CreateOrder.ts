@@ -1,4 +1,4 @@
-import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepository";
+import { IServiceOrderRepository, OrderData } from "@/domain/repositories/IServiceOrderRepository";
 import { IVehicleRepository } from "@/domain/repositories/IVehicleRepository";
 import { CreateOrderDTO } from "@/application/dtos/CreateOrderDTO";
 import { ValidationError } from "@/domain/errors/DomainError";
@@ -9,7 +9,7 @@ export class CreateOrder {
     private vehicleRepo: IVehicleRepository
   ) {}
 
-  async execute(input: CreateOrderDTO, tenantId: string, userId: string): Promise<any> {
+  async execute(input: CreateOrderDTO, tenantId: string, userId: string): Promise<OrderData | null> {
     if (!input.clientId || !input.vehicleId) {
       throw new ValidationError("Dados obrigatórios ausentes");
     }
@@ -21,7 +21,7 @@ export class CreateOrder {
       throw new ValidationError("Adicione ao menos uma reclamação ou serviço");
     }
 
-    let result: any;
+    let result: OrderData | null;
 
     if (hasComplaints) {
       let totalAmount = 0;

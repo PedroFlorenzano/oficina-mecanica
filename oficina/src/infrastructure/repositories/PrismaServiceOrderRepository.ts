@@ -1,8 +1,8 @@
 import { prisma } from "../database/prisma";
-import { IServiceOrderRepository, OrderData, OrderSummary, CreateOrderData, LegacyCreateOrderData } from "@/domain/repositories/IServiceOrderRepository";
-import { Prisma } from "@prisma/client";
+import { IServiceOrderRepository, OrderData, OrderDetail as IOrderDetail, ActiveOrder as IActiveOrder, OrderSummary, CreateOrderData, LegacyCreateOrderData, ComplaintInput } from "@/domain/repositories/IServiceOrderRepository";
+import { Prisma, OrderStatus } from "@prisma/client";
 
-type OrderDetail = Prisma.ServiceOrderGetPayload<{
+type PrismaOrderDetail = Prisma.ServiceOrderGetPayload<{
   include: {
     client: true;
     vehicle: true;
@@ -14,11 +14,11 @@ type OrderDetail = Prisma.ServiceOrderGetPayload<{
   };
 }>;
 
-type OrderWithClient = Prisma.ServiceOrderGetPayload<{
+type PrismaOrderWithClient = Prisma.ServiceOrderGetPayload<{
   include: { client: { select: { name: true } }; vehicle: { select: { plate: true; model: true } } };
 }>;
 
-type ActiveOrder = Prisma.ServiceOrderGetPayload<{
+type PrismaActiveOrder = Prisma.ServiceOrderGetPayload<{
   include: {
     client: { select: { name: true } };
     vehicle: { select: { plate: true; brand: true; model: true } };
@@ -28,7 +28,7 @@ type ActiveOrder = Prisma.ServiceOrderGetPayload<{
 }>;
 
 export class PrismaServiceOrderRepository implements IServiceOrderRepository {
-  async findById(id: string): Promise<OrderDetail | null> {
+  async findById(id: string): Promise<IOrderDetail | null> {
     return prisma.serviceOrder.findUnique({
       where: { id },
       include: {
@@ -60,7 +60,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     }) as unknown as OrderData[];
   }
 
-  async findActive(tenantId: string): Promise<ActiveOrder[]> {
+  async findActive(tenantId: string): Promise<IActiveOrder[]> {
     return prisma.serviceOrder.findMany({
       where: {
         tenantId,
@@ -85,7 +85,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     return (lastOrder?.number || 0) + 1;
   }
 
-  async createWithComplaints(data: CreateOrderData): Promise<OrderWithClient | null> {
+  async createWithComplaints(data: CreateOrderData): Promise<OrderData | null> {
     return prisma.$transaction(async (tx) => {
       // getNextNumber dentro da transação para evitar race condition
       const lastOrder = await tx.serviceOrder.findFirst({
@@ -171,7 +171,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     });
   }
 
-  async createLegacy(data: LegacyCreateOrderData): Promise<OrderWithClient> {
+  async createLegacy(data: LegacyCreateOrderData): Promise<OrderData> {
     const nextNumber = await this.getNextNumber(data.tenantId);
 
     const servicesTotal = data.services.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -225,11 +225,11 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     return prisma.serviceOrder.update({
       where: { id },
       data: {
-        status: status as any,
+        status: status as OrderStatus,
         statusHistory: {
           create: {
             fromStatus: order.status,
-            toStatus: status as any,
+            toStatus: status as OrderStatus,
             userId,
           },
         },
@@ -313,7 +313,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null }[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[] }[],
     totalAmount: number,
     notes: string | null
-  ): Promise<any> {
+  ): Promise<OrderData> {
     return prisma.$transaction(async (tx) => {
       // Deletar dados antigos (cascade não funciona em soft relations)
       await tx.orderPart.deleteMany({ where: { orderId } });
@@ -377,7 +377,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
           vehicle: { select: { plate: true, model: true } },
           complaints: { include: { services: true, parts: true } },
         },
-      });
+      }) as unknown as OrderData;
     });
   }
 }

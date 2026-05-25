@@ -9,7 +9,6 @@ export class GetClientHistory {
   ) {}
 
   async execute(clientId: string, tenantId: string): Promise<OrderSummary[]> {
-    // TODO: integrar com auth
     const client = await this.clientRepo.findById(clientId, tenantId);
     if (!client) {
       throw new NotFoundError("Cliente não encontrado");

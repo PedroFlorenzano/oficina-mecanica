@@ -893,4 +893,68 @@ Cliente não aprova serviço → Atendente clica "Editar Orçamento" na OS
 | TimerControl (componente) | 9 |
 | Imutabilidade StockMovement | 3 |
 
-*Última atualização: 25/05/2026 — Auditoria de segurança, correções financeiras, edição de OS em WAITING_APPROVAL, 212 testes passando.*
+*Última atualização: 25/05/2026 — Permissões customizáveis, filtros avançados OS, dashboard mecânico, PDF orçamento, lucro por OS, limpeza geral do projeto.*
+
+---
+
+## Melhorias implementadas (25/05/2026 — sessão 2)
+
+### Permissões Customizáveis por Usuário
+
+O ADMIN pode configurar quais telas e ações cada mecânico pode acessar, via tabela de checkboxes no formulário de edição de usuário.
+
+- **Campo:** `customPermissions` (JSON String?) no model `User`
+- **Formato:** `{"vehicles":["read","update"],"clients":["read"],"orders":["read"]}` — só os recursos com permissão são listados
+- **Propagação:** Login → JWT → Session → Sidebar
+- **Função:** `hasPermission(role, resource, permission, customPermissions?)` — se há custom para o recurso, usa; senão, fallback para a matriz padrão do role
+- **UI:** Tabela no UserForm com checkboxes por módulo × ação (Visualizar, Criar, Editar, Excluir)
+- **Recursos configuráveis:** Clientes, Veículos, OS, Estoque, Catálogo de Serviços, Pista, Comissões
+- **Efeito na Sidebar:** Módulos sem permissão "read" não aparecem no menu do mecânico
+
+### Relatório de Lucro por OS
+
+- **API:** `GET /api/reports` agora retorna `profitByOrder[]` com: id, number, client, plate, revenue, partsCost, profit, margin, date
+- **Cálculo:** `profit = totalAmount - Σ(peças consumidas × unitCost)` por OS
+- **UI:** Tabela na página de relatórios com margem colorida (verde ≥30%, amarelo ≥15%, vermelho <15%)
+
+### Filtros Avançados na Listagem de OS
+
+- **API:** `GET /api/orders` aceita query params: `status`, `startDate`, `endDate`, `mechanicId`, `clientId`
+- **UI:** Painel colapsável "Filtros" com: select de status, date range, select de mecânico, select de cliente
+- **Busca por texto:** Continua funcionando como filtro local sobre os resultados da API
+
+### Dashboard do Mecânico
+
+- **API:** `GET /api/dashboard/mechanic` — retorna OS atribuídas, cronômetros ativos, comissões pendentes
+- **UI:** Dashboard condicional por role — MECHANIC vê: cards de resumo, lista de cronômetros ativos, tabela de OS atribuídas
+- **ADMIN/ATTENDANT:** Continuam vendo o dashboard original
+
+### PDF de Orçamento Simplificado
+
+- **Componente:** `src/components/pdf/BudgetDocument.tsx` — versão limpa sem fornecedor, custo, histórico de status
+- **Rota:** `GET /api/orders/[id]/budget` — gera PDF inline
+- **UI:** Botão "Orçamento" na OS (só em WAITING_APPROVAL) com ícone FileText
+- **Conteúdo:** Título "ORÇAMENTO", cliente (nome + telefone), veículo, reclamações com serviços e peças (sem fornecedor), total, rodapé "Válido por 15 dias"
+
+### Correção de Bug — Listagem de OS
+
+- **Problema:** Ao abrir uma OS e clicar "voltar" no navegador, a grid ficava carregando infinitamente
+- **Causa:** `window.location.href` para navegação + `useEffect([])` não re-executava no bfcache
+- **Correção:** Trocado por `router.push()` + listener `pageshow` como fallback
+
+### Limpeza e Profissionalização do Projeto
+
+- Removida spec NestJS obsoleta (`.kiro/specs/oficina-mecanica-system/`)
+- Removidos arquivos temporários (screenshot GUID, CLAUDE.md, AGENTS.md, scripts de debug)
+- Removidos 8 TODOs obsoletos de auth nos use cases
+- Corrigido `DEMO_USER_ID` no CancelOrder (agora recebe userId real da sessão)
+- Criado `src/lib/permissions.ts` — Permission Guard RBAC completo
+- Tipados 79 dos 112 erros `no-explicit-any` (interfaces de domínio, repositórios, use cases, rotas)
+- Tasks.md atualizados para refletir estado real do projeto
+
+### Schema adicionado
+
+```prisma
+// User — novo campo:
+customPermissions  String?  // JSON: {"resource": ["read","create","update","delete"]}
+```

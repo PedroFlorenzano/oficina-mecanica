@@ -36,7 +36,7 @@ export async function sendText(to: string, text: string): Promise<SendTextResult
 
     const data = await res.json();
     return { success: true, messageId: data.key?.id };
-  } catch (err: any) {
-    return { success: false, error: err.message || "Erro de conexão com Evolution API" };
+  } catch (err: unknown) {
+    return { success: false, error: err instanceof Error ? err.message : "Erro de conexão com Evolution API" };
   }
 }

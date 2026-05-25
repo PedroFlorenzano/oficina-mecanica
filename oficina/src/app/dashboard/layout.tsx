@@ -29,12 +29,13 @@ export default async function DashboardLayout({
   if (!session) redirect("/login");
 
   const { name, role } = session.user;
+  const customPermissions = session.user.customPermissions;
   const initials = getInitials(name ?? "U");
   const label = roleLabel[role] ?? role;
 
   return (
     <div className="flex min-h-screen">
-      <Sidebar role={role} />
+      <Sidebar role={role} customPermissions={customPermissions} />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}
         <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0">

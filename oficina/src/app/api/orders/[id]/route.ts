@@ -47,7 +47,7 @@ export async function PATCH(
         container.stockMovementRepository
       );
       const useCase = new CancelOrder(container.orderRepository, reverseReservations);
-      const order = await useCase.execute(id, body.reason, tenantId);
+      const order = await useCase.execute(id, body.reason, tenantId, userId);
       return NextResponse.json(order);
     }
 

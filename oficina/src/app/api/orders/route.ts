@@ -2,15 +2,43 @@ import { NextRequest, NextResponse } from "next/server";
 import { container } from "@/infrastructure/container";
 import { CreateOrder } from "@/application/use-cases/orders/CreateOrder";
 import { ReserveStock } from "@/application/use-cases/stock/ReserveStock";
+import { ComplaintInput } from "@/domain/repositories/IServiceOrderRepository";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
 
-    const orders = await container.orderRepository.findAll(tenantId);
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const mechanicId = searchParams.get("mechanicId");
+    const clientId = searchParams.get("clientId");
+
+    const where: Record<string, unknown> = { tenantId };
+    if (status) where.status = status;
+    if (clientId) where.clientId = clientId;
+    if (startDate || endDate) {
+      where.createdAt = {
+        ...(startDate && { gte: new Date(startDate) }),
+        ...(endDate && { lte: new Date(endDate + "T23:59:59.999Z") }),
+      };
+    }
+    if (mechanicId) where.services = { some: { mechanicId } };
+
+    const { prisma } = await import("@/infrastructure/database/prisma");
+    const orders = await prisma.serviceOrder.findMany({
+      where,
+      include: {
+        client: { select: { name: true } },
+        vehicle: { select: { plate: true, model: true } },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+
     return NextResponse.json(orders);
   } catch (error) {
     if (error instanceof Response) return error;
@@ -28,9 +56,13 @@ export async function POST(request: NextRequest) {
     const useCase = new CreateOrder(container.orderRepository, container.vehicleRepository);
     const order = await useCase.execute(body, tenantId, userId);
 
+    if (!order) {
+      return NextResponse.json({ error: "Erro ao criar ordem de serviço" }, { status: 500 });
+    }
+
     // Reservar estoque para peças vinculadas a stockItemId
     const allParts = [
-      ...(body.complaints?.flatMap((c: any) => c.parts || []) || []),
+      ...(body.complaints?.flatMap((c: ComplaintInput) => c.parts || []) || []),
       ...(body.parts || []),
     ];
 

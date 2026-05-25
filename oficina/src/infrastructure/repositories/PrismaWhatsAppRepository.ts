@@ -1,4 +1,5 @@
 import { prisma } from "@/infrastructure/database/prisma";
+import { Prisma, WhatsAppMessageStatus } from "@prisma/client";
 import {
   IWhatsAppRepository,
   WhatsAppConfigData,
@@ -28,7 +29,7 @@ export class PrismaWhatsAppRepository implements IWhatsAppRepository {
   async updateMessageStatus(id: string, status: string, externalId?: string, error?: string): Promise<WhatsAppMessageData> {
     return prisma.whatsAppMessage.update({
       where: { id },
-      data: { status: status as any, externalId, error, sentAt: status === "SENT" ? new Date() : undefined },
+      data: { status: status as WhatsAppMessageStatus, externalId, error, sentAt: status === "SENT" ? new Date() : undefined },
     }) as unknown as Promise<WhatsAppMessageData>;
   }
 
@@ -37,7 +38,7 @@ export class PrismaWhatsAppRepository implements IWhatsAppRepository {
   }
 
   async getMessages(tenantId: string, orderId?: string): Promise<WhatsAppMessageData[]> {
-    const where: any = { tenantId };
+    const where: Prisma.WhatsAppMessageWhereInput = { tenantId };
     if (orderId) where.orderId = orderId;
     return prisma.whatsAppMessage.findMany({ where, orderBy: { createdAt: "desc" }, take: 50 }) as unknown as Promise<WhatsAppMessageData[]>;
   }

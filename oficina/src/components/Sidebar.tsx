@@ -19,17 +19,24 @@ import {
   FileText,
 } from "lucide-react";
 
+import {
+  hasPermission,
+  parseCustomPermissions,
+  Resource,
+  Role as PermRole,
+} from "@/lib/permissions";
+
 const mainNav = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/orders", label: "Ordens de Serviço", icon: ClipboardList },
-  { href: "/dashboard/pista", label: "Pista", icon: LayoutGrid },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, resource: null },
+  { href: "/dashboard/orders", label: "Ordens de Serviço", icon: ClipboardList, resource: "orders" as Resource },
+  { href: "/dashboard/pista", label: "Pista", icon: LayoutGrid, resource: "pista" as Resource },
 ];
 
 const cadastrosNav = [
-  { href: "/dashboard/clients", label: "Clientes", icon: Users },
-  { href: "/dashboard/vehicles", label: "Veículos", icon: Car },
-  { href: "/dashboard/stock", label: "Estoque", icon: Package },
-  { href: "/dashboard/services", label: "Catálogo de Serviços", icon: Wrench },
+  { href: "/dashboard/clients", label: "Clientes", icon: Users, resource: "clients" as Resource },
+  { href: "/dashboard/vehicles", label: "Veículos", icon: Car, resource: "vehicles" as Resource },
+  { href: "/dashboard/stock", label: "Estoque", icon: Package, resource: "stock" as Resource },
+  { href: "/dashboard/services", label: "Catálogo de Serviços", icon: Wrench, resource: "services" as Resource },
 ];
 
 interface NavItemProps {
@@ -72,10 +79,17 @@ function NavItem({ href, label, icon: Icon, alertCount = 0 }: NavItemProps) {
 
 interface SidebarProps {
   role?: string;
+  customPermissions?: string | null;
 }
 
-export default function Sidebar({ role }: SidebarProps) {
+export default function Sidebar({ role, customPermissions }: SidebarProps) {
   const [alertCount, setAlertCount] = useState(0);
+  const perms = parseCustomPermissions(customPermissions);
+
+  const canSee = (resource: Resource | null) => {
+    if (!resource) return true; // Dashboard always visible
+    return hasPermission((role || "MECHANIC") as PermRole, resource, "read", perms);
+  };
 
   useEffect(() => {
     fetch("/api/stock/alerts")
@@ -103,10 +117,10 @@ export default function Sidebar({ role }: SidebarProps) {
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto custom-scrollbar">
         {/* Main */}
         <div className="space-y-1">
-          {mainNav.map((item) => (
-            <NavItem key={item.href} {...item} />
+          {mainNav.filter((item) => canSee(item.resource)).map((item) => (
+            <NavItem key={item.href} href={item.href} label={item.label} icon={item.icon} />
           ))}
-          {(role === "ADMIN" || role === "MECHANIC") && (
+          {(role === "ADMIN" || role === "MECHANIC") && canSee("commissions") && (
             <NavItem href="/dashboard/commissions" label="Comissões" icon={DollarSign} />
           )}
           {role === "ADMIN" && (
@@ -126,10 +140,12 @@ export default function Sidebar({ role }: SidebarProps) {
             Cadastros
           </p>
           <div className="space-y-1">
-            {cadastrosNav.map((item) => (
+            {cadastrosNav.filter((item) => canSee(item.resource)).map((item) => (
               <NavItem
                 key={item.href}
-                {...item}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
                 alertCount={item.href === "/dashboard/stock" ? alertCount : 0}
               />
             ))}

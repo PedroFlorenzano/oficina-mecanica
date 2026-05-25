@@ -10,6 +10,7 @@ declare module "next-auth" {
       role: Role;
       name: string;
       email: string;
+      customPermissions?: string | null;
     };
   }
 
@@ -17,6 +18,7 @@ declare module "next-auth" {
     userId: string;
     tenantId: string;
     role: Role;
+    customPermissions?: string | null;
   }
 }
 
@@ -25,5 +27,6 @@ declare module "next-auth/jwt" {
     userId: string;
     tenantId: string;
     role: Role;
+    customPermissions?: string | null;
   }
 }

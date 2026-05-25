@@ -1,4 +1,4 @@
-import { ICommissionRepository } from "@/domain/repositories/ICommissionRepository";
+import { ICommissionRepository, CommissionData } from "@/domain/repositories/ICommissionRepository";
 import { IUserRepository } from "@/domain/repositories/IUserRepository";
 import { GenerateCommissionDTO } from "@/application/dtos/GenerateCommissionDTO";
 import { ValidationError, NotFoundError, ConflictError } from "@/domain/errors/DomainError";
@@ -9,7 +9,7 @@ export class GenerateCommission {
     private userRepo: IUserRepository
   ) {}
 
-  async execute(input: GenerateCommissionDTO, tenantId: string): Promise<any> {
+  async execute(input: GenerateCommissionDTO, tenantId: string): Promise<CommissionData> {
     const { mechanicId, startDate, endDate } = input;
 
     if (!mechanicId || !startDate || !endDate) {

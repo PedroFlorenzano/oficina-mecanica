@@ -80,6 +80,39 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const ordersWithCost = await prisma.serviceOrder.findMany({
+      where: { ...orderWhere, status: { in: ["COMPLETED", "DELIVERED"] } },
+      select: {
+        id: true,
+        number: true,
+        totalAmount: true,
+        createdAt: true,
+        client: { select: { name: true } },
+        vehicle: { select: { plate: true } },
+        movements: {
+          where: { type: "CONSUMPTION" },
+          select: { quantity: true, unitCost: true, stockItem: { select: { avgCost: true } } },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    const profitByOrder = ordersWithCost.map(o => {
+      const cost = o.movements.reduce((s, m) => s + m.quantity * (m.unitCost ?? m.stockItem.avgCost), 0);
+      return {
+        id: o.id,
+        number: o.number,
+        client: o.client.name,
+        plate: o.vehicle.plate,
+        revenue: o.totalAmount,
+        partsCost: cost,
+        profit: o.totalAmount - cost,
+        margin: o.totalAmount > 0 ? ((o.totalAmount - cost) / o.totalAmount) * 100 : 0,
+        date: o.createdAt,
+      };
+    });
+
     return NextResponse.json({
       totalOrders,
       totalRevenue,
@@ -90,6 +123,7 @@ export async function GET(request: NextRequest) {
       completedCount: completedOrders.length,
       byStatus,
       monthly,
+      profitByOrder,
     });
   } catch (error) {
     if (error instanceof Response) return error;

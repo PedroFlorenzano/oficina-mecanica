@@ -14,7 +14,6 @@ export class RegisterStockEntry {
     input: RegisterStockEntryDTO,
     tenantId: string
   ): Promise<StockItemData> {
-    // TODO: integrar com auth — verificar tenantId do item contra tenantId do usuário autenticado
     if (!input.quantity || input.quantity <= 0) {
       throw new ValidationError("Quantidade deve ser maior que zero");
     }

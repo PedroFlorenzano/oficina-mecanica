@@ -14,6 +14,7 @@ interface ReportData {
   completedCount: number;
   byStatus: Record<string, { count: number; total: number }>;
   monthly: { month: string; revenue: number; count: number }[];
+  profitByOrder: { id: string; number: number; client: string; plate: string; revenue: number; partsCost: number; profit: number; margin: number; date: string }[];
 }
 
 const statusLabels: Record<string, string> = {
@@ -146,6 +147,39 @@ export default function ReportsPage() {
                   <p className="text-xs text-slate-500">{fmt(info.total)}</p>
                 </div>
               ))}
+            </div>
+          </Card>
+
+          {/* Lucro por OS */}
+          <Card className="p-5">
+            <h3 className="font-semibold text-slate-800 mb-4">Lucro por OS (últimas 50)</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Nº</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Cliente</th>
+                    <th className="text-left px-3 py-2 text-xs font-medium text-slate-500">Placa</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-slate-500">Faturamento</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-slate-500">Custo Peças</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-slate-500">Lucro</th>
+                    <th className="text-right px-3 py-2 text-xs font-medium text-slate-500">Margem</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {data.profitByOrder.map((o) => (
+                    <tr key={o.id} className="hover:bg-slate-50">
+                      <td className="px-3 py-2 font-mono">#{o.number}</td>
+                      <td className="px-3 py-2">{o.client}</td>
+                      <td className="px-3 py-2 text-slate-500">{o.plate}</td>
+                      <td className="px-3 py-2 text-right">{fmt(o.revenue)}</td>
+                      <td className="px-3 py-2 text-right text-red-600">{fmt(o.partsCost)}</td>
+                      <td className={`px-3 py-2 text-right font-medium ${o.profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmt(o.profit)}</td>
+                      <td className={`px-3 py-2 text-right ${o.margin >= 30 ? 'text-green-600' : o.margin >= 15 ? 'text-yellow-600' : 'text-red-600'}`}>{o.margin.toFixed(1)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </Card>
         </>

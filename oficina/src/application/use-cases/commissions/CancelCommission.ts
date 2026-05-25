@@ -1,11 +1,11 @@
-import { ICommissionRepository } from "@/domain/repositories/ICommissionRepository";
+import { ICommissionRepository, CommissionData } from "@/domain/repositories/ICommissionRepository";
 import { CancelCommissionDTO } from "@/application/dtos/CancelCommissionDTO";
 import { NotFoundError, ValidationError, ForbiddenError } from "@/domain/errors/DomainError";
 
 export class CancelCommission {
   constructor(private commissionRepo: ICommissionRepository) {}
 
-  async execute(id: string, input: CancelCommissionDTO, tenantId: string, cancelledById: string, userRole: string): Promise<any> {
+  async execute(id: string, input: CancelCommissionDTO, tenantId: string, cancelledById: string, userRole: string): Promise<CommissionData> {
     if (userRole !== "ADMIN") {
       throw new ForbiddenError("Apenas administradores podem cancelar comissões");
     }
