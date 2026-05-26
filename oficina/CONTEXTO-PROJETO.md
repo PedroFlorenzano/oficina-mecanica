@@ -15,7 +15,7 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 **Repositório:** https://github.com/PedroFlorenzano/oficina-mecanica
 **Branch principal:** main
 **Branch de desenvolvimento atual:** feature/autenticacao-perfis
-**Última atualização:** 25/05/2026
+**Última atualização:** 26/05/2026
 
 ---
 
@@ -1038,28 +1038,72 @@ commissionRate  Float?  // % comissão snapshot (null = usa taxa do mecânico)
 
 ---
 
+## Melhorias implementadas (26/05/2026 — sessão 5)
+
+### Seed Completo
+
+Reescrito `prisma/seed.ts` com dados demo abrangentes:
+- **4 usuários:** admin, 2 mecânicos (com commissionRate), atendente
+- **6 clientes** (incluindo 1 PJ inativo para testar reativação)
+- **6 veículos** (placas Mercosul e antigas)
+- **8 serviços no catálogo** (5 com commissionRate específica)
+- **8 itens de estoque** (3 abaixo do mínimo para alertas)
+- **10 OS** com todos os status (WAITING_APPROVAL, IN_PROGRESS, WAITING_PART, COMPLETED, DELIVERED, CANCELLED)
+- **Cronômetros finalizados** em 5 serviços (com timeMinutes calculado)
+- **3 comissões:** PAID (abril), APPROVED (maio), PENDING (maio)
+- **Movimentações de estoque** com fornecedor e unitCost
+
+### Máscara de Placa no Formulário de Veículo
+
+- Suporta **Mercosul** (ABC1D23 — 3 letras + 1 número + 1 letra + 2 números)
+- Suporta **antigo** (ABC-1234 — 3 letras + hífen + 4 números)
+- Formatação automática ao digitar (uppercase, hífen automático no formato antigo)
+- Validação visual em tempo real (borda vermelha se inválido)
+- Bloqueio no submit com mensagem de erro
+
+### Contagem de OS na Listagem de Clientes
+
+- Nova coluna **"OS"** na tabela de clientes mostrando `_count.orders`
+- A API já retornava esse dado — apenas adicionada a coluna na UI
+- Não duplica o histórico existente (que é acessível via ícone 📋)
+
+### Exportar Relatório Financeiro em PDF
+
+- **Componente:** `src/components/pdf/ReportDocument.tsx` — resumo, faturamento mensal, tabela de lucro por OS
+- **Rota:** `GET /api/reports/pdf` — aceita `startDate` e `endDate` como query params
+- **UI:** Botão "Exportar PDF" no PageHeader da página de relatórios (respeita filtros de período)
+- **Acesso:** Apenas ADMIN
+
+### Zero `any` no Projeto
+
+- Todos os 12 `any` restantes tipados no `BudgetDocument.tsx`
+- Criadas interfaces: `BudgetService`, `BudgetPart`, `BudgetComplaint`, `BudgetOrder`
+- **0 ocorrências de `any`** em todo o `src/`
+
+### Manual do Usuário
+
+- **Markdown:** `oficina/MANUAL-USUARIO.md` — 361 linhas cobrindo todos os módulos
+- **PDF:** Componente `src/components/pdf/ManualDocument.tsx` (4 páginas)
+- **Rota:** `GET /api/manual` — gera PDF do manual (sem autenticação)
+- **UI:** Card "Manual do Usuário" na página de perfil (`/dashboard/profile`) — visível apenas para ADMIN
+- **README:** Seção "Documentação" com links para manual MD, PDF e contexto
+
+---
+
 ## Pendente
 
-### Próximas melhorias rápidas
+### Módulos incompletos
 
-| # | Melhoria | Descrição |
-|---|----------|-----------|
-| 1 | Seed atualizado | Dados demo para comissões com status variados, cronômetros finalizados |
-| 2 | Validação de placa no frontend | Máscara de placa (ABC1D23 ou ABC-1234) no formulário de veículo |
-| 3 | Contagem de OS por cliente | Mostrar na listagem de clientes quantas OS cada um tem |
-| 4 | Exportar relatório em PDF | Botão na página de relatórios para gerar PDF do resumo financeiro |
-| 5 | Tipar os 12 `any` restantes | Cosméticos em callbacks de UI |
+| Módulo | Status | O que falta |
+|--------|--------|-------------|
+| **NF-e/NFS-e** | 🟡 70% | BullMQ + Redis, adapter XML (NF-e 4.0 / ABRASF), comunicação SEFAZ/Prefeitura, certificado A1, DANFE/DANFSE PDF |
+| **Multi-Tenancy** | 🟡 20% | Isolamento real com PostgreSQL em produção (schema por tenant) |
 
-### Manual / Apresentação da Plataforma
+### Próximos passos (requerem decisão/input)
 
-Criar documento de apresentação comercial e manual do usuário:
-- **Público-alvo:** Donos de oficinas mecânicas que avaliam o sistema
-- **Conteúdo sugerido:**
-  - Visão geral do sistema e proposta de valor
-  - Screenshots das telas principais (Dashboard, OS, Pista, Estoque)
-  - Fluxo completo de uma OS (criação → aprovação → execução → entrega)
-  - Módulos disponíveis com descrição resumida
-  - Diferenciais vs concorrentes (Reclamações, WhatsApp, Assinatura Digital, Cronômetro)
-  - Planos e preços (quando definidos)
-  - Requisitos técnicos (navegador, internet)
-- **Formato:** Markdown + PDF exportável (ou landing page futura)
+| # | Item | Dependência |
+|---|------|-------------|
+| 1 | NF-e/NFS-e real | Certificado digital A1, credenciais SEFAZ, dados fiscais da oficina |
+| 2 | Multi-tenancy produção | Decisão de infra (PostgreSQL, Vercel/AWS, domínio) |
+| 3 | Apresentação comercial | Preços, planos, posicionamento de mercado |
+| 4 | Deploy produção | Configuração de ambiente, domínio, SSL |
