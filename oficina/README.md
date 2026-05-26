@@ -59,9 +59,15 @@ src/
 ## Testes
 
 ```bash
-npm test           # 212 testes unitários
+npm test           # 213 testes unitários
 npm run build      # Build de produção
 ```
+
+## Documentação
+
+- **[Manual do Usuário](./MANUAL-USUARIO.md)** — Guia completo de uso do sistema
+- **PDF do Manual:** Acesse `/api/manual` com o sistema rodando para baixar o PDF
+- **[Contexto do Projeto](./CONTEXTO-PROJETO.md)** — Decisões técnicas e estado atual
 
 ## Licença
 
