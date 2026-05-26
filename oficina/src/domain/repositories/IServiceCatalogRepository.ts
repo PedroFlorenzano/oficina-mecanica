@@ -6,6 +6,7 @@ export interface ServiceCatalogData {
   estimatedTime: number | null;
   defaultPrice: number;
   pricingType: string;
+  commissionRate: number | null;
   active: boolean;
   tenantId: string;
 }

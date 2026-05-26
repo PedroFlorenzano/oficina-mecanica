@@ -9,6 +9,7 @@ export interface EligibleService {
   id: string;
   description: string;
   price: number;
+  commissionRate: number | null;
   orderId: string;
   orderNumber: number;
   clientName: string;

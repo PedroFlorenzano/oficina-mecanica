@@ -113,6 +113,7 @@ model ServiceCatalog {
   estimatedTime Int?     // minutes
   defaultPrice  Float
   pricingType   String   @default("VALUE") // "VALUE" or "TIME"
+  commissionRate Float?  // % comissão específica do serviço (null = usa taxa do mecânico)
   active        Boolean  @default(true)
   tenantId      String
   createdAt     DateTime @default(now())
@@ -174,15 +175,16 @@ enum OrderStatus {
 }
 
 model OrderService {
-  id          String   @id @default(cuid())
-  description String
-  price       Float
-  timeMinutes Int?
-  serviceId   String?
-  orderId     String
-  complaintId String?
-  mechanicId  String?
-  createdAt   DateTime @default(now())
+  id             String   @id @default(cuid())
+  description    String
+  price          Float
+  timeMinutes    Int?
+  serviceId      String?
+  orderId        String
+  complaintId    String?
+  mechanicId     String?
+  commissionRate Float?   // % comissão snapshot (null = usa taxa do mecânico)
+  createdAt      DateTime @default(now())
 
   service     ServiceCatalog? @relation(fields: [serviceId], references: [id])
   order       ServiceOrder    @relation(fields: [orderId], references: [id], onDelete: Cascade)

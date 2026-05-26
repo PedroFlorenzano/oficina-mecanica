@@ -4,8 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { ClipboardList, Users, Car, Package, ArrowRight, Timer, DollarSign } from "lucide-react";
 import Link from "next/link";
-
-// --- Shared ---
+import { formatCurrency } from "@/lib/format";
 
 const statusConfig: Record<string, { label: string; color: string }> = {
   OPEN:             { label: "Aberta",              color: "bg-blue-100 text-blue-700" },
@@ -163,7 +162,7 @@ function AdminDashboard() {
                     <td className="px-4 py-3">
                       <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>{st.label}</span>
                     </td>
-                    <td className="px-4 py-3 text-right font-medium text-slate-800">R$ {order.totalAmount.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right font-medium text-slate-800">{formatCurrency(order.totalAmount)}</td>
                     <td className="px-4 py-3 text-slate-500 text-xs">{new Date(order.createdAt).toLocaleDateString("pt-BR")}</td>
                     <td className="px-4 py-3 text-right">
                       <Link href={`/dashboard/orders/${order.id}`} className="text-blue-600 hover:text-blue-800 text-xs font-medium">Abrir →</Link>
@@ -209,7 +208,7 @@ function MechanicDashboard() {
   const stats = [
     { label: "OS Atribuídas", value: data?.assignedOrders.length ?? "—", icon: ClipboardList, color: "bg-orange-500" },
     { label: "Cronômetros Ativos", value: data?.activeTimers.length ?? "—", icon: Timer, color: "bg-blue-500" },
-    { label: "Comissões Pendentes", value: data ? `R$ ${data.pendingCommissions.total.toFixed(2)}` : "—", icon: DollarSign, color: "bg-green-500" },
+    { label: "Comissões Pendentes", value: data ? formatCurrency(data.pendingCommissions.total) : "—", icon: DollarSign, color: "bg-green-500" },
   ];
 
   return (

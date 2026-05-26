@@ -20,14 +20,13 @@ export function groupByStatus(orders: PistaOrder[]): Record<OrderStatus, PistaOr
 }
 
 /**
- * Filtra as OS pelo nome do profissional (createdBy.name), case-insensitive.
- * Se `q` for vazio, retorna todas as OS.
+ * Filtra as OS pelo mecânico atribuído (mechanicId).
+ * Se `mechanicId` for vazio, retorna todas as OS.
  */
-export function filterOrders(orders: PistaOrder[], q: string): PistaOrder[] {
-  if (!q.trim()) return orders;
-  const lower = q.toLowerCase();
+export function filterOrders(orders: PistaOrder[], mechanicId: string): PistaOrder[] {
+  if (!mechanicId.trim()) return orders;
   return orders.filter((o) =>
-    o.createdBy.name.toLowerCase().includes(lower)
+    o.services?.some((s) => s.mechanicId === mechanicId)
   );
 }
 

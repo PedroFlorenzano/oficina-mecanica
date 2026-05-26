@@ -6,6 +6,7 @@ import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
+import { formatCurrency } from "@/lib/format";
 
 interface ComplaintData {
   id: string;
@@ -164,65 +165,45 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="max-w-5xl">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link href="/dashboard/orders" className="text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
-          <div>
-            <h1 className="text-2xl font-bold text-slate-800">O.S. #{order.number}</h1>
-            <p className="text-sm text-slate-500">Aberto em {new Date(order.createdAt).toLocaleString("pt-BR")} por {order.createdBy.name}</p>
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <Link href="/dashboard/orders" className="text-slate-400 hover:text-slate-600"><ArrowLeft size={20} /></Link>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800">O.S. #{order.number}</h1>
+              <p className="text-sm text-slate-500">Aberto em {new Date(order.createdAt).toLocaleString("pt-BR")} por {order.createdBy.name}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
           <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${status.color}`}>{status.label}</span>
-          <button onClick={() => window.print()} className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50">
+        </div>
+        {/* Botões de ação — tamanho e estilo padronizados */}
+        <div className="flex flex-wrap gap-2">
+          <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">
             <Printer size={16} /> Imprimir
           </button>
-          {/* Botão Baixar PDF */}
-          <a
-            href={`/api/orders/${order.id}/pdf`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 px-3 py-2 border border-slate-300 rounded-lg text-sm hover:bg-slate-50"
-          >
+          <a href={`/api/orders/${order.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">
             <FileDown size={16} /> Baixar PDF
           </a>
-          {order.status === "WAITING_APPROVAL" && (
-            <a
-              href={`/api/orders/${order.id}/budget`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-3 py-2 border border-purple-300 bg-purple-50 rounded-lg text-sm hover:bg-purple-100 text-purple-700"
-            >
-              <FileText size={16} /> Orçamento
-            </a>
-          )}
-          <button
-            onClick={handleOilLabel}
-            className="flex items-center gap-2 px-3 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm hover:bg-amber-100 text-amber-700"
-          >
+          <button onClick={handleOilLabel} className="inline-flex items-center gap-2 px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium hover:bg-amber-100 text-amber-700">
             <Droplet size={16} /> Etiqueta Óleo
           </button>
           {order.status === "WAITING_APPROVAL" && (
-            <Link
-              href={`/dashboard/orders/${order.id}/edit`}
-              className="flex items-center gap-2 px-3 py-2 border border-blue-300 bg-blue-50 rounded-lg text-sm hover:bg-blue-100 text-blue-700"
-            >
+            <a href={`/api/orders/${order.id}/budget`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-purple-300 bg-purple-50 rounded-lg text-sm font-medium hover:bg-purple-100 text-purple-700">
+              <FileText size={16} /> Orçamento
+            </a>
+          )}
+          {order.status === "WAITING_APPROVAL" && (
+            <Link href={`/dashboard/orders/${order.id}/edit`} className="inline-flex items-center gap-2 px-4 py-2 border border-blue-300 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100 text-blue-700">
               <Pencil size={16} /> Editar Orçamento
             </Link>
           )}
           {order.status === "WAITING_APPROVAL" && (
-            <button
-              onClick={() => handleWhatsApp("approval")}
-              className="flex items-center gap-2 px-3 py-2 border border-green-300 bg-green-50 rounded-lg text-sm hover:bg-green-100 text-green-700"
-            >
+            <button onClick={() => handleWhatsApp("approval")} className="inline-flex items-center gap-2 px-4 py-2 border border-green-300 bg-green-50 rounded-lg text-sm font-medium hover:bg-green-100 text-green-700">
               <MessageCircle size={16} /> Enviar Aprovação
             </button>
           )}
           {order.status === "COMPLETED" && (
-            <button
-              onClick={() => handleWhatsApp("delivery")}
-              className="flex items-center gap-2 px-3 py-2 border border-green-300 bg-green-50 rounded-lg text-sm hover:bg-green-100 text-green-700"
-            >
+            <button onClick={() => handleWhatsApp("delivery")} className="inline-flex items-center gap-2 px-4 py-2 border border-green-300 bg-green-50 rounded-lg text-sm font-medium hover:bg-green-100 text-green-700">
               <MessageCircle size={16} /> Notificar Entrega
             </button>
           )}
@@ -237,7 +218,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                 else setWhatsAppMsg(`✗ ${data.error}`);
                 setTimeout(() => setWhatsAppMsg(""), 5000);
               }}
-              className="flex items-center gap-2 px-3 py-2 border border-indigo-300 bg-indigo-50 rounded-lg text-sm hover:bg-indigo-100 text-indigo-700"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-indigo-300 bg-indigo-50 rounded-lg text-sm font-medium hover:bg-indigo-100 text-indigo-700"
             >
               <FileText size={16} /> Emitir NF
             </button>
@@ -391,7 +372,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                             <tr>
                               <td className="py-1.5 text-slate-700">{s.description}</td>
                               <td className="py-1.5 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
-                              <td className="py-1.5 text-right font-medium text-slate-800">R$ {s.price.toFixed(2)}</td>
+                              <td className="py-1.5 text-right font-medium text-slate-800">{formatCurrency(s.price)}</td>
                             </tr>
                             <tr>
                               <td colSpan={3} className="py-2 px-0">
@@ -430,8 +411,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                             <td className="py-1.5 text-slate-700">{p.description}</td>
                             <td className="py-1.5 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
                             <td className="py-1.5 text-center text-slate-600">{p.quantity}x</td>
-                            <td className="py-1.5 text-right text-slate-600">R$ {p.unitPrice.toFixed(2)}</td>
-                            <td className="py-1.5 text-right font-medium text-slate-800">R$ {p.totalPrice.toFixed(2)}</td>
+                            <td className="py-1.5 text-right text-slate-600">{formatCurrency(p.unitPrice)}</td>
+                            <td className="py-1.5 text-right font-medium text-slate-800">{formatCurrency(p.totalPrice)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -441,7 +422,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
                 {/* Subtotal */}
                 <div className="text-right pt-2 border-t">
-                  <span className="font-bold text-slate-800">Subtotal: R$ {cTotal.toFixed(2)}</span>
+                  <span className="font-bold text-slate-800">Subtotal: {formatCurrency(cTotal)}</span>
                 </div>
               </div>
             );
@@ -467,7 +448,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <tr>
                     <td className="py-2 text-slate-700">{s.description}</td>
                     <td className="py-2 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
-                    <td className="py-2 text-right font-medium text-slate-800">R$ {s.price.toFixed(2)}</td>
+                    <td className="py-2 text-right font-medium text-slate-800">{formatCurrency(s.price)}</td>
                   </tr>
                   <tr>
                     <td colSpan={3} className="py-2 px-0">
@@ -506,8 +487,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   <td className="py-2 text-slate-700">{p.description}</td>
                   <td className="py-2 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
                   <td className="py-2 text-center text-slate-600">{p.quantity}</td>
-                  <td className="py-2 text-right text-slate-600">R$ {p.unitPrice.toFixed(2)}</td>
-                  <td className="py-2 text-right font-medium text-slate-800">R$ {p.totalPrice.toFixed(2)}</td>
+                  <td className="py-2 text-right text-slate-600">{formatCurrency(p.unitPrice)}</td>
+                  <td className="py-2 text-right font-medium text-slate-800">{formatCurrency(p.totalPrice)}</td>
                 </tr>
               ))}
             </tbody>
@@ -528,15 +509,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
             <p className="text-xs text-slate-500">TOTAL PRODUTOS</p>
-            <p className="text-lg font-bold text-slate-700">R$ {totalParts.toFixed(2)}</p>
+            <p className="text-lg font-bold text-slate-700">{formatCurrency(totalParts)}</p>
           </div>
           <div>
             <p className="text-xs text-slate-500">TOTAL SERVIÇOS</p>
-            <p className="text-lg font-bold text-slate-700">R$ {totalServices.toFixed(2)}</p>
+            <p className="text-lg font-bold text-slate-700">{formatCurrency(totalServices)}</p>
           </div>
           <div>
             <p className="text-xs text-slate-500">TOTAL GERAL</p>
-            <p className="text-2xl font-bold text-green-600">R$ {order.totalAmount.toFixed(2)}</p>
+            <p className="text-2xl font-bold text-green-600">{formatCurrency(order.totalAmount)}</p>
           </div>
         </div>
       </div>

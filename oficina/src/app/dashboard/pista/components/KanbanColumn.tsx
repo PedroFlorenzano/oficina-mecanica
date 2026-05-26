@@ -16,6 +16,7 @@ interface KanbanColumnProps {
   onDrop: () => void;
   onDragEnd: () => void;
   onCardClick: (orderId: string) => void;
+  mechanicMap?: Record<string, string>;
 }
 
 export function KanbanColumn({
@@ -31,6 +32,7 @@ export function KanbanColumn({
   onDrop,
   onDragEnd,
   onCardClick,
+  mechanicMap,
 }: KanbanColumnProps) {
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -81,6 +83,7 @@ export function KanbanColumn({
               onDragStart={() => onDragStart(order.id, order.status)}
               onDragEnd={onDragEnd}
               onClick={() => onCardClick(order.id)}
+              mechanicMap={mechanicMap}
             />
           ))
         )}

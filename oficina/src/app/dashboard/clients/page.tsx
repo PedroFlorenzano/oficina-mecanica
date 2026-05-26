@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, Search, Edit, Users, UserX, UserCheck, History } from "lucide-react";
 import Link from "next/link";
 import ClientForm from "./ClientForm";
+import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 
 interface Client {
   id: string;
@@ -18,6 +20,13 @@ interface Client {
 }
 
 export default function ClientsPage() {
+  const { data: session } = useSession();
+  const role = (session?.user?.role ?? "MECHANIC") as Role;
+  const perms = parseCustomPermissions(session?.user?.customPermissions);
+  const canCreate = hasPermission(role, "clients", "create", perms);
+  const canUpdate = hasPermission(role, "clients", "update", perms);
+  const canDelete = hasPermission(role, "clients", "delete", perms);
+
   const [clients, setClients] = useState<Client[]>([]);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -110,6 +119,7 @@ export default function ClientsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Clientes</h1>
+        {canCreate && (
         <button
           onClick={() => { setEditingClient(null); setShowForm(true); }}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -117,6 +127,7 @@ export default function ClientsPage() {
           <Plus size={18} />
           Novo Cliente
         </button>
+        )}
       </div>
 
       <div className="flex gap-2 mb-4 flex-wrap">
@@ -271,6 +282,7 @@ export default function ClientsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
+                      {canUpdate && (
                       <button
                         onClick={() => { setEditingClient(client); setShowForm(true); }}
                         className="text-blue-600 hover:text-blue-800"
@@ -278,6 +290,7 @@ export default function ClientsPage() {
                       >
                         <Edit size={16} />
                       </button>
+                      )}
                       <Link
                         href={`/dashboard/clients/${client.id}/history`}
                         className="text-slate-400 hover:text-slate-700"
@@ -285,7 +298,7 @@ export default function ClientsPage() {
                       >
                         <History size={16} />
                       </Link>
-                      {client.active ? (
+                      {canDelete && (client.active ? (
                         <button
                           onClick={() => setConfirmInactivate(client)}
                           className="text-red-400 hover:text-red-600"
@@ -301,7 +314,7 @@ export default function ClientsPage() {
                         >
                           <UserCheck size={16} />
                         </button>
-                      )}
+                      ))}
                     </div>
                   </td>
                 </tr>

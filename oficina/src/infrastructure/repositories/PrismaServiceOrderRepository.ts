@@ -71,9 +71,10 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
         vehicle: { select: { plate: true, brand: true, model: true } },
         complaints: { select: { description: true } },
         createdBy: { select: { name: true } },
+        services: { select: { mechanicId: true } },
       },
       orderBy: { createdAt: "desc" },
-    });
+    }) as unknown as IActiveOrder[];
   }
 
   async getNextNumber(tenantId: string): Promise<number> {
@@ -130,6 +131,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
               timeMinutes: s.timeMinutes || null,
               serviceId: s.serviceId || null,
               mechanicId: s.mechanicId || null,
+              commissionRate: s.commissionRate ?? null,
               orderId: order.id,
               complaintId: complaint.id,
             })),
@@ -310,7 +312,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   async replaceComplaints(
     orderId: string,
     tenantId: string,
-    complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null }[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[] }[],
+    complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null }[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[] }[],
     totalAmount: number,
     notes: string | null
   ): Promise<OrderData> {
@@ -335,6 +337,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
               timeMinutes: s.timeMinutes || null,
               serviceId: s.serviceId || null,
               mechanicId: s.mechanicId || null,
+              commissionRate: s.commissionRate ?? null,
               orderId,
               complaintId: complaint.id,
             })),

@@ -5,5 +5,6 @@ export interface CreateServiceDTO {
   estimatedTime?: number;
   defaultPrice: number;
   pricingType?: string;
+  commissionRate?: string | number;
   active?: boolean;
 }

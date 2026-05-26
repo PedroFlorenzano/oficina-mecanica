@@ -143,6 +143,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
       id: s.id,
       description: s.description,
       price: s.price,
+      commissionRate: s.commissionRate,
       orderId: s.order.id,
       orderNumber: s.order.number,
       clientName: s.order.client.name,

@@ -11,6 +11,7 @@ interface Service {
   estimatedTime?: number | null;
   defaultPrice: number;
   pricingType?: string;
+  commissionRate?: number | null;
   active: boolean;
 }
 
@@ -28,6 +29,7 @@ export default function ServiceForm({ service, onSaved, onCancel }: Props) {
     estimatedTime: service?.estimatedTime?.toString() || "",
     defaultPrice: service?.defaultPrice?.toString() || "0",
     pricingType: service?.pricingType || "VALUE",
+    commissionRate: service?.commissionRate?.toString() || "",
     active: service?.active ?? true,
   });
   const [error, setError] = useState("");
@@ -147,17 +149,32 @@ export default function ServiceForm({ service, onSaved, onCancel }: Props) {
               <option value="TIME">Por Tempo</option>
             </select>
           </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(e) => setForm({ ...form, active: e.target.checked })}
-                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-medium text-slate-700">Ativo</span>
-            </label>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Comissão (%)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              max="100"
+              value={form.commissionRate}
+              onChange={(e) => setForm({ ...form, commissionRate: e.target.value })}
+              placeholder="Usa taxa do mecânico"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">Vazio = usa taxa padrão do mecânico</p>
           </div>
+        </div>
+
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.active}
+              onChange={(e) => setForm({ ...form, active: e.target.checked })}
+              className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="text-sm font-medium text-slate-700">Ativo</span>
+          </label>
         </div>
 
         <div className="flex gap-3 pt-4">

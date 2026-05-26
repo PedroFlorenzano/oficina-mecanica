@@ -21,6 +21,7 @@ export class CreateService {
       estimatedTime: input.estimatedTime ? Number(input.estimatedTime) : null,
       defaultPrice: Number(input.defaultPrice),
       pricingType: input.pricingType || "VALUE",
+      commissionRate: input.commissionRate ? Number(input.commissionRate) : null,
       active: input.active != null ? input.active : true,
       tenantId,
     });

@@ -15,6 +15,7 @@ export interface PistaOrder {
   vehicle: { plate: string; brand: string; model: string };
   complaints: { description: string }[];
   createdBy: { name: string };
+  services?: { mechanicId?: string | null }[];
 }
 
 export interface KanbanColumnData {

@@ -17,6 +17,9 @@ export default function PistaPage() {
   const [error, setError] = useState<string | null>(null);
   const [filterMechanic, setFilterMechanic] = useState("");
 
+  // Mapa de mecânicos (id → nome) para exibir nos cards
+  const [mechanicMap, setMechanicMap] = useState<Record<string, string>>({});
+
   // ─── Drag state ───────────────────────────────────────────────────────────
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<OrderStatus | null>(null);
@@ -54,6 +57,15 @@ export default function PistaPage() {
 
   useEffect(() => {
     fetchOrders();
+    // Buscar mecânicos para o mapa de nomes
+    fetch("/api/users?role=MECHANIC")
+      .then((r) => (r.ok ? r.json() : []))
+      .then((users: { id: string; name: string }[]) => {
+        const map: Record<string, string> = {};
+        users.forEach((u) => { map[u.id] = u.name; });
+        setMechanicMap(map);
+      })
+      .catch(() => {});
   }, [fetchOrders]);
 
   // ─── Toast helper ─────────────────────────────────────────────────────────
@@ -258,6 +270,7 @@ export default function PistaPage() {
           onDrop={handleDrop}
           onDragEnd={handleDragEnd}
           onCardClick={handleCardClick}
+          mechanicMap={mechanicMap}
         />
       </div>
 

@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, Wrench, Pencil, Trash2, Power } from "lucide-react";
 import ServiceForm from "./ServiceForm";
+import { formatCurrency } from "@/lib/format";
+import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 
 interface Service {
   id: string;
@@ -12,10 +15,18 @@ interface Service {
   estimatedTime: number | null;
   defaultPrice: number;
   pricingType: string;
+  commissionRate: number | null;
   active: boolean;
 }
 
 export default function ServicesPage() {
+  const { data: session } = useSession();
+  const role = (session?.user?.role ?? "MECHANIC") as Role;
+  const perms = parseCustomPermissions(session?.user?.customPermissions);
+  const canCreate = hasPermission(role, "services", "create", perms);
+  const canUpdate = hasPermission(role, "services", "update", perms);
+  const canDelete = hasPermission(role, "services", "delete", perms);
+
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -78,12 +89,14 @@ export default function ServicesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Catálogo de Serviços</h1>
+        {canCreate && (
         <button
           onClick={handleNew}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
         >
           <Plus size={18} /> Novo Serviço
         </button>
+        )}
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -103,6 +116,7 @@ export default function ServicesPage() {
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Tempo Est.</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Preço Padrão</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Tipo</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Comissão</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
                 <th className="text-right px-4 py-3 font-medium text-slate-600">Ações</th>
               </tr>
@@ -117,14 +131,16 @@ export default function ServicesPage() {
                   <td className="px-4 py-3 font-medium text-slate-800">{s.description}</td>
                   <td className="px-4 py-3 text-slate-600">{s.category || "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{s.estimatedTime ? `${s.estimatedTime} min` : "—"}</td>
-                  <td className="px-4 py-3 text-slate-700">R$ {s.defaultPrice.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-700">{formatCurrency(s.defaultPrice)}</td>
                   <td className="px-4 py-3 text-slate-600">{s.pricingType === "TIME" ? "Por Tempo" : "Por Valor"}</td>
+                  <td className="px-4 py-3 text-slate-600">{s.commissionRate != null ? `${s.commissionRate}%` : "Padrão"}</td>
                   <td className="px-4 py-3">
                     <span className={`text-xs px-2 py-1 rounded-full ${s.active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
                       {s.active ? "Ativo" : "Inativo"}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
+                    {canUpdate && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEdit(s); }}
                       className="text-slate-400 hover:text-blue-600 p-1"
@@ -132,6 +148,8 @@ export default function ServicesPage() {
                     >
                       <Pencil size={16} />
                     </button>
+                    )}
+                    {canUpdate && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleToggleActive(s); }}
                       className={`p-1 ml-1 ${s.active ? "text-slate-400 hover:text-orange-600" : "text-slate-400 hover:text-green-600"}`}
@@ -139,6 +157,8 @@ export default function ServicesPage() {
                     >
                       <Power size={16} />
                     </button>
+                    )}
+                    {canDelete && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(s); }}
                       className="text-slate-400 hover:text-red-600 p-1 ml-1"
@@ -146,6 +166,7 @@ export default function ServicesPage() {
                     >
                       <Trash2 size={16} />
                     </button>
+                    )}
                   </td>
                 </tr>
               ))}

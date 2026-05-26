@@ -36,6 +36,7 @@ function arbPistaOrder(): fc.Arbitrary<PistaOrder> {
     }),
     complaints: fc.array(fc.record({ description: fc.string({ minLength: 1 }) }), { maxLength: 5 }),
     createdBy: fc.record({ name: fc.string({ minLength: 1, maxLength: 50 }) }),
+    services: fc.array(fc.record({ mechanicId: fc.option(fc.uuid(), { nil: null }) }), { maxLength: 3 }),
   });
 }
 
@@ -205,30 +206,35 @@ describe('Kanban Property Tests', () => {
    * OS whose createdBy.name contains q as a case-insensitive substring.
    * For empty q, all OS are returned.
    */
-  it('Property 7: filterOrders retorna exatamente as OS cujo createdBy.name contém q (case-insensitive)', () => {
+  it('Property 7: filterOrders retorna exatamente as OS cujo services contém o mechanicId', () => {
     fc.assert(
       fc.property(
         fc.array(arbPistaOrder(), { maxLength: 30 }),
-        fc.string({ maxLength: 20 }),
-        (orders, q) => {
-          const result = filterOrders(orders, q);
+        fc.uuid(),
+        (orders, mechanicId) => {
+          const result = filterOrders(orders, mechanicId);
 
-          if (!q.trim()) {
-            // String vazia retorna todas as OS
-            expect(result).toHaveLength(orders.length);
-            return;
-          }
-
-          const lower = q.toLowerCase();
-
-          // Cada OS no resultado deve conter q no nome do profissional
+          // Cada OS no resultado deve ter pelo menos um serviço com o mechanicId
           for (const order of result) {
-            expect(order.createdBy.name.toLowerCase()).toContain(lower);
+            expect(order.services?.some((s) => s.mechanicId === mechanicId)).toBe(true);
           }
 
-          // Cada OS que contém q deve estar no resultado
-          const expected = orders.filter(o => o.createdBy.name.toLowerCase().includes(lower));
+          // Cada OS que contém o mechanicId deve estar no resultado
+          const expected = orders.filter(o => o.services?.some((s) => s.mechanicId === mechanicId));
           expect(result).toHaveLength(expected.length);
+        }
+      ),
+      { numRuns: 200 }
+    );
+  });
+
+  it('Property 7b: filterOrders com string vazia retorna todas as OS', () => {
+    fc.assert(
+      fc.property(
+        fc.array(arbPistaOrder(), { maxLength: 30 }),
+        (orders) => {
+          const result = filterOrders(orders, "");
+          expect(result).toHaveLength(orders.length);
         }
       ),
       { numRuns: 200 }

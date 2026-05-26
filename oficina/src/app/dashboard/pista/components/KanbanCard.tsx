@@ -10,9 +10,10 @@ interface KanbanCardProps {
   onDragStart: () => void;
   onDragEnd: () => void;
   onClick: () => void;
+  mechanicMap?: Record<string, string>;
 }
 
-export function KanbanCard({ order, isDragging, onDragStart, onDragEnd, onClick }: KanbanCardProps) {
+export function KanbanCard({ order, isDragging, onDragStart, onDragEnd, onClick, mechanicMap }: KanbanCardProps) {
   const statusConfig = STATUS_CONFIG[order.status];
   const badgeClass = statusConfig ? statusConfig.color.badge : "bg-gray-500";
   const badgeTextClass = statusConfig ? statusConfig.color.badgeText : "text-white";
@@ -51,9 +52,13 @@ export function KanbanCard({ order, isDragging, onDragStart, onDragEnd, onClick 
         <span className="font-medium">Cliente:</span> {order.client.name}
       </div>
 
-      {/* Profissional */}
+      {/* Mecânico */}
       <div className="text-xs text-gray-600 truncate mb-2">
-        <span className="font-medium">Profissional:</span> {order.createdBy.name}
+        <span className="font-medium">Mecânico:</span>{" "}
+        {(() => {
+          const mechId = order.services?.find((s) => s.mechanicId)?.mechanicId;
+          return (mechId && mechanicMap?.[mechId]) || order.createdBy.name;
+        })()}
       </div>
 
       {/* Complaints */}

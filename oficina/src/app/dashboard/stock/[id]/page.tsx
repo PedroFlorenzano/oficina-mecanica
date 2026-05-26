@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -22,6 +23,8 @@ import {
   TableRow,
   TableCell,
 } from "@/components/ui/Table";
+import { formatCurrency } from "@/lib/format";
+import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 
 interface StockItem {
   id: string;
@@ -77,6 +80,11 @@ const MOVEMENT_COLORS: Record<string, string> = {
 };
 
 export default function StockItemDetailPage() {
+  const { data: session } = useSession();
+  const role = (session?.user?.role ?? "MECHANIC") as Role;
+  const perms = parseCustomPermissions(session?.user?.customPermissions);
+  const canWrite = hasPermission(role, "stock", "create", perms) || hasPermission(role, "stock", "update", perms);
+
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -244,6 +252,7 @@ export default function StockItemDetailPage() {
         title={item.description}
         description={`Código: ${item.code}${item.brand ? ` · ${item.brand}` : ""}`}
         action={
+          canWrite && (
           <div className="flex gap-2">
             <button
               onClick={handleOpenEntry}
@@ -258,6 +267,7 @@ export default function StockItemDetailPage() {
               <SlidersHorizontal size={16} /> Ajustar Estoque
             </button>
           </div>
+          )
         }
       />
 
@@ -290,16 +300,16 @@ export default function StockItemDetailPage() {
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs font-medium text-slate-500 mb-1">Custo Médio</p>
-          <p className="text-2xl font-bold text-slate-800">R$ {item.avgCost.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-800">{formatCurrency(item.avgCost)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs font-medium text-slate-500 mb-1">Preço de Venda</p>
-          <p className="text-2xl font-bold text-slate-800">R$ {item.sellPrice.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-slate-800">{formatCurrency(item.sellPrice)}</p>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white p-4">
           <p className="text-xs font-medium text-slate-500 mb-1">Valor em Estoque</p>
           <p className="text-2xl font-bold text-slate-800">
-            R$ {(item.quantity * item.avgCost).toFixed(2)}
+            {formatCurrency(item.quantity * item.avgCost)}
           </p>
         </div>
       </div>

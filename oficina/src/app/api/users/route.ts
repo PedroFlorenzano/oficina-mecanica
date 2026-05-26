@@ -4,12 +4,17 @@ import { CreateUser } from "@/application/use-cases/users/CreateUser";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const { searchParams } = new URL(request.url);
+    const roleFilter = searchParams.get("role");
 
-    const users = await container.userRepository.findAll(tenantId);
+    let users = await container.userRepository.findAll(tenantId);
+    if (roleFilter) {
+      users = users.filter((u: { role: string }) => u.role === roleFilter);
+    }
     return NextResponse.json(users);
   } catch (error) {
     if (error instanceof Response) return error;

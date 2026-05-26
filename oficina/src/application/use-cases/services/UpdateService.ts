@@ -17,6 +17,7 @@ export class UpdateService {
       estimatedTime: input.estimatedTime ? Number(input.estimatedTime) : null,
       defaultPrice: input.defaultPrice != null ? Number(input.defaultPrice) : 0,
       pricingType: input.pricingType || "VALUE",
+      commissionRate: input.commissionRate ? Number(input.commissionRate) : null,
       active: input.active != null ? input.active : true,
     });
   }

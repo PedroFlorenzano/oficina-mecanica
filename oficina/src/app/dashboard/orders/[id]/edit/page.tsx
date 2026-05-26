@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { Combobox, ComboboxOption } from "@/components/ui";
+import { formatCurrency } from "@/lib/format";
 
 interface CatalogService {
   id: string;
@@ -115,14 +116,14 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
     id: s.id,
     label: s.description,
     sublabel: s.category || "",
-    rightLabel: `R$ ${s.defaultPrice.toFixed(2)}`,
+    rightLabel: formatCurrency(s.defaultPrice),
   }));
 
   const partOptions: ComboboxOption[] = stockItems.map((item) => ({
     id: item.id,
     label: item.description,
     sublabel: `${item.code} • ${item.brand || ""}`,
-    rightLabel: `R$ ${item.sellPrice.toFixed(2)}`,
+    rightLabel: formatCurrency(item.sellPrice),
     rightSublabel: `Estoque: ${item.quantity}`,
   }));
 
@@ -244,7 +245,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                   {complaint.description && <span className="text-sm text-slate-500">— {complaint.description}</span>}
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-green-700">R$ {getComplaintTotal(complaint).toFixed(2)}</span>
+                  <span className="text-sm font-medium text-green-700">{formatCurrency(getComplaintTotal(complaint))}</span>
                   {complaints.length > 1 && (
                     <button type="button" onClick={(e) => { e.stopPropagation(); removeComplaint(ci); }} className="text-red-400 hover:text-red-600">
                       <Trash2 size={16} />
@@ -372,7 +373,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
 
                   {/* Subtotal */}
                   <div className="text-right pt-3 border-t border-slate-200">
-                    <span className="text-sm font-bold text-slate-700">Subtotal: R$ {getComplaintTotal(complaint).toFixed(2)}</span>
+                    <span className="text-sm font-bold text-slate-700">Subtotal: {formatCurrency(getComplaintTotal(complaint))}</span>
                   </div>
                 </div>
               )}
@@ -384,7 +385,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
         <div className="bg-white rounded-xl shadow-sm border-2 border-slate-300 p-5">
           <div className="flex justify-between items-center">
             <span className="text-sm font-bold text-slate-800">TOTAL GERAL</span>
-            <span className="text-2xl font-bold text-green-600">R$ {totalGeral.toFixed(2)}</span>
+            <span className="text-2xl font-bold text-green-600">{formatCurrency(totalGeral)}</span>
           </div>
         </div>
 

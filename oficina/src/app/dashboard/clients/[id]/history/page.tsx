@@ -3,6 +3,7 @@
 import { useState, useEffect, use } from "react";
 import { ArrowLeft, FileText } from "lucide-react";
 import Link from "next/link";
+import { formatCurrency } from "@/lib/format";
 
 interface OrderSummary {
   id: string;
@@ -98,7 +99,7 @@ export default function ClientHistoryPage({ params }: { params: Promise<{ id: st
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right font-medium text-slate-800">
-                      R$ {order.totalAmount.toFixed(2)}
+                      {formatCurrency(order.totalAmount)}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link

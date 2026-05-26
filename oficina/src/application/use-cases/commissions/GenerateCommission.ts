@@ -45,12 +45,15 @@ export class GenerateCommission {
       throw new ValidationError("Nenhum serviço elegível encontrado no período informado");
     }
 
-    const rate = mechanic.commissionRate;
-    const items = eligible.map((s) => ({
-      orderServiceId: s.id,
-      baseValue: s.price,
-      commissionValue: Math.round(s.price * rate) / 100,
-    }));
+    const defaultRate = mechanic.commissionRate;
+    const items = eligible.map((s) => {
+      const rate = s.commissionRate ?? defaultRate;
+      return {
+        orderServiceId: s.id,
+        baseValue: s.price,
+        commissionValue: Math.round(s.price * rate) / 100,
+      };
+    });
 
     const totalBase = items.reduce((sum, i) => sum + i.baseValue, 0);
     const totalCommission = items.reduce((sum, i) => sum + i.commissionValue, 0);
@@ -60,7 +63,7 @@ export class GenerateCommission {
       tenantId,
       startDate: start,
       endDate: end,
-      commissionRate: rate,
+      commissionRate: defaultRate,
       totalBase,
       totalCommission,
       items,

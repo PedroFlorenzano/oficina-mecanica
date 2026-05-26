@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, Car, Search, Pencil, Trash2, History } from "lucide-react";
 import Link from "next/link";
 import VehicleForm from "./VehicleForm";
+import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 
 interface Vehicle {
   id: string;
@@ -21,6 +23,13 @@ interface Vehicle {
 }
 
 export default function VehiclesPage() {
+  const { data: session } = useSession();
+  const role = (session?.user?.role ?? "MECHANIC") as Role;
+  const perms = parseCustomPermissions(session?.user?.customPermissions);
+  const canCreate = hasPermission(role, "vehicles", "create", perms);
+  const canUpdate = hasPermission(role, "vehicles", "update", perms);
+  const canDelete = hasPermission(role, "vehicles", "delete", perms);
+
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -75,12 +84,14 @@ export default function VehiclesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Veículos</h1>
+        {canCreate && (
         <button
           onClick={handleNew}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
         >
           <Plus size={18} /> Novo Veículo
         </button>
+        )}
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); fetchVehicles(search); }} className="mb-4">
@@ -134,6 +145,7 @@ export default function VehiclesPage() {
                   <td className="px-4 py-3 text-slate-600">{v.mileage.toLocaleString("pt-BR")} km</td>
                   <td className="px-4 py-3 text-slate-600">{v.client.name}</td>
                   <td className="px-4 py-3 text-right">
+                    {canUpdate && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleEdit(v); }}
                       className="text-slate-400 hover:text-blue-600 p-1"
@@ -141,6 +153,7 @@ export default function VehiclesPage() {
                     >
                       <Pencil size={16} />
                     </button>
+                    )}
                     <Link
                       href={`/dashboard/vehicles/${v.id}/history`}
                       onClick={(e) => e.stopPropagation()}
@@ -149,6 +162,7 @@ export default function VehiclesPage() {
                     >
                       <History size={16} />
                     </Link>
+                    {canDelete && (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleDelete(v); }}
                       className="text-slate-400 hover:text-red-600 p-1 ml-1"
@@ -156,6 +170,7 @@ export default function VehiclesPage() {
                     >
                       <Trash2 size={16} />
                     </button>
+                    )}
                   </td>
                 </tr>
               ))}

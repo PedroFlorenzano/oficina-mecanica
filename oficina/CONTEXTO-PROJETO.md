@@ -185,7 +185,7 @@ ServiceOrder: id, number, status (OPEN→WAITING_APPROVAL→...→DELIVERED/CANC
               mileage, notes, cancelReason (String?), totalAmount, clientId, vehicleId,
               tenantId, createdById
 Complaint: id, number, description, orderId
-OrderService: id, description, price, timeMinutes (Int?), serviceId, orderId,
+OrderService: id, description, price, timeMinutes (Int?), commissionRate (Float?), serviceId, orderId,
               complaintId, mechanicId
 OrderPart: id, description, quantity, unitPrice, totalPrice, stockItemId, orderId,
            complaintId, used (bool)
@@ -198,7 +198,7 @@ StatusHistory: id, fromStatus, toStatus, userId, orderId
 TimerLog: id, startedAt, pausedAt, finishedAt, pauseReason, totalSeconds,
           orderServiceId, userId, auditLogs TimerAuditLog[]
 TimerAuditLog: id, timerLogId, adminUserId, previousTotalSeconds, newTotalSeconds, changedAt
-ServiceCatalog: id, code, description, category, estimatedTime, defaultPrice, pricingType, active
+ServiceCatalog: id, code, description, category, estimatedTime, defaultPrice, pricingType, commissionRate (Float?), active
 Commission: id, mechanicId, tenantId, startDate, endDate, commissionRate (snapshot),
             totalBase, totalCommission, status (PENDING/APPROVED/PAID/CANCELLED),
             approvedAt, approvedById, paidAt, paidById, cancelledAt, cancelledById, cancelReason
@@ -879,7 +879,7 @@ Cliente não aprova serviço → Atendente clica "Editar Orçamento" na OS
 
 ## Contagem de Testes
 
-**Total: 212 testes unitários passando** (24 suites)
+**Total: 213 testes unitários passando** (24 suites)
 
 | Módulo | Testes |
 |--------|--------|
@@ -889,7 +889,7 @@ Cliente não aprova serviço → Atendente clica "Editar Orçamento" na OS
 | OS (criação/cancelamento/edição) | 4 + 10 + 4 financeiros |
 | NF-e | 6 financeiros |
 | Clientes/Veículos | 6 |
-| Kanban | 7 properties |
+| Kanban | 8 properties |
 | TimerControl (componente) | 9 |
 | Imutabilidade StockMovement | 3 |
 
@@ -973,6 +973,68 @@ customPermissions  String?  // JSON: {"resource": ["read","create","update","del
 | `.env.example` com todas as variáveis | ✅ |
 | README profissional (setup, módulos, arquitetura) | ✅ |
 | Tipagem `any` reduzida de 112 → 12 | ✅ |
+
+---
+
+## Ajustes de UX e Segurança (25/05/2026 — sessão 4)
+
+### Padronização de Botões na OS
+
+- Botões de ação na tela de detalhe da OS reorganizados: separados do header em uma linha `flex-wrap` com tamanho consistente (`px-4 py-2`, `inline-flex`, `font-medium`)
+- Status badge permanece no header ao lado do título
+
+### Formato Numérico Brasileiro
+
+- Criado `src/lib/format.ts` com `formatCurrency()` — usa `toLocaleString("pt-BR", { style: "currency", currency: "BRL" })`
+- Substituído `R$ x.toFixed(2)` por `formatCurrency(x)` em 11 arquivos (exibe `R$ 1.234,56`)
+- Afeta: detalhe OS, listagem OS, dashboard, estoque (listagem e detalhe), criação OS, edição OS, histórico clientes, histórico veículos, catálogo serviços
+
+### Permissões Customizáveis — Enforcement nos Botões de Ação
+
+- `hasPermission()` + `useSession()` adicionado em 6 páginas: clientes, veículos, OS, estoque (listagem e detalhe), serviços
+- Botões de **Criar**, **Editar** e **Excluir** agora respeitam as `customPermissions` do usuário
+- Botões **Registrar Entrada** e **Ajustar Estoque** na página de detalhe do item só aparecem com permissão `create` ou `update`
+- Se o ADMIN configurar um mecânico com apenas "Visualizar", os botões de ação não aparecem
+
+### Filtro da Pista com Mecânicos Cadastrados
+
+- `PistaFilters` transformado de input de texto para `<select>` que busca mecânicos via `GET /api/users?role=MECHANIC`
+- API `/api/users` agora aceita query param `role` para filtrar
+- `filterOrders` filtra por `mechanicId` nos serviços da OS (em vez de texto no `createdBy.name`)
+- `KanbanCard` mostra nome do mecânico atribuído (via `mechanicMap` propagado pela cadeia Board→Column→Card)
+- `ActiveOrder` e `PistaOrder` agora incluem `services[].mechanicId`
+- Repositório `findActive` retorna `services.mechanicId` para suportar o filtro
+
+### Comissão por Serviço (com fallback para taxa do mecânico)
+
+**Schema adicionado:**
+```prisma
+// ServiceCatalog — novo campo:
+commissionRate  Float?  // % comissão específica do serviço (null = usa taxa do mecânico)
+
+// OrderService — novo campo:
+commissionRate  Float?  // % comissão snapshot (null = usa taxa do mecânico)
+```
+
+**Lógica de cálculo:**
+- `GenerateCommission`: para cada serviço elegível, usa `OrderService.commissionRate` se definido; senão, usa `User.commissionRate` (taxa padrão do mecânico)
+- Fórmula: `commissionValue = price × (serviceRate ?? mechanicRate) / 100`
+- O `commissionRate` do `ServiceCatalog` é copiado para o `OrderService` no momento da criação da OS (snapshot)
+
+**UI:**
+- Catálogo de Serviços: novo campo "Comissão (%)" no formulário + coluna na tabela (mostra "X%" ou "Padrão")
+- Criação/edição de OS: ao selecionar serviço do catálogo, `commissionRate` é copiado automaticamente
+
+### Isolamento de Comissões por Mecânico
+
+- Verificado que o backend já isola corretamente: `ListCommissions` usa `findByMechanic(userId)` para MECHANIC
+- `GetCommissionDetail` verifica `mechanicId !== userId` e rejeita com 403
+- `GetMechanicCommissionSummary` bloqueia acesso a dados de outro mecânico
+- Rota `/api/users/[id]/commissions` restrita a ADMIN
+
+### Contagem de Testes
+
+**Total: 213 testes unitários passando** (24 suites) — +1 property test novo (filterOrders por mechanicId)
 
 ---
 

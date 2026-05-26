@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Plus, Package, AlertTriangle, Pencil, Trash2 } from "lucide-react";
 import StockItemForm from "./StockItemForm";
+import { formatCurrency } from "@/lib/format";
+import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 
 interface StockItem {
   id: string;
@@ -22,6 +25,13 @@ interface StockItem {
 }
 
 export default function StockPage() {
+  const { data: session } = useSession();
+  const role = (session?.user?.role ?? "MECHANIC") as Role;
+  const perms = parseCustomPermissions(session?.user?.customPermissions);
+  const canCreate = hasPermission(role, "stock", "create", perms);
+  const canUpdate = hasPermission(role, "stock", "update", perms);
+  const canDelete = hasPermission(role, "stock", "delete", perms);
+
   const router = useRouter();
   const [items, setItems] = useState<StockItem[]>([]);
   const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
@@ -87,12 +97,14 @@ export default function StockPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Estoque</h1>
+        {canCreate && (
         <button
           onClick={handleNew}
           className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
         >
           <Plus size={18} /> Novo Item
         </button>
+        )}
       </div>
 
       {/* Painel de alertas de estoque baixo */}
@@ -165,9 +177,10 @@ export default function StockPage() {
                       {item.quantity} {item.unit}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">R$ {item.costPrice.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-slate-700">R$ {item.sellPrice.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-slate-600">{formatCurrency(item.costPrice)}</td>
+                  <td className="px-4 py-3 text-slate-700">{formatCurrency(item.sellPrice)}</td>
                   <td className="px-4 py-3 text-right">
+                    {canUpdate && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -178,6 +191,8 @@ export default function StockPage() {
                     >
                       <Pencil size={16} />
                     </button>
+                    )}
+                    {canDelete && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -188,6 +203,7 @@ export default function StockPage() {
                     >
                       <Trash2 size={16} />
                     </button>
+                    )}
                   </td>
                 </tr>
               ))}

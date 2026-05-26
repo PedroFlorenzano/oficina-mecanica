@@ -15,6 +15,7 @@ interface KanbanBoardProps {
   onDrop: (toStatus: OrderStatus) => void;
   onDragEnd: () => void;
   onCardClick: (orderId: string) => void;
+  mechanicMap?: Record<string, string>;
 }
 
 export function KanbanBoard({
@@ -27,6 +28,7 @@ export function KanbanBoard({
   onDrop,
   onDragEnd,
   onCardClick,
+  mechanicMap,
 }: KanbanBoardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -75,6 +77,7 @@ export function KanbanBoard({
               onDrop={() => onDrop(status)}
               onDragEnd={onDragEnd}
               onCardClick={onCardClick}
+              mechanicMap={mechanicMap}
             />
           );
         })}

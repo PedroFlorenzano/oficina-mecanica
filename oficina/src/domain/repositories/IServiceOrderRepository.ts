@@ -27,7 +27,7 @@ export interface OrderSummary {
 
 export interface ComplaintInput {
   description: string;
-  services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null }[];
+  services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null }[];
   parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[];
 }
 
@@ -101,6 +101,7 @@ export interface ActiveOrder {
   vehicle: { plate: string; model: string; brand?: string };
   complaints?: { description: string }[];
   createdBy?: { name: string };
+  services?: { mechanicId?: string | null }[];
 }
 
 export interface IServiceOrderRepository {

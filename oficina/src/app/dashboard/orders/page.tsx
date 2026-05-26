@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Plus, ClipboardList, Search, Download, Filter } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { formatCurrency } from "@/lib/format";
+import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 
 interface Order {
   id: string;
@@ -27,6 +30,11 @@ const statusLabels: Record<string, { label: string; color: string }> = {
 };
 
 export default function OrdersPage() {
+  const { data: session } = useSession();
+  const role = (session?.user?.role ?? "MECHANIC") as Role;
+  const perms = parseCustomPermissions(session?.user?.customPermissions);
+  const canCreate = hasPermission(role, "orders", "create", perms);
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -115,7 +123,7 @@ export default function OrdersPage() {
   const exportCSV = () => {
     const header = "Nº;Cliente;Placa;Veículo;Status;Total;Data\n";
     const rows = filtered.map((o) =>
-      `${o.number};${o.client.name};${o.vehicle.plate};${o.vehicle.model};${statusLabels[o.status]?.label || o.status};${o.totalAmount.toFixed(2)};${new Date(o.createdAt).toLocaleDateString("pt-BR")}`
+      `${o.number};${o.client.name};${o.vehicle.plate};${o.vehicle.model};${statusLabels[o.status]?.label || o.status};${o.totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })};${new Date(o.createdAt).toLocaleDateString("pt-BR")}`
     ).join("\n");
     const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -141,6 +149,7 @@ export default function OrdersPage() {
             <Download size={16} />
             Exportar CSV
           </button>
+          {canCreate && (
           <Link
             href="/dashboard/orders/new"
             className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -148,6 +157,7 @@ export default function OrdersPage() {
             <Plus size={18} />
             Nova OS
           </Link>
+          )}
         </div>
       </div>
 
@@ -246,7 +256,7 @@ export default function OrdersPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-slate-700">
-                      R$ {order.totalAmount.toFixed(2)}
+                      {formatCurrency(order.totalAmount)}
                     </td>
                     <td className="px-4 py-3 text-slate-500">
                       {new Date(order.createdAt).toLocaleDateString("pt-BR")}
