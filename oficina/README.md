@@ -69,6 +69,34 @@ npm run build      # Build de produção
 - **PDF do Manual:** Acesse `/api/manual` com o sistema rodando para baixar o PDF
 - **[Contexto do Projeto](./CONTEXTO-PROJETO.md)** — Decisões técnicas e estado atual
 
+## Roadmap para Produção
+
+### 1. NF-e/NFS-e — Adapter Real
+- Certificado digital A1 (upload + assinatura XML)
+- Adapter SEFAZ (webservice SOAP, NF-e 4.0)
+- Adapter Prefeitura (API REST ABRASF, NFS-e)
+- BullMQ + Redis (processamento assíncrono, opcional)
+- DANFE com código de barras (Code128)
+
+### 2. Multi-Tenancy Real
+- Migração SQLite → PostgreSQL
+- Isolamento por schema ou row-level security
+- Onboarding self-service (cadastro de nova oficina)
+- Billing/Assinatura (Stripe, Asaas)
+- Subdomínio por tenant
+
+### 3. Deploy em Produção
+- Hosting (Vercel / AWS / VPS)
+- Domínio + SSL
+- CI/CD (GitHub Actions)
+- Backup diário + monitoramento (Sentry)
+
+### 4. Comercialização
+- Landing page + deck comercial
+- Planos e preços
+- Contrato / LGPD
+- Canal de suporte
+
 ## Licença
 
 Proprietary — Paiffer Tecnologia

@@ -1144,20 +1144,49 @@ O módulo NF-e/NFS-e agora funciona end-to-end com adapter fake (sem SEFAZ/Prefe
 
 ---
 
-## Pendente
+## Pendente — Roadmap para Produção
 
-### Módulos incompletos
+> O sistema está funcional e completo para uso em uma oficina (single-tenant). O que resta são itens de infraestrutura de produção, integração fiscal real e comercialização.
 
-| Módulo | Status | O que falta |
-|--------|--------|-------------|
-| **NF-e/NFS-e (produção)** | ✅ simulado / 🟡 produção | Adapter real SEFAZ/Prefeitura, certificado digital A1, BullMQ (opcional para volume alto) |
-| **Multi-Tenancy** | 🟡 20% | Isolamento real com PostgreSQL em produção (schema por tenant) |
+### 1. NF-e/NFS-e — Adapter Real
 
-### Próximos passos (requerem decisão/input)
+| Item | Descrição | Dependência |
+|------|-----------|-------------|
+| Certificado digital A1 | Upload, validação e assinatura XML | Compra do certificado (~R$200/ano) |
+| Adapter SEFAZ | Webservice SOAP, layout NF-e 4.0 | Credenciais de homologação SEFAZ-SP |
+| Adapter Prefeitura | API REST ABRASF para NFS-e | Cadastro na Prefeitura de Sorocaba |
+| BullMQ + Redis | Processamento assíncrono (opcional para volume baixo) | Redis em produção |
+| DANFE com código de barras | Code128 da chave de acesso no PDF | Lib de barcode (react-barcode ou similar) |
 
-| # | Item | Dependência |
-|---|------|-------------|
-| 1 | NF-e/NFS-e real (adapter SEFAZ) | Certificado digital A1, credenciais SEFAZ, dados fiscais da oficina |
-| 2 | Multi-tenancy produção | Decisão de infra (PostgreSQL, Vercel/AWS, domínio) |
-| 3 | Apresentação comercial | Preços, planos, posicionamento de mercado |
-| 4 | Deploy produção | Configuração de ambiente, domínio, SSL |
+**Para ativar:** Criar `SefazFiscalAdapter implements IFiscalAdapter` e substituir `new FakeFiscalAdapter()` nas rotas.
+
+### 2. Multi-Tenancy Real
+
+| Item | Descrição | Dependência |
+|------|-----------|-------------|
+| PostgreSQL | Migrar de SQLite para Postgres | Servidor de banco (RDS, Supabase, etc.) |
+| Isolamento por schema | Um schema por tenant (ou row-level security) | Decisão arquitetural |
+| Onboarding | Fluxo de cadastro de nova oficina (self-service) | UI + API de criação de tenant |
+| Billing/Assinatura | Controle de plano, inadimplência, bloqueio | Gateway de pagamento (Stripe, Asaas) |
+| Subdomínio por tenant | `oficina-x.sistema.com.br` ou path-based | Configuração DNS wildcard |
+
+### 3. Deploy em Produção
+
+| Item | Descrição | Dependência |
+|------|-----------|-------------|
+| Hosting | Vercel, AWS (ECS/Lambda), ou VPS | Decisão de custo/escala |
+| Domínio + SSL | Configuração DNS, certificado HTTPS | Registro de domínio |
+| Variáveis de ambiente | NEXTAUTH_SECRET, DATABASE_URL, EVOLUTION_API_KEY, etc. | Definição de secrets |
+| CI/CD | Pipeline de deploy automático (GitHub Actions) | Configuração do workflow |
+| Backup | Estratégia de backup do banco (diário, retenção 30d) | Cron + storage (S3) |
+| Monitoramento | Logs, alertas, uptime (Sentry, UptimeRobot) | Conta nos serviços |
+
+### 4. Comercialização
+
+| Item | Descrição | Dependência |
+|------|-----------|-------------|
+| Apresentação comercial | Deck de vendas, posicionamento, diferenciais | Definição de preços/planos |
+| Landing page | Site de vendas do SaaS com CTA | Design + domínio público |
+| Planos e preços | Básico / Profissional / Enterprise | Análise de mercado |
+| Contrato e LGPD | Termos de uso, política de privacidade | Assessoria jurídica |
+| Suporte | Canal de atendimento (WhatsApp, email, chat) | Definição de SLA |
