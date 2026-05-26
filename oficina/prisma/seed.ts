@@ -276,6 +276,26 @@ async function main() {
     }
   }
 
+  // Fiscal Config
+  await prisma.fiscalConfig.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      enabled: true,
+      environment: "homologation",
+      cnpj: "12345678000199",
+      inscricaoEstadual: "123456789",
+      inscricaoMunicipal: "987654",
+      razaoSocial: "Paiffer Bosch Car Service Peugeot Ltda",
+      nfeSeries: 1,
+      nfseSeries: 1,
+      nextNfeNumber: 1,
+      nextNfseNumber: 1,
+      cityCode: "3552205",
+    },
+  });
+
   console.log("✅ Seed concluído com sucesso!");
 }
 

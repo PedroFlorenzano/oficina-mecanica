@@ -25,7 +25,7 @@ Sistema SaaS de gestão para oficinas mecânicas automotivas brasileiras. Desenv
 | WhatsApp + Assinatura Digital | ✅ |
 | Etiqueta de Troca de Óleo | ✅ |
 | Relatórios Financeiros | ✅ |
-| NF-e/NFS-e | 🟡 70% |
+| NF-e/NFS-e | ✅ (simulado) |
 
 ## Setup
 

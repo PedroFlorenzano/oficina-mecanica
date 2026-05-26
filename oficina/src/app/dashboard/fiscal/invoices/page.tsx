@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { PageHeader, Badge, Select, Table, TableHeader, TableHead, TableBody, TableRow, TableCell, EmptyState } from "@/components/ui";
+import Link from "next/link";
+import { PageHeader, Badge, Select, Table, TableHeader, TableHead, TableBody, TableRow, TableCell, EmptyState, Modal, Button, Input } from "@/components/ui";
 import { FileText } from "lucide-react";
 
 interface Invoice {
   id: string;
+  orderId: string;
   type: string;
   status: string;
   number: number | null;
@@ -30,6 +32,10 @@ export default function FiscalInvoicesPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+  const [cancelModal, setCancelModal] = useState<Invoice | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   const fetchData = () => {
     setLoading(true);
@@ -41,12 +47,41 @@ export default function FiscalInvoicesPage() {
 
   useEffect(() => { fetchData(); }, [statusFilter, typeFilter]);
 
-  const handleAction = async (id: string, action: string, reason?: string) => {
-    await fetch(`/api/fiscal/invoices/${id}`, {
+  const handleRetry = async (id: string) => {
+    const res = await fetch(`/api/fiscal/invoices/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, reason }),
+      body: JSON.stringify({ action: "retry" }),
     });
+    if (!res.ok) {
+      const err = await res.json();
+      alert(err.error || "Erro ao reenviar");
+    }
+    fetchData();
+  };
+
+  const handleCancel = async () => {
+    if (!cancelModal) return;
+    if (cancelReason.trim().length < 15) {
+      setCancelError("O motivo deve ter no mínimo 15 caracteres");
+      return;
+    }
+    setCancelLoading(true);
+    setCancelError("");
+    const res = await fetch(`/api/fiscal/invoices/${cancelModal.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel", reason: cancelReason.trim() }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      setCancelError(err.error || "Erro ao cancelar");
+      setCancelLoading(false);
+      return;
+    }
+    setCancelLoading(false);
+    setCancelModal(null);
+    setCancelReason("");
     fetchData();
   };
 
@@ -81,17 +116,20 @@ export default function FiscalInvoicesPage() {
                 <TableRow key={inv.id}>
                   <TableCell>{inv.number || "—"}</TableCell>
                   <TableCell><Badge variant={inv.type === "NFE" ? "info" : "default"}>{inv.type}</Badge></TableCell>
-                  <TableCell>#{inv.order.number}</TableCell>
+                  <TableCell><Link href={`/dashboard/orders/${inv.orderId}`} className="text-blue-600 hover:underline font-medium">#{inv.order.number}</Link></TableCell>
                   <TableCell>{inv.order.client.name}</TableCell>
                   <TableCell>{fmt(inv.totalAmount)}</TableCell>
                   <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                   <TableCell>
-                    <div className="flex gap-1">
+                    <div className="flex gap-3">
+                      {inv.status === "AUTHORIZED" && (
+                        <button onClick={async () => { const r = await fetch(`/api/fiscal/invoices/${inv.id}/pdf`); if (r.ok) { const blob = await r.blob(); window.open(URL.createObjectURL(blob)); } }} className="px-2 py-1 text-xs font-medium text-green-700 bg-green-50 rounded hover:bg-green-100">DANFE</button>
+                      )}
                       {["ERROR", "REJECTED"].includes(inv.status) && inv.retryCount < 3 && (
-                        <button onClick={() => handleAction(inv.id, "retry")} className="text-xs text-blue-600 hover:underline">Reenviar</button>
+                        <button onClick={() => handleRetry(inv.id)} className="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 rounded hover:bg-blue-100">Reenviar</button>
                       )}
                       {inv.status === "AUTHORIZED" && (
-                        <button onClick={() => { const r = prompt("Motivo do cancelamento (min 15 chars):"); if (r && r.length >= 15) handleAction(inv.id, "cancel", r); }} className="text-xs text-red-600 hover:underline">Cancelar</button>
+                        <button onClick={() => { setCancelModal(inv); setCancelReason(""); setCancelError(""); }} className="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 rounded hover:bg-red-100">Cancelar</button>
                       )}
                     </div>
                   </TableCell>
@@ -101,6 +139,36 @@ export default function FiscalInvoicesPage() {
           </TableBody>
         </Table>
       )}
+
+      {/* Modal de Cancelamento */}
+      <Modal isOpen={!!cancelModal} onClose={() => setCancelModal(null)} title="Cancelar Nota Fiscal" size="sm">
+        {cancelModal && (
+          <div className="space-y-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p className="text-sm text-red-800 font-medium">Atenção: esta ação é irreversível</p>
+              <p className="text-sm text-red-600 mt-1">
+                A nota <strong>{cancelModal.type} #{cancelModal.number}</strong> da OS #{cancelModal.order.number} ({cancelModal.order.client.name}) será cancelada.
+              </p>
+            </div>
+
+            <Input
+              label="Motivo do cancelamento"
+              value={cancelReason}
+              onChange={e => { setCancelReason(e.target.value); setCancelError(""); }}
+              placeholder="Descreva o motivo (mínimo 15 caracteres)"
+              error={cancelError}
+              hint={`${cancelReason.trim().length}/15 caracteres mínimos`}
+            />
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setCancelModal(null)}>Voltar</Button>
+              <Button variant="danger" onClick={handleCancel} loading={cancelLoading} disabled={cancelReason.trim().length < 15}>
+                Confirmar Cancelamento
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

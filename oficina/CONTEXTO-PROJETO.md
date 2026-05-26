@@ -160,7 +160,7 @@ oficina/src/
 | 3 | Multi-Tenancy | 🟡 20% | tenantId em todos os dados, estrutura pronta — isolamento real depende de PostgreSQL em produção |
 | 4 | Ordem de Serviço (OS) | ✅ 100% | Criação com Reclamações, status padrão WAITING_APPROVAL, cancelamento com motivo, PDF completo, integração estoque (reserva/consumo/reversão), Kanban Pista |
 | 5 | Controle de Estoque | ✅ 100% | CRUD itens, entrada com custo médio ponderado, histórico paginado de movimentos, alertas de mínimo (badge Sidebar + painel), ajuste físico (ADJUSTMENT), log imutável |
-| 6 | Emissão de NF-e/NFS-e | 🟡 70% | Infra pronta: schema, use cases, API routes, UI config + listagem + botão na OS. Falta: integração SEFAZ/Prefeitura + BullMQ |
+| 6 | Emissão de NF-e/NFS-e | ✅ 100% (simulado) | Infra completa: schema, use cases, API routes, UI config + listagem + botão na OS. Adapter simulado (FakeFiscalAdapter), processamento síncrono, DANFE/DANFSE PDF. Falta: adapter real SEFAZ/Prefeitura + certificado A1 |
 | 7 | Integração WhatsApp + Assinatura | ✅ 100% | Envio real via Evolution API, webhook de status (DELIVERED/READ), notificação automática ao mover OS na Pista, lembrete preventivo automático (cron), assinatura digital mobile-first |
 | 8 | Assinatura Digital | ✅ 100% | Incluído no módulo 7 — página pública /sign/[token] mobile-first com Canvas touch + mudança automática de status (APPROVAL→IN_PROGRESS, DELIVERY→DELIVERED) |
 | 9 | Gestão de Comissões | ✅ 100% | Comissão por mecânico sobre valor bruto dos serviços, percentual configurável (commissionRate), geração por período, fluxo PENDING→APPROVED→PAID (ou CANCELLED), 7 use cases, 7 API routes, 3 páginas UI, 31 testes unitários |
@@ -671,20 +671,42 @@ A API `GET /api/public/sign/[token]` retorna: signerName, type, order (number, t
 
 ---
 
-## Módulo 6 — NF-e/NFS-e (infra pronta em 22/05/2026)
+## Módulo 6 — NF-e/NFS-e (simulado 100% em 26/05/2026)
 
 ### O que está pronto
 
-Schema completo, repositório, use cases com validações, API routes, UI de configuração e listagem de notas com ações (retry/cancel).
+Fluxo completo funcionando com **adapter simulado** (sem comunicação real com SEFAZ/Prefeitura). Schema, repositório, use cases, API routes, UI de configuração, listagem de notas, processamento síncrono, geração de XML mock e DANFE/DANFSE em PDF.
 
-### Fluxo planejado
+### Fluxo implementado
 
 ```
 OS concluída → ADMIN clica "Emitir NF" → escolhe NFE (produtos) ou NFSE (serviços)
-→ IssueFiscalInvoice cria invoice PENDING com itens → BullMQ job processa
-→ Adapter gera XML → envia para SEFAZ/Prefeitura → atualiza status (AUTHORIZED/REJECTED)
-→ Se erro: até 3 retries automáticos → depois notifica admin
+→ IssueFiscalInvoice cria invoice PENDING com itens
+→ FiscalProcessor processa imediatamente (substitui BullMQ)
+→ FakeFiscalAdapter gera XML mock + chave de acesso + protocolo fictício
+→ Invoice atualizada para AUTHORIZED
+→ Botão "DANFE" na listagem → GET /api/fiscal/invoices/[id]/pdf → PDF
+→ Se erro: até 3 retries automáticos → marca ERROR + lastError
 ```
+
+### Arquitetura do Adapter (Strategy Pattern)
+
+```
+src/infrastructure/fiscal/
+├── IFiscalAdapter.ts         # Interface: authorize(input) → FiscalAuthorization, cancel(key, reason)
+├── FakeFiscalAdapter.ts      # Implementação simulada (dev/homologação)
+└── FiscalProcessor.ts        # Processador síncrono (substitui BullMQ)
+```
+
+- **`IFiscalAdapter`** — contrato com métodos `authorize()` e `cancel()`
+- **`FakeFiscalAdapter`** — gera XML realista (NF-e 4.0 / ABRASF NFS-e), chave de acesso com mod11 (44 dígitos), protocolo fictício, simula latência 200-500ms
+- **`FiscalProcessor`** — processa invoice síncrono: PENDING → PROCESSING → AUTHORIZED (ou ERROR)
+
+### DANFE/DANFSE em PDF
+
+- **Componente:** `src/components/pdf/DanfeDocument.tsx` — layout profissional com emitente, chave de acesso formatada, destinatário, tabela de itens (NCM/CFOP ou Cód. Serviço), total
+- **Rota:** `GET /api/fiscal/invoices/[id]/pdf` — gera PDF inline (apenas para notas AUTHORIZED)
+- **Nota:** Inclui aviso "Documento emitido em ambiente de homologação — sem valor fiscal"
 
 ### API Routes
 
@@ -693,17 +715,19 @@ OS concluída → ADMIN clica "Emitir NF" → escolhe NFE (produtos) ou NFSE (se
 | `/api/fiscal/config` | GET/PUT | Configuração fiscal |
 | `/api/fiscal/invoices` | GET | Listagem com filtros |
 | `/api/fiscal/invoices/[id]` | PATCH | Retry ou Cancel |
+| `/api/fiscal/invoices/[id]/pdf` | GET | Download DANFE/DANFSE PDF |
 | `/api/orders/[id]/invoice` | GET | Notas da OS |
-| `/api/orders/[id]/invoice` | POST | Emitir nota |
+| `/api/orders/[id]/invoice` | POST | Emitir nota (processa imediatamente) |
 
-### O que falta para 100%
+### O que falta para produção real
 
-- BullMQ + Redis para processamento assíncrono
-- Adapter de geração de XML (layout NF-e 4.0 / ABRASF NFS-e)
-- Comunicação com SEFAZ (webservice) e Prefeitura (API REST)
-- Certificado digital A1 (upload + validação)
-- DANFE/DANFSE em PDF
-- Incluir fornecedor (`stockItem.supplier`) nos itens da NF-e para rastreabilidade de garantia
+Para trocar pelo adapter real, basta criar `SefazFiscalAdapter implements IFiscalAdapter` e substituir `new FakeFiscalAdapter()` nas rotas:
+
+- Adapter real de comunicação com SEFAZ (webservice SOAP, layout NF-e 4.0)
+- Adapter real de comunicação com Prefeitura (API REST ABRASF para NFS-e)
+- Certificado digital A1 (upload + validação + assinatura XML)
+- BullMQ + Redis para processamento assíncrono em produção (opcional — o síncrono funciona para volume baixo)
+- DANFE com código de barras (Code128 da chave de acesso)
 
 ---
 
@@ -893,7 +917,7 @@ Cliente não aprova serviço → Atendente clica "Editar Orçamento" na OS
 | TimerControl (componente) | 9 |
 | Imutabilidade StockMovement | 3 |
 
-*Última atualização: 25/05/2026 — Permissões customizáveis, filtros avançados OS, dashboard mecânico, PDF orçamento, lucro por OS, limpeza geral do projeto.*
+*Última atualização: 26/05/2026 — Módulo fiscal simulado 100%, DANFE PDF, UX profissional (botões NFE/NFSE, modal cancelamento).*
 
 ---
 
@@ -1090,20 +1114,50 @@ Reescrito `prisma/seed.ts` com dados demo abrangentes:
 
 ---
 
+## Melhorias do Módulo Fiscal (26/05/2026 — sessão 6)
+
+### Adapter Simulado Completo
+
+O módulo NF-e/NFS-e agora funciona end-to-end com adapter fake (sem SEFAZ/Prefeitura real):
+
+- **`FakeFiscalAdapter`** — gera XML realista (NF-e 4.0 / ABRASF NFS-e), chave de acesso com mod11, protocolo fictício, latência simulada
+- **`FiscalProcessor`** — processamento síncrono (substitui BullMQ): PENDING → PROCESSING → AUTHORIZED
+- **DANFE/DANFSE PDF** — componente `DanfeDocument.tsx` com layout profissional (emitente, chave de acesso, itens, total)
+- **Rota PDF:** `GET /api/fiscal/invoices/[id]/pdf`
+
+### Descrição Enriquecida nos Itens da NF-e
+
+- Peças na NF-e incluem marca e fornecedor na descrição: `"Filtro de Ar | Mann | Forn: Auto Pecas Sorocaba"`
+- Coleta correta de peças/serviços de `complaints[]` (não duplica com nível raiz)
+
+### UX Profissional
+
+- **Botões separados na OS:** "NF-e (Peças)" e "NFS-e (Serviços)" — sem prompt, ação direta
+- **Modal de cancelamento:** aviso vermelho irreversível, dados da nota, campo com contador de caracteres (mín 15), botão desabilitado até atingir mínimo, feedback de erro inline
+- **Link na coluna OS:** clicável, redireciona para detalhe da OS
+- **Botão DANFE:** fetch com cookie (resolve 401 em nova aba), abre PDF via blob URL
+
+### Seed Fiscal
+
+- `FiscalConfig` adicionada ao seed com dados da Paiffer (CNPJ, IE, IM, razão social, cidade Sorocaba)
+- Módulo fiscal já vem habilitado no ambiente de desenvolvimento
+
+---
+
 ## Pendente
 
 ### Módulos incompletos
 
 | Módulo | Status | O que falta |
 |--------|--------|-------------|
-| **NF-e/NFS-e** | 🟡 70% | BullMQ + Redis, adapter XML (NF-e 4.0 / ABRASF), comunicação SEFAZ/Prefeitura, certificado A1, DANFE/DANFSE PDF |
+| **NF-e/NFS-e (produção)** | ✅ simulado / 🟡 produção | Adapter real SEFAZ/Prefeitura, certificado digital A1, BullMQ (opcional para volume alto) |
 | **Multi-Tenancy** | 🟡 20% | Isolamento real com PostgreSQL em produção (schema por tenant) |
 
 ### Próximos passos (requerem decisão/input)
 
 | # | Item | Dependência |
 |---|------|-------------|
-| 1 | NF-e/NFS-e real | Certificado digital A1, credenciais SEFAZ, dados fiscais da oficina |
+| 1 | NF-e/NFS-e real (adapter SEFAZ) | Certificado digital A1, credenciais SEFAZ, dados fiscais da oficina |
 | 2 | Multi-tenancy produção | Decisão de infra (PostgreSQL, Vercel/AWS, domínio) |
 | 3 | Apresentação comercial | Preços, planos, posicionamento de mercado |
 | 4 | Deploy produção | Configuração de ambiente, domínio, SSL |

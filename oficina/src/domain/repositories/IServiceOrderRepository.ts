@@ -71,7 +71,7 @@ export interface OrderPartDetail {
   totalPrice: number;
   stockItemId: string | null;
   used: boolean;
-  stockItem?: { supplier: string | null } | null;
+  stockItem?: { supplier: string | null; brand: string | null } | null;
 }
 
 export interface ComplaintDetail {

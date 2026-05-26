@@ -34,12 +34,25 @@ export class IssueFiscalInvoice {
       throw new ConflictError(`Já existe uma ${type} autorizada para esta OS`);
     }
 
-    // Montar itens da nota
+    // Montar itens da nota — coleta de complaints (se existem) ou avulsos
+    const hasComplaints = (order.complaints || []).length > 0;
+    const allParts = hasComplaints
+      ? (order.complaints || []).flatMap(c => c.parts || [])
+      : (order.parts || []);
+    const allServices = hasComplaints
+      ? (order.complaints || []).flatMap(c => c.services || [])
+      : (order.services || []);
+
     const items = type === "NFE"
-      ? (order.parts || [])
-          .filter((p) => p.used !== false) // Apenas peças efetivamente usadas
-          .map((p) => ({ description: p.description, quantity: p.quantity, unitPrice: p.unitPrice, totalPrice: p.totalPrice, cfop: "5102", ncm: "" }))
-      : (order.services || []).map((s) => ({ description: s.description, quantity: 1, unitPrice: s.price, totalPrice: s.price, serviceCode: "" }));
+      ? allParts
+          .filter((p) => p.used !== false)
+          .map((p) => {
+            const desc = [p.description];
+            if (p.stockItem?.brand) desc.push(p.stockItem.brand);
+            if (p.stockItem?.supplier) desc.push(`Forn: ${p.stockItem.supplier}`);
+            return { description: desc.join(" | "), quantity: p.quantity, unitPrice: p.unitPrice, totalPrice: p.totalPrice, cfop: "5102", ncm: "" };
+          })
+      : allServices.map((s) => ({ description: s.description, quantity: 1, unitPrice: s.price, totalPrice: s.price, serviceCode: "" }));
 
     if (items.length === 0) {
       throw new ValidationError(`Nenhum ${type === "NFE" ? "produto" : "serviço"} encontrado na OS para emissão`);

@@ -4,6 +4,8 @@ import { IssueFiscalInvoice } from "@/application/use-cases/fiscal/IssueFiscalIn
 import { GetInvoicesByOrder } from "@/application/use-cases/fiscal/GetInvoicesByOrder";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
+import { FiscalProcessor } from "@/infrastructure/fiscal/FiscalProcessor";
+import { FakeFiscalAdapter } from "@/infrastructure/fiscal/FakeFiscalAdapter";
 
 export async function GET(
   _request: NextRequest,
@@ -30,8 +32,17 @@ export async function POST(
     if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Acesso restrito" }, { status: 403 });
     const { id } = await params;
     const body = await request.json();
+    const tenantId = session.user.tenantId;
+
     const uc = new IssueFiscalInvoice(container.fiscalRepository, container.orderRepository);
-    const result = await uc.execute(id, body.type, session.user.tenantId);
+    const invoice = await uc.execute(id, body.type, tenantId);
+
+    // Processar imediatamente (substitui BullMQ)
+    const processor = new FiscalProcessor(container.fiscalRepository, new FakeFiscalAdapter());
+    await processor.process(invoice.id, tenantId);
+
+    // Retornar invoice atualizada
+    const result = await container.fiscalRepository.findInvoiceById(invoice.id, tenantId);
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     if (error instanceof Response) return error;

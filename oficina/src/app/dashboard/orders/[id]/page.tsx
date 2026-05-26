@@ -208,20 +208,32 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             </button>
           )}
           {["COMPLETED", "DELIVERED"].includes(order.status) && (
-            <button
-              onClick={async () => {
-                const type = prompt("Tipo de nota: NFE (produtos) ou NFSE (serviços):", "NFSE");
-                if (!type || !["NFE", "NFSE"].includes(type.toUpperCase())) return;
-                const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: type.toUpperCase() }) });
-                const data = await res.json();
-                if (res.ok) setWhatsAppMsg("✓ Nota fiscal criada com sucesso");
-                else setWhatsAppMsg(`✗ ${data.error}`);
-                setTimeout(() => setWhatsAppMsg(""), 5000);
-              }}
-              className="inline-flex items-center gap-2 px-4 py-2 border border-indigo-300 bg-indigo-50 rounded-lg text-sm font-medium hover:bg-indigo-100 text-indigo-700"
-            >
-              <FileText size={16} /> Emitir NF
-            </button>
+            <>
+              <button
+                onClick={async () => {
+                  const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "NFE" }) });
+                  const data = await res.json();
+                  if (res.ok) setWhatsAppMsg("✓ NF-e (produtos) emitida com sucesso");
+                  else setWhatsAppMsg(`✗ ${data.error}`);
+                  setTimeout(() => setWhatsAppMsg(""), 5000);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-indigo-300 bg-indigo-50 rounded-lg text-sm font-medium hover:bg-indigo-100 text-indigo-700"
+              >
+                <FileText size={16} /> NF-e (Peças)
+              </button>
+              <button
+                onClick={async () => {
+                  const res = await fetch(`/api/orders/${order.id}/invoice`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "NFSE" }) });
+                  const data = await res.json();
+                  if (res.ok) setWhatsAppMsg("✓ NFS-e (serviços) emitida com sucesso");
+                  else setWhatsAppMsg(`✗ ${data.error}`);
+                  setTimeout(() => setWhatsAppMsg(""), 5000);
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 border border-purple-300 bg-purple-50 rounded-lg text-sm font-medium hover:bg-purple-100 text-purple-700"
+              >
+                <FileText size={16} /> NFS-e (Serviços)
+              </button>
+            </>
           )}
         </div>
       </div>
