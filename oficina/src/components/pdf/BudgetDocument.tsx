@@ -1,5 +1,17 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+interface BudgetService { id: string; description: string; price: number; complaintId?: string | null }
+interface BudgetPart { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; complaintId?: string | null }
+interface BudgetComplaint { id: string; number: number; description: string; services: BudgetService[]; parts: BudgetPart[] }
+interface BudgetOrder {
+  number: number; createdAt: string | Date; mileage: number; totalAmount: number;
+  client?: { name: string; phone?: string | null };
+  vehicle?: { plate: string; brand: string; model: string };
+  complaints?: BudgetComplaint[];
+  services?: BudgetService[];
+  parts?: BudgetPart[];
+}
+
 const styles = StyleSheet.create({
   page: { padding: 36, fontSize: 9, fontFamily: "Helvetica" },
   header: { marginBottom: 14, borderBottomWidth: 1, borderBottomColor: "#334155", paddingBottom: 10 },
@@ -52,12 +64,12 @@ function formatMoney(v: number) {
   return `R$ ${(v || 0).toFixed(2)}`;
 }
 
-export function BudgetDocument({ order }: { order: any }) {
+export function BudgetDocument({ order }: { order: BudgetOrder }) {
   const hasComplaints = order.complaints && order.complaints.length > 0;
-  const ungroupedServices = (order.services || []).filter((s: any) => !s.complaintId);
-  const ungroupedParts = (order.parts || []).filter((p: any) => !p.complaintId);
-  const totalServices = (order.services || []).reduce((s: number, sv: any) => s + (sv.price || 0), 0);
-  const totalParts = (order.parts || []).reduce((s: number, p: any) => s + (p.totalPrice || 0), 0);
+  const ungroupedServices = (order.services || []).filter((s) => !s.complaintId);
+  const ungroupedParts = (order.parts || []).filter((p) => !p.complaintId);
+  const totalServices = (order.services || []).reduce((s, sv) => s + (sv.price || 0), 0);
+  const totalParts = (order.parts || []).reduce((s, p) => s + (p.totalPrice || 0), 0);
 
   return (
     <Document>
@@ -114,9 +126,9 @@ export function BudgetDocument({ order }: { order: any }) {
         {hasComplaints && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Serviços e Peças</Text>
-            {order.complaints.map((c: any) => {
-              const cSvcTotal = (c.services || []).reduce((s: number, sv: any) => s + (sv.price || 0), 0);
-              const cPrtTotal = (c.parts || []).reduce((s: number, p: any) => s + (p.totalPrice || 0), 0);
+            {order.complaints!.map((c: BudgetComplaint) => {
+              const cSvcTotal = (c.services || []).reduce((s, sv) => s + (sv.price || 0), 0);
+              const cPrtTotal = (c.parts || []).reduce((s, p) => s + (p.totalPrice || 0), 0);
               return (
                 <View key={c.id} style={styles.complaintBox}>
                   <View style={styles.complaintHeader}>
@@ -130,7 +142,7 @@ export function BudgetDocument({ order }: { order: any }) {
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
                         </View>
-                        {(c.services || []).map((sv: any, idx: number) => (
+                        {(c.services || []).map((sv: BudgetService, idx: number) => (
                           <View key={sv.id} style={idx === c.services.length - 1 ? styles.tableRowLast : styles.tableRow}>
                             <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
                             <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
@@ -147,7 +159,7 @@ export function BudgetDocument({ order }: { order: any }) {
                           <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
                         </View>
-                        {(c.parts || []).map((p: any, idx: number) => (
+                        {(c.parts || []).map((p: BudgetPart, idx: number) => (
                           <View key={p.id} style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}>
                             <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
                             <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
@@ -177,7 +189,7 @@ export function BudgetDocument({ order }: { order: any }) {
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
               </View>
-              {ungroupedServices.map((sv: any, idx: number) => (
+              {ungroupedServices.map((sv: BudgetService, idx: number) => (
                 <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
                   <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
                   <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
@@ -198,7 +210,7 @@ export function BudgetDocument({ order }: { order: any }) {
                 <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
               </View>
-              {ungroupedParts.map((p: any, idx: number) => (
+              {ungroupedParts.map((p: BudgetPart, idx: number) => (
                 <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
                   <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
                   <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, FileDown } from "lucide-react";
 import { PageHeader, Card, Button, Input } from "@/components/ui";
 
 interface ReportData {
@@ -60,7 +60,16 @@ export default function ReportsPage() {
       <PageHeader
         title="Relatórios"
         description="Resumo financeiro e operacional"
-        action={<BarChart3 className="w-6 h-6 text-slate-400" />}
+        action={
+          <a
+            href={`/api/reports/pdf${startDate || endDate ? `?${new URLSearchParams({ ...(startDate && { startDate }), ...(endDate && { endDate }) })}` : ""}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            <FileDown size={16} /> Exportar PDF
+          </a>
+        }
       />
 
       {/* Filtro por período */}

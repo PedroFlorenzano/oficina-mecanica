@@ -259,6 +259,7 @@ export default function ClientsPage() {
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Documento</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Telefone</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Veículos</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">OS</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Status</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Ações</th>
               </tr>
@@ -273,6 +274,7 @@ export default function ClientsPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{client.phone || "—"}</td>
                   <td className="px-4 py-3 text-slate-600">{client._count?.vehicles || 0}</td>
+                  <td className="px-4 py-3 text-slate-600">{client._count?.orders || 0}</td>
                   <td className="px-4 py-3">
                     {client.active ? (
                       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Ativo</span>

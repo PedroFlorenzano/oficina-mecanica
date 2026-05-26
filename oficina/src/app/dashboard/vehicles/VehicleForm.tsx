@@ -32,6 +32,27 @@ interface Props {
 }
 
 export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
+  const formatPlate = (value: string): string => {
+    const raw = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
+    // Formato antigo: ABC1234 → ABC-1234
+    if (raw.length >= 4 && /^[A-Z]{3}[0-9]/.test(raw) && (raw.length < 5 || /^[A-Z]{3}[0-9]{4}/.test(raw.slice(0, 7)))) {
+      const letters = raw.slice(0, 3);
+      const numbers = raw.slice(3, 7);
+      return numbers.length > 0 ? `${letters}-${numbers}` : letters;
+    }
+    // Formato Mercosul: ABC1D23 (sem hífen)
+    return raw.slice(0, 7);
+  };
+
+  const isValidPlate = (plate: string): boolean => {
+    const raw = plate.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    // Mercosul: 3 letras + 1 número + 1 letra + 2 números
+    if (/^[A-Z]{3}[0-9][A-Z][0-9]{2}$/.test(raw)) return true;
+    // Antigo: 3 letras + 4 números
+    if (/^[A-Z]{3}[0-9]{4}$/.test(raw)) return true;
+    return false;
+  };
+
   const [form, setForm] = useState({
     plate: vehicle?.plate || "",
     brand: vehicle?.brand || "",
@@ -82,6 +103,12 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
 
     if (!form.clientId) {
       setError("Selecione um cliente");
+      setSaving(false);
+      return;
+    }
+
+    if (!isValidPlate(form.plate)) {
+      setError("Placa inválida. Use o formato Mercosul (ABC1D23) ou antigo (ABC-1234)");
       setSaving(false);
       return;
     }
@@ -168,11 +195,17 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
             <input
               type="text"
               value={form.plate}
-              onChange={(e) => setForm({ ...form, plate: e.target.value.toUpperCase() })}
+              onChange={(e) => setForm({ ...form, plate: formatPlate(e.target.value) })}
               required
-              placeholder="ABC1D23"
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              maxLength={8}
+              placeholder="ABC1D23 ou ABC-1234"
+              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase ${
+                form.plate.length >= 7 && !isValidPlate(form.plate) ? "border-red-300 bg-red-50" : "border-slate-300"
+              }`}
             />
+            {form.plate && form.plate.replace(/[^A-Z0-9]/gi, "").length === 7 && !isValidPlate(form.plate) && (
+              <p className="text-xs text-red-500 mt-1">Formato inválido</p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Marca *</label>
