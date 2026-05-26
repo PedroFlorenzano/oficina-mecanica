@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Input, Button } from "@/components/ui";
-import { User, KeyRound } from "lucide-react";
+import { User, KeyRound, BookOpen } from "lucide-react";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -101,6 +101,25 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Manual do Usuário (ADMIN) */}
+      {user?.role === "ADMIN" && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <BookOpen size={18} className="text-blue-600" />
+            <h2 className="text-base font-semibold text-slate-800">Manual do Usuário</h2>
+          </div>
+          <p className="text-sm text-slate-500 mb-4">Guia completo de uso do sistema para consulta ou impressão.</p>
+          <a
+            href="/api/manual"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            <BookOpen size={16} /> Baixar Manual (PDF)
+          </a>
+        </div>
+      )}
 
       {/* Password change card */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
