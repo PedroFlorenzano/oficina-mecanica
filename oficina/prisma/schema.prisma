@@ -15,6 +15,9 @@ model Tenant {
   logo      String?
   phone     String?
   address   String?
+  plan      String   @default("trial") // trial, basic, professional, enterprise
+  planExpiresAt DateTime?
+  billingStatus String @default("active") // active, past_due, suspended, cancelled
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   active    Boolean  @default(true)
@@ -27,6 +30,8 @@ model Tenant {
   services  ServiceCatalog[]
   whatsappConfig WhatsAppConfig?
   fiscalConfig   FiscalConfig?
+  scheduleConfig ScheduleConfig?
+  appointments   Appointment[]
 }
 
 model User {
@@ -49,6 +54,7 @@ model User {
   orders    ServiceOrder[]
   timerLogs TimerLog[]
   commissions Commission[]
+  uploadedPhotos OrderPhoto[] @relation("PhotoUploader")
 }
 
 enum Role {
@@ -151,6 +157,7 @@ model ServiceOrder {
   signatures  Signature[]
   whatsappMessages WhatsAppMessage[]
   fiscalInvoices   FiscalInvoice[]
+  photos      OrderPhoto[]
 }
 
 model Complaint {
@@ -483,4 +490,67 @@ model FiscalInvoiceItem {
   createdAt   DateTime @default(now())
 
   invoice     FiscalInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+enum PhotoCategory {
+  BEFORE
+  AFTER
+  DAMAGE
+}
+
+model OrderPhoto {
+  id          String        @id @default(cuid())
+  orderId     String
+  category    PhotoCategory
+  description String?
+  filePath    String        // relative path under uploads/
+  fileName    String
+  mimeType    String
+  sizeBytes   Int
+  uploadedById String
+  createdAt   DateTime      @default(now())
+
+  order       ServiceOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  uploadedBy  User          @relation("PhotoUploader", fields: [uploadedById], references: [id])
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model ScheduleConfig {
+  id             String   @id @default(cuid())
+  tenantId       String   @unique
+  slotDuration   Int      @default(60)  // minutes
+  maxPerSlot     Int      @default(2)   // simultaneous appointments
+  workDays       String   @default("[1,2,3,4,5,6]") // JSON array of weekdays (0=Sun)
+  startTime      String   @default("08:00")
+  endTime        String   @default("18:00")
+  lunchStart     String?  @default("12:00")
+  lunchEnd       String?  @default("13:00")
+  enabled        Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id])
+}
+
+model Appointment {
+  id            String            @id @default(cuid())
+  tenantId      String
+  clientName    String
+  clientPhone   String
+  vehicleInfo   String            // "Marca Modelo - Placa" (texto livre)
+  description   String            // O que precisa (reclamação)
+  date          DateTime          // Data+hora do agendamento
+  status        AppointmentStatus @default(PENDING)
+  cancelReason  String?
+  notes         String?           // Observações internas (admin)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  tenant        Tenant            @relation(fields: [tenantId], references: [id])
 }

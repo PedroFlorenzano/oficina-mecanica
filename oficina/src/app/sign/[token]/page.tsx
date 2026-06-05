@@ -27,6 +27,7 @@ interface SignOrderData {
   mileage: number;
   totalAmount: number;
   complaints?: SignComplaint[];
+  photos?: { category: string; description: string | null; filePath: string }[];
 }
 
 interface SignData {
@@ -227,6 +228,27 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
           <div className="border-t-2 border-slate-300 pt-2 flex justify-between font-bold text-slate-800">
             <span>Total</span>
             <span>R$ {data.order.totalAmount.toFixed(2)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Fotos da OS */}
+      {data.order?.photos && data.order.photos.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4">
+          <p className="text-xs font-medium text-slate-500 uppercase mb-2">📷 Fotos do Veículo</p>
+          <div className="space-y-2">
+            {data.order.photos.map((photo, i) => (
+              <div key={i} className="relative rounded-lg overflow-hidden bg-slate-100">
+                <img
+                  src={`/api/uploads/${photo.filePath}`}
+                  alt={photo.description || `Foto ${i + 1}`}
+                  className="w-full h-auto max-h-[300px] object-contain mx-auto"
+                />
+                <p className="text-xs text-slate-600 text-center py-1 bg-slate-50">
+                  {photo.description || (photo.category === "BEFORE" ? "Antes" : photo.category === "AFTER" ? "Depois" : "Dano")}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       )}

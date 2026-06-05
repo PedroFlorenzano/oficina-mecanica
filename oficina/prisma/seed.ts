@@ -48,15 +48,15 @@ async function main() {
   await prisma.user.create({ data: { id: "user-mech-3", email: "mecanico@demo.com", password: passwordHash, name: "Pedro Mecânico", role: "MECHANIC", commissionRate: 15, tenantId: tenant2.id } });
 
   // Clientes — NOMES IGUAIS em ambos os tenants (testa isolamento RLS)
-  const c1 = await prisma.client.create({ data: { name: "Carlos Silva", document: "12345678901", docType: "CPF", phone: "(15) 99123-4567", tenantId: tenant1.id } });
-  const c2 = await prisma.client.create({ data: { name: "Maria Oliveira", document: "98765432100", docType: "CPF", phone: "(15) 99876-5432", tenantId: tenant1.id } });
-  const c3 = await prisma.client.create({ data: { name: "Pedro Santos", document: "11223344556", docType: "CPF", tenantId: tenant1.id } });
-  await prisma.client.create({ data: { name: "Auto Peças Ltda", document: "12345678000155", docType: "CNPJ", active: false, tenantId: tenant1.id } });
-  const c5 = await prisma.client.create({ data: { name: "Fernanda Costa", document: "55667788900", docType: "CPF", tenantId: tenant1.id } });
-  const c6 = await prisma.client.create({ data: { name: "Roberto Almeida", document: "99887766500", docType: "CPF", tenantId: tenant1.id } });
+  const c1 = await prisma.client.create({ data: { name: "Carlos Silva", document: "12345678901", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant1.id } });
+  const c2 = await prisma.client.create({ data: { name: "Maria Oliveira", document: "98765432100", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant1.id } });
+  const c3 = await prisma.client.create({ data: { name: "Pedro Santos", document: "11223344556", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant1.id } });
+  await prisma.client.create({ data: { name: "Auto Peças Ltda", document: "12345678000155", docType: "CNPJ", phone: "(11) 95433-7557", active: false, tenantId: tenant1.id } });
+  const c5 = await prisma.client.create({ data: { name: "Fernanda Costa", document: "55667788900", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant1.id } });
+  const c6 = await prisma.client.create({ data: { name: "Roberto Almeida", document: "99887766500", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant1.id } });
   // Tenant 2 — mesmos nomes
-  const c2_1 = await prisma.client.create({ data: { name: "Carlos Silva", document: "12345678901", docType: "CPF", phone: "(11) 91111-1111", tenantId: tenant2.id } });
-  const c2_2 = await prisma.client.create({ data: { name: "Maria Oliveira", document: "98765432100", docType: "CPF", tenantId: tenant2.id } });
+  const c2_1 = await prisma.client.create({ data: { name: "Carlos Silva", document: "12345678901", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant2.id } });
+  const c2_2 = await prisma.client.create({ data: { name: "Maria Oliveira", document: "98765432100", docType: "CPF", phone: "(11) 95433-7557", tenantId: tenant2.id } });
 
   // Veículos — MESMAS PLACAS em ambos os tenants (testa isolamento RLS)
   const v1 = await prisma.vehicle.create({ data: { plate: "ABC1D23", brand: "Peugeot", model: "208 Active", year: 2022, mileage: 35000, clientId: c1.id, tenantId: tenant1.id } });

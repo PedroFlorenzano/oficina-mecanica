@@ -28,6 +28,11 @@ Sistema SaaS multi-tenant de gestão para oficinas mecânicas automotivas brasil
 | Relatórios Financeiros | ✅ |
 | NF-e/NFS-e | ✅ (simulado) |
 | Multi-Tenancy (PostgreSQL + RLS) | ✅ |
+| Fotos na OS (Antes/Depois/Dano) | ✅ |
+| Onboarding Self-Service | ✅ |
+| Agendamento Online | ✅ |
+| Billing/Assinatura | ✅ (infra) |
+| Landing Page + Planos | ✅ |
 
 ## Setup
 
@@ -110,8 +115,10 @@ npm run build      # Build de produção
 - ~~Roles separados (operare_app / operare_admin)~~ ✅
 - ~~Seed multi-tenant (2 tenants)~~ ✅
 - ~~Validação end-to-end com Docker~~ ✅
-- Onboarding self-service (cadastro de nova oficina)
-- Billing/Assinatura (Stripe, Asaas)
+- ~~Onboarding self-service~~ ✅
+- ~~Billing/Assinatura (infra)~~ ✅
+- ~~Landing page + planos~~ ✅
+- Integração real com gateway de pagamento (Stripe/Asaas)
 - Path-based multi-tenant (`app.operare.tech/paiffer`)
 
 ### 3. Deploy em Produção
@@ -121,8 +128,8 @@ npm run build      # Build de produção
 - Backup diário + monitoramento (Sentry)
 
 ### 4. Comercialização
-- Landing page + deck comercial
-- Planos e preços
+- ~~Landing page + deck comercial~~ ✅
+- ~~Planos e preços~~ ✅
 - Contrato / LGPD
 - Canal de suporte
 

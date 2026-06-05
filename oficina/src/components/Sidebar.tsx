@@ -17,6 +17,7 @@ import {
   BarChart3,
   MessageCircle,
   FileText,
+  CalendarDays,
 } from "lucide-react";
 
 import {
@@ -131,6 +132,9 @@ export default function Sidebar({ role, customPermissions }: SidebarProps) {
           )}
           {role === "ADMIN" && (
             <NavItem href="/dashboard/fiscal/invoices" label="Notas Fiscais" icon={FileText} />
+          )}
+          {role === "ADMIN" && (
+            <NavItem href="/dashboard/appointments" label="Agendamentos" icon={CalendarDays} />
           )}
         </div>
 

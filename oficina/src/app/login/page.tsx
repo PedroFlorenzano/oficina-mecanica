@@ -33,12 +33,16 @@ export default async function LoginPage() {
               />
             </svg>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Oficina Mecânica</h1>
-          <p className="text-slate-500 text-sm mt-1">Sistema de Gestão</p>
+          <h1 className="text-2xl font-bold text-slate-800">Operare</h1>
+          <p className="text-slate-500 text-sm mt-1">Sistema de Gestão para Oficinas</p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <LoginForm />
         </div>
+        <p className="text-center text-sm text-slate-500 mt-4">
+          Ainda não tem conta?{" "}
+          <a href="/register" className="text-blue-600 hover:underline font-medium">Cadastrar oficina</a>
+        </p>
       </div>
     </div>
   );

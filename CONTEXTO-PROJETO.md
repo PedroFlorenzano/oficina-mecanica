@@ -166,6 +166,10 @@ oficina/src/
 | 9 | Gestão de Comissões | ✅ 100% | Comissão por mecânico sobre valor bruto dos serviços, percentual configurável (commissionRate), geração por período, fluxo PENDING→APPROVED→PAID (ou CANCELLED), 7 use cases, 7 API routes, 3 páginas UI, 31 testes unitários |
 | 10 | Etiqueta de Troca de Óleo | ✅ 100% | Botão em toda OS, preview visual, impressão popup otimizada (80mm×110mm, 1 página), dados: oficina, telefone, veículo, placa, KM, próxima troca (KM+10000, data+6meses) |
 | 11 | Cronômetro de Serviço | ✅ 100% | Model TimerLog + TimerAuditLog, use cases completos, property-based tests, API routes, componente TimerControl na tela de OS |
+| 12 | Fotos na OS (Antes/Depois/Dano) | ✅ 100% | Upload múltiplo (JPEG/PNG/WebP, max 10MB), categorias (Antes/Depois/Dano), galeria com lightbox, exclusão, armazenamento em disco (uploads/), RLS via ServiceOrder, API routes |
+| 13 | Onboarding Self-Service | ✅ 100% | Cadastro público de nova oficina (tenant + admin), validação CNPJ/email/senha, página /register com formulário completo, link na tela de login |
+| 14 | Agendamento Online | ✅ 100% | Config por tenant (horário, slots, dias), página pública /agendar/[tenantId], slots disponíveis, booking com validação, painel admin com confirmar/cancelar/concluir, link no Sidebar |
+| 15 | Billing/Assinatura | ✅ 100% (infra) | Campos plan/billingStatus/planExpiresAt no Tenant, trial 14 dias no cadastro, CheckSubscription (bloqueia suspended/cancelled/trial expirado), webhook genérico para gateway (Stripe/Asaas), API GET /api/billing |
 
 ---
 
@@ -1395,3 +1399,223 @@ npm run dev              # http://localhost:3000
 - Isolamento RLS validado manualmente contra PostgreSQL real
 
 *Última atualização: 04/06/2026 — Migração PostgreSQL + RLS completa e validada com Docker.*
+
+---
+
+## Módulo 12 — Fotos na OS: Antes/Depois/Dano (implementado em 05/06/2026)
+
+### O que foi construído
+
+Upload e galeria de fotos associadas à OS, com categorias (Antes, Depois, Dano). Permite registrar visualmente o estado do veículo na entrada, danos identificados e o resultado após o serviço. Útil para oficinas de funilaria, estética automotiva e proteção contra disputas.
+
+### Schema adicionado
+
+```prisma
+enum PhotoCategory { BEFORE, AFTER, DAMAGE }
+
+model OrderPhoto {
+  id, orderId, category (PhotoCategory), description?, filePath, fileName,
+  mimeType, sizeBytes, uploadedById, createdAt
+}
+```
+
+### Arquitetura
+
+- **Armazenamento:** Disco local (`uploads/{orderId}/{uuid}.ext`) — pronto para migrar para S3
+- **Servir imagens:** `GET /api/uploads/[...path]` (autenticado, com cache immutable)
+- **RLS:** Policy indireta via `ServiceOrder.tenantId` (join)
+- **Limite:** 10MB por arquivo, apenas JPEG/PNG/WebP
+
+### API Routes
+
+| Rota | Método | Ação |
+|------|--------|------|
+| `/api/orders/[id]/photos` | GET | Listar fotos da OS |
+| `/api/orders/[id]/photos` | POST | Upload (multipart/form-data) |
+| `/api/orders/[id]/photos/[photoId]` | DELETE | Excluir foto (disco + banco) |
+| `/api/uploads/[...path]` | GET | Servir imagem (autenticado) |
+
+### Componente UI
+
+`src/components/OrderPhotos.tsx` — integrado na tela de detalhe da OS:
+- Painel de upload com seleção de categoria e descrição opcional
+- Upload múltiplo (seleciona vários arquivos de uma vez)
+- Galeria agrupada por categoria (Antes/Depois/Dano) com thumbnails em grid
+- Lightbox (modal) ao clicar na foto com dados do upload
+- Botão de exclusão com confirmação (hover no thumbnail ou no lightbox)
+- Loading skeleton enquanto carrega
+
+### Arquivos criados
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `prisma/migrations/20260605091600_add_order_photos/migration.sql` | Schema + RLS policy |
+| `src/domain/repositories/IOrderPhotoRepository.ts` | Interface do repositório |
+| `src/infrastructure/repositories/PrismaOrderPhotoRepository.ts` | Implementação Prisma |
+| `src/application/use-cases/photos/UploadOrderPhoto.ts` | Validação + persistência |
+| `src/application/use-cases/photos/DeleteOrderPhoto.ts` | Exclusão disco + banco |
+| `src/app/api/orders/[id]/photos/route.ts` | GET + POST |
+| `src/app/api/orders/[id]/photos/[photoId]/route.ts` | DELETE |
+| `src/app/api/uploads/[...path]/route.ts` | Servir imagens |
+| `src/components/OrderPhotos.tsx` | Galeria + upload UI |
+
+*Última atualização: 05/06/2026 — Módulo 12 (Fotos na OS) implementado.*
+
+---
+
+## Módulo 13 — Onboarding Self-Service (implementado em 05/06/2026)
+
+### O que foi construído
+
+Fluxo de cadastro público onde uma nova oficina se registra sozinha no sistema. Cria o tenant + usuário administrador em uma única transação.
+
+### Fluxo
+
+```
+/register → Preenche dados (oficina + admin) → POST /api/public/register
+→ Valida CNPJ (dígitos verificadores), e-mail, senha (PasswordValidator)
+→ Verifica unicidade CNPJ e e-mail → Cria Tenant + User (ADMIN)
+→ Sucesso → Redireciona para /login
+```
+
+### Validações
+
+- CNPJ: 14 dígitos + validação de dígitos verificadores + unicidade
+- E-mail: formato válido + unicidade global
+- Senha: mín. 8 chars, maiúscula, minúscula, número
+- Nome da oficina: mín. 3 caracteres
+- Nome do admin: mín. 3 caracteres
+
+### Arquivos criados
+
+| Arquivo | Descrição |
+|---------|-----------|
+| `src/application/dtos/RegisterTenantDTO.ts` | DTO de entrada |
+| `src/application/use-cases/tenants/RegisterTenant.ts` | Use case (prismaAdmin) |
+| `src/app/api/public/register/route.ts` | API pública POST |
+| `src/app/register/page.tsx` | Server component (redirect se logado) |
+| `src/app/register/RegisterForm.tsx` | Client form com feedback |
+
+---
+
+## Módulo 14 — Agendamento Online (implementado em 05/06/2026)
+
+### O que foi construído
+
+Sistema de agendamento online onde o cliente final da oficina pode marcar horário via link público, sem necessidade de login. O admin configura dias, horários e capacidade; o cliente escolhe data, horário disponível e descreve o serviço.
+
+### Schema
+
+```prisma
+model ScheduleConfig { slotDuration, maxPerSlot, workDays (JSON), startTime, endTime, lunchStart, lunchEnd, enabled }
+model Appointment { clientName, clientPhone, vehicleInfo, description, date, status (PENDING/CONFIRMED/CANCELLED/COMPLETED) }
+enum AppointmentStatus { PENDING, CONFIRMED, CANCELLED, COMPLETED }
+```
+
+### Fluxo público (cliente)
+
+```
+/agendar/[tenantId] → Seleciona data → Vê slots disponíveis (grid)
+→ Preenche: nome, telefone, veículo, descrição do serviço
+→ Confirma → POST /api/public/schedule/[tenantId]
+→ Tela de sucesso
+```
+
+### Fluxo admin (dashboard)
+
+```
+/dashboard/appointments → Vê agendamentos (pendentes, hoje)
+→ Confirmar (PENDING→CONFIRMED) ou Cancelar (PENDING→CANCELLED)
+→ Concluir (CONFIRMED→COMPLETED)
+→ Configurar (slots, dias, horários) → Gerar link público para compartilhar via WhatsApp
+```
+
+### API Routes
+
+| Rota | Método | Ação | Auth |
+|------|--------|------|------|
+| `/api/public/schedule/[tenantId]` | GET | Slots disponíveis por data | Público |
+| `/api/public/schedule/[tenantId]` | POST | Criar agendamento | Público |
+| `/api/appointments` | GET | Listar agendamentos | Autenticado |
+| `/api/appointments/[id]` | PATCH | Atualizar status/notes | Autenticado |
+| `/api/appointments/config` | GET/PUT | Configuração de slots | ADMIN |
+
+### Regras
+
+- Não permite agendar no passado
+- Não permite exceder `maxPerSlot` no mesmo horário
+- Slots são gerados dinamicamente baseado na config (duração, horário de almoço, dias úteis)
+- Link público: `/agendar/{tenantId}` — pode ser compartilhado via WhatsApp
+
+*Última atualização: 05/06/2026 — Módulos 13 (Onboarding) e 14 (Agendamento) implementados.*
+
+---
+
+## Módulo 15 — Billing/Assinatura (infra pronta em 05/06/2026)
+
+### O que foi construído
+
+Infraestrutura completa de controle de assinatura: campos no Tenant, trial automático de 14 dias no cadastro, use case de verificação de acesso, e webhook genérico para receber eventos de gateways de pagamento (Stripe, Asaas, etc.).
+
+### Schema adicionado
+
+```prisma
+// Tenant — novos campos:
+plan           String  @default("trial")  // trial, basic, professional, enterprise
+planExpiresAt  DateTime?
+billingStatus  String  @default("active") // active, past_due, suspended, cancelled
+```
+
+### Planos
+
+| Plano | Descrição |
+|-------|-----------|
+| `trial` | Teste gratuito por 14 dias (criado automaticamente no onboarding) |
+| `basic` | Plano básico — funcionalidades essenciais |
+| `professional` | Plano profissional — todos os módulos |
+| `enterprise` | Plano enterprise — customizado |
+
+### Máquina de estados (billingStatus)
+
+```
+active → past_due (payment_overdue)
+past_due → active (payment_confirmed)
+past_due → suspended (subscription_cancelled)
+active → suspended (subscription_cancelled)
+suspended → active (subscription_renewed)
+```
+
+- **active** — acesso normal
+- **past_due** — acesso mantido com aviso (grace period)
+- **suspended** — bloqueado (ForbiddenError ao acessar dashboard/API)
+- **cancelled** — bloqueado permanentemente
+
+### Use Cases
+
+| Use Case | Descrição |
+|----------|-----------|
+| `CheckSubscription` | Verifica se o tenant pode acessar o sistema (bloqueia suspended/cancelled/trial expirado) |
+| `ProcessBillingWebhook` | Processa eventos do gateway (payment_confirmed, payment_overdue, subscription_cancelled, subscription_renewed, subscription_upgraded) |
+
+### API Routes
+
+| Rota | Método | Ação | Auth |
+|------|--------|------|------|
+| `/api/billing` | GET | Status da assinatura do tenant | Autenticado |
+| `/api/billing/webhook` | POST | Receber eventos do gateway | Público (x-webhook-secret) |
+
+### O que falta para produção
+
+- Integração real com Stripe ou Asaas (criar adapter)
+- Página de escolha de plano (/pricing ou /upgrade)
+- Banner de "trial expirando" no dashboard
+- Página de billing com histórico de faturas
+- Chamar `CheckSubscription` no middleware ou nas API routes críticas
+
+### Variáveis de ambiente
+
+```bash
+BILLING_WEBHOOK_SECRET=sua-chave-secreta  # Validação do webhook
+```
+
+*Última atualização: 05/06/2026 — Módulo 15 (Billing/Assinatura) infra implementada.*

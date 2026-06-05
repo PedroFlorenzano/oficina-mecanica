@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Input, Button } from "@/components/ui";
-import { User, KeyRound, BookOpen } from "lucide-react";
+import { User, KeyRound, BookOpen, CreditCard } from "lucide-react";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -17,6 +17,95 @@ function validateNewPassword(password: string): string | null {
   if (!/[a-z]/.test(password)) return "A nova senha deve conter ao menos uma letra minúscula";
   if (!/[0-9]/.test(password)) return "A nova senha deve conter ao menos um número";
   return null;
+}
+
+const planLabels: Record<string, string> = {
+  trial: "Teste Gratuito",
+  basic: "Básico",
+  professional: "Profissional",
+  enterprise: "Enterprise",
+};
+
+const statusLabels: Record<string, { label: string; color: string }> = {
+  active: { label: "Ativa", color: "bg-green-100 text-green-700" },
+  past_due: { label: "Pagamento Pendente", color: "bg-yellow-100 text-yellow-700" },
+  suspended: { label: "Suspensa", color: "bg-red-100 text-red-700" },
+  cancelled: { label: "Cancelada", color: "bg-slate-100 text-slate-700" },
+};
+
+function BillingCard() {
+  const [billing, setBilling] = useState<{
+    plan: string;
+    planExpiresAt: string | null;
+    billingStatus: string;
+    name: string;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/billing")
+      .then((r) => r.json())
+      .then(setBilling)
+      .catch(() => {});
+  }, []);
+
+  if (!billing) return null;
+
+  const { label, color } = statusLabels[billing.billingStatus] || statusLabels.active;
+  const expiresAt = billing.planExpiresAt ? new Date(billing.planExpiresAt) : null;
+  const daysLeft = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+      <div className="flex items-center gap-2 mb-4">
+        <CreditCard size={18} className="text-blue-600" />
+        <h2 className="text-base font-semibold text-slate-800">Minha Assinatura</h2>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <p className="text-xs text-slate-500">Plano</p>
+          <p className="font-semibold text-slate-800">{planLabels[billing.plan] || billing.plan}</p>
+        </div>
+        <div>
+          <p className="text-xs text-slate-500">Status</p>
+          <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${color}`}>{label}</span>
+        </div>
+        {expiresAt && (
+          <div>
+            <p className="text-xs text-slate-500">
+              {billing.plan === "trial" ? "Expira em" : "Próxima cobrança"}
+            </p>
+            <p className="font-medium text-slate-700">
+              {expiresAt.toLocaleDateString("pt-BR")}
+              {daysLeft !== null && <span className="text-xs text-slate-400 ml-1">({daysLeft} dias)</span>}
+            </p>
+          </div>
+        )}
+        <div>
+          <p className="text-xs text-slate-500">Oficina</p>
+          <p className="font-medium text-slate-700">{billing.name}</p>
+        </div>
+      </div>
+
+      {billing.plan === "trial" && (
+        <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-700">
+          <p>Você está no período de teste gratuito. Escolha um plano para continuar usando após o vencimento.</p>
+          <a href="/planos" className="inline-block mt-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700">
+            Contratar Plano Profissional
+          </a>
+        </div>
+      )}
+
+      {billing.billingStatus === "past_due" && (
+        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 text-sm text-yellow-700">
+          <p>Há um pagamento pendente. Regularize para evitar a suspensão do acesso.</p>
+          <a href="/planos" className="inline-block mt-2 bg-yellow-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-yellow-700">
+            Regularizar Pagamento
+          </a>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ProfilePage() {
@@ -120,6 +209,9 @@ export default function ProfilePage() {
           </a>
         </div>
       )}
+
+      {/* Assinatura (ADMIN) */}
+      {user?.role === "ADMIN" && <BillingCard />}
 
       {/* Password change card */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">

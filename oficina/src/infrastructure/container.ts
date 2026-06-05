@@ -11,6 +11,8 @@ import { PrismaTimerLogRepository } from "./repositories/PrismaTimerLogRepositor
 import { PrismaCommissionRepository } from "./repositories/PrismaCommissionRepository";
 import { PrismaWhatsAppRepository } from "./repositories/PrismaWhatsAppRepository";
 import { PrismaFiscalRepository } from "./repositories/PrismaFiscalRepository";
+import { PrismaOrderPhotoRepository } from "./repositories/PrismaOrderPhotoRepository";
+import { PrismaAppointmentRepository } from "./repositories/PrismaAppointmentRepository";
 
 function buildContainer(db: PrismaClient) {
   return {
@@ -25,6 +27,8 @@ function buildContainer(db: PrismaClient) {
     commissionRepository: new PrismaCommissionRepository(db),
     whatsAppRepository: new PrismaWhatsAppRepository(db),
     fiscalRepository: new PrismaFiscalRepository(db),
+    orderPhotoRepository: new PrismaOrderPhotoRepository(db),
+    appointmentRepository: new PrismaAppointmentRepository(db),
   };
 }
 

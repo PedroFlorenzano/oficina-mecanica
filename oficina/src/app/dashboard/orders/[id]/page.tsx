@@ -6,6 +6,7 @@ import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
+import { OrderPhotos } from "@/components/OrderPhotos";
 import { formatCurrency } from "@/lib/format";
 
 interface ComplaintData {
@@ -532,6 +533,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <p className="text-2xl font-bold text-green-600">{formatCurrency(order.totalAmount)}</p>
           </div>
         </div>
+      </div>
+
+      {/* Fotos */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+        <OrderPhotos orderId={id} />
       </div>
 
       {/* Histórico de Status */}

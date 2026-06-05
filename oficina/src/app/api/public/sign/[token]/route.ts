@@ -25,6 +25,9 @@ export async function GET(
 
     const order = await adminContainer.orderRepository.findById(signature.orderId);
 
+    // Fetch photos for this order
+    const photos = await adminContainer.orderPhotoRepository.findByOrderId(signature.orderId);
+
     return NextResponse.json({
       signerName: signature.signerName,
       type: signature.type,
@@ -48,6 +51,11 @@ export async function GET(
             unitPrice: p.unitPrice,
             totalPrice: p.totalPrice,
           })),
+        })),
+        photos: photos.map((p) => ({
+          category: p.category,
+          description: p.description,
+          filePath: p.filePath,
         })),
       } : null,
     });
