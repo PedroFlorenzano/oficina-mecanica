@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { adminContainer } from "@/infrastructure/container";
 import { handleError } from "@/lib/api-handler";
 
-// Rota PÚBLICA — não requer autenticação (cliente acessa via link do WhatsApp)
+// BYPASSRLS: operação cross-tenant legítima — assinatura pública sem tenant definido
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
   try {
     const { token } = await params;
-    const signature = await container.whatsAppRepository.findSignatureByToken(token);
+    const signature = await adminContainer.whatsAppRepository.findSignatureByToken(token);
 
     if (!signature) {
       return NextResponse.json({ error: "Link inválido" }, { status: 404 });
@@ -23,8 +23,7 @@ export async function GET(
       return NextResponse.json({ error: "Link expirado" }, { status: 410 });
     }
 
-    // Buscar dados da OS para exibir ao cliente
-    const order = await container.orderRepository.findById(signature.orderId);
+    const order = await adminContainer.orderRepository.findById(signature.orderId);
 
     return NextResponse.json({
       signerName: signature.signerName,
@@ -63,7 +62,7 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
-    const signature = await container.whatsAppRepository.findSignatureByToken(token);
+    const signature = await adminContainer.whatsAppRepository.findSignatureByToken(token);
 
     if (!signature) {
       return NextResponse.json({ error: "Link inválido" }, { status: 404 });
@@ -82,11 +81,10 @@ export async function POST(
       return NextResponse.json({ error: "Assinatura inválida" }, { status: 400 });
     }
 
-    const completed = await container.whatsAppRepository.completeSignature(signature.id, body.imageData);
+    const completed = await adminContainer.whatsAppRepository.completeSignature(signature.id, body.imageData);
 
-    // Atualizar status da OS automaticamente após assinatura
     const newStatus = signature.type === "APPROVAL" ? "OPEN" : "DELIVERED";
-    await container.orderRepository.updateStatus(signature.orderId, newStatus, "system-signature");
+    await adminContainer.orderRepository.updateStatus(signature.orderId, newStatus, "system-signature");
 
     return NextResponse.json({ success: true, signedAt: completed.signedAt });
   } catch (error) {

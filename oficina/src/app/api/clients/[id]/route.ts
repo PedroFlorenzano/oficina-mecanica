@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { UpdateClient } from "@/application/use-cases/clients/UpdateClient";
 import { DeleteClient } from "@/application/use-cases/clients/DeleteClient";
 import { ActivateClient } from "@/application/use-cases/clients/ActivateClient";
@@ -13,6 +13,7 @@ export async function GET(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
 
     const client = await container.clientRepository.findById(id, tenantId);
@@ -35,6 +36,7 @@ export async function PUT(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const body = await request.json();
     const useCase = new UpdateClient(container.clientRepository);
@@ -53,6 +55,7 @@ export async function PATCH(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const body = await request.json();
 
@@ -76,6 +79,7 @@ export async function DELETE(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const useCase = new DeleteClient(container.clientRepository);
     const result = await useCase.execute(id, tenantId);

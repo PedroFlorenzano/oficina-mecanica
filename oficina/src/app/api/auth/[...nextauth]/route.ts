@@ -1,7 +1,8 @@
 import NextAuth, { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { Role } from "@prisma/client";
-import { container } from "@/infrastructure/container";
+import { adminContainer } from "@/infrastructure/container";
+// BYPASSRLS: operação cross-tenant legítima — login busca usuário por email em todos os tenants
 import { LoginUser } from "@/application/use-cases/users/LoginUser";
 
 export const authOptions: AuthOptions = {
@@ -15,7 +16,7 @@ export const authOptions: AuthOptions = {
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
         try {
-          const useCase = new LoginUser(container.userRepository);
+          const useCase = new LoginUser(adminContainer.userRepository);
           const payload = await useCase.execute(credentials.email, credentials.password);
           if (!payload) return null;
           return { id: payload.userId, userId: payload.userId, tenantId: payload.tenantId, role: payload.role as Role, name: payload.name, customPermissions: payload.customPermissions };

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { adminContainer } from "@/infrastructure/container";
 import { SendOilChangeReminders } from "@/application/use-cases/whatsapp/SendOilChangeReminders";
 
+// BYPASSRLS: operação cross-tenant legítima — cron verifica todos os tenants
 const CRON_SECRET = process.env.CRON_SECRET || "";
 const DEMO_TENANT_ID = "demo-tenant";
 
@@ -20,9 +21,9 @@ export async function GET(request: NextRequest) {
   }
 
   const useCase = new SendOilChangeReminders(
-    container.vehicleRepository,
-    container.orderRepository,
-    container.whatsAppRepository,
+    adminContainer.vehicleRepository,
+    adminContainer.orderRepository,
+    adminContainer.whatsAppRepository,
   );
 
   const result = await useCase.execute(DEMO_TENANT_ID);

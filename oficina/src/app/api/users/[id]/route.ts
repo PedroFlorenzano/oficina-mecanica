@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { UpdateUser } from "@/application/use-cases/users/UpdateUser";
 import { ActivateUser } from "@/application/use-cases/users/ActivateUser";
 import { DeactivateUser } from "@/application/use-cases/users/DeactivateUser";
@@ -13,6 +13,7 @@ export async function PUT(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
 
     if (session.user.role !== "ADMIN") {
       return NextResponse.json(
@@ -39,6 +40,7 @@ export async function PATCH(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const userId = session.user.userId;
 
     if (session.user.role !== "ADMIN") {

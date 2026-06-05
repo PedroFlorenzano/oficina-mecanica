@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { CorrectTimer } from "@/application/use-cases/timer/CorrectTimer";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
@@ -10,9 +10,10 @@ export async function PATCH(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
 
-    const tenantId = session.user.tenantId;
     const adminUserId = session.user.userId;
     const userRole = session.user.role;
 

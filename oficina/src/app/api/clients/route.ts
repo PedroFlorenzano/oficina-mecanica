@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { CreateClient } from "@/application/use-cases/clients/CreateClient";
 import { SearchClients } from "@/application/use-cases/clients/SearchClients";
 import { handleError } from "@/lib/api-handler";
@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
 
     const search = request.nextUrl.searchParams.get("search") || "";
     // includeInactive=true para mostrar também clientes inativos (ex: filtro na listagem)
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
 
     const body = await request.json();
     const useCase = new CreateClient(container.clientRepository);

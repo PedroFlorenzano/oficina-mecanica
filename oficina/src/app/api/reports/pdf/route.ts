@@ -4,7 +4,7 @@ import { requireAuth } from "@/lib/auth";
 import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ReportDocument } from "@/components/pdf/ReportDocument";
-import { prisma } from "@/infrastructure/database/prisma";
+import { withTenant } from "@/infrastructure/database/prisma";
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Acesso restrito" }, { status: 403 });
     }
     const tenantId = session.user.tenantId;
+    const prisma = withTenant(tenantId);
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");

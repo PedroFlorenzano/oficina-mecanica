@@ -1,4 +1,4 @@
-import { prisma } from "../database/prisma";
+import { PrismaClient } from "@prisma/client";
 import {
   ITimerLogRepository,
   TimerLogData,
@@ -38,13 +38,16 @@ function deriveStatus(logs: TimerLogData[]): TimerServiceSummary["status"] {
 }
 
 export class PrismaTimerLogRepository implements ITimerLogRepository {
+  // Defense in depth: RLS também filtra no banco
+  constructor(private readonly db: PrismaClient) {}
+
   async create(data: Omit<TimerLogData, "id" | "createdAt">): Promise<TimerLogData> {
-    const record = await prisma.timerLog.create({ data });
+    const record = await this.db.timerLog.create({ data });
     return toTimerLogData(record);
   }
 
   async findById(id: string): Promise<TimerLogData | null> {
-    const record = await prisma.timerLog.findUnique({ where: { id } });
+    const record = await this.db.timerLog.findUnique({ where: { id } });
     if (!record) return null;
     return toTimerLogData(record);
   }
@@ -53,7 +56,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
     orderServiceId: string,
     userId: string
   ): Promise<TimerLogData | null> {
-    const record = await prisma.timerLog.findFirst({
+    const record = await this.db.timerLog.findFirst({
       where: {
         orderServiceId,
         userId,
@@ -65,7 +68,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async findByIdForTenant(id: string, tenantId: string): Promise<TimerLogData | null> {
-    const record = await prisma.timerLog.findFirst({
+    const record = await this.db.timerLog.findFirst({
       where: {
         id,
         orderService: {
@@ -78,7 +81,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async findByOrderServiceId(orderServiceId: string): Promise<TimerLogData[]> {
-    const records = await prisma.timerLog.findMany({
+    const records = await this.db.timerLog.findMany({
       where: { orderServiceId },
       orderBy: { startedAt: "asc" },
     });
@@ -86,7 +89,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async findByOrderId(orderId: string, tenantId: string): Promise<TimerServiceSummary[]> {
-    const orderServices = await prisma.orderService.findMany({
+    const orderServices = await this.db.orderService.findMany({
       where: {
         orderId,
         order: { tenantId },
@@ -97,7 +100,6 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
       orderBy: { createdAt: "asc" },
     });
 
-    // Batch-fetch mechanic names in a single query
     const mechanicIds = [
       ...new Set(
         orderServices
@@ -108,7 +110,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
 
     const mechanics =
       mechanicIds.length > 0
-        ? await prisma.user.findMany({
+        ? await this.db.user.findMany({
             where: { id: { in: mechanicIds } },
             select: { id: true, name: true },
           })
@@ -139,7 +141,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async updateTotalSeconds(id: string, totalSeconds: number): Promise<TimerLogData> {
-    const record = await prisma.timerLog.update({
+    const record = await this.db.timerLog.update({
       where: { id },
       data: { totalSeconds },
     });
@@ -152,7 +154,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
     pauseReason: string,
     totalSeconds: number
   ): Promise<TimerLogData> {
-    const record = await prisma.timerLog.update({
+    const record = await this.db.timerLog.update({
       where: { id },
       data: { pausedAt, pauseReason, totalSeconds },
     });
@@ -160,7 +162,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async updateFinish(id: string, finishedAt: Date, totalSeconds: number): Promise<TimerLogData> {
-    const record = await prisma.timerLog.update({
+    const record = await this.db.timerLog.update({
       where: { id },
       data: { finishedAt, totalSeconds },
     });
@@ -168,7 +170,7 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async sumFinishedSeconds(orderServiceId: string): Promise<number> {
-    const result = await prisma.timerLog.aggregate({
+    const result = await this.db.timerLog.aggregate({
       where: {
         orderServiceId,
         finishedAt: { not: null },
@@ -179,13 +181,13 @@ export class PrismaTimerLogRepository implements ITimerLogRepository {
   }
 
   async updateOrderServiceMinutes(orderServiceId: string, timeMinutes: number): Promise<void> {
-    await prisma.orderService.update({
+    await this.db.orderService.update({
       where: { id: orderServiceId },
       data: { timeMinutes },
     });
   }
 
   async createAuditLog(data: TimerAuditLogData): Promise<void> {
-    await prisma.timerAuditLog.create({ data });
+    await this.db.timerAuditLog.create({ data });
   }
 }

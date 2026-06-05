@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { GetPista } from "@/application/use-cases/orders/GetPista";
 import { UpdatePistaStatus } from "@/application/use-cases/orders/UpdatePistaStatus";
 import { SendStatusNotification } from "@/application/use-cases/whatsapp/SendStatusNotification";
@@ -10,6 +10,7 @@ export async function GET() {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
 
     const useCase = new GetPista(container.orderRepository);
     const orders = await useCase.execute(tenantId);
@@ -23,6 +24,8 @@ export async function GET() {
 export async function PATCH(request: NextRequest) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const userId = session.user.userId;
 
     const body = await request.json();

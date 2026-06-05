@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { UpdateVehicle } from "@/application/use-cases/vehicles/UpdateVehicle";
 import { DeleteVehicle } from "@/application/use-cases/vehicles/DeleteVehicle";
 import { handleError } from "@/lib/api-handler";
@@ -11,6 +11,8 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
 
     const vehicle = await container.vehicleRepository.findById(id);
@@ -33,6 +35,7 @@ export async function PUT(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const body = await request.json();
     const useCase = new UpdateVehicle(container.vehicleRepository);
@@ -49,7 +52,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const useCase = new DeleteVehicle(container.vehicleRepository);
     await useCase.execute(id);

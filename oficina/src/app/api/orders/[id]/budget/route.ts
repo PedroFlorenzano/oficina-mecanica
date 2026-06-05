@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 import React from "react";
@@ -13,6 +13,7 @@ export async function GET(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const order = await container.orderRepository.findById(id);
     if (!order || order.tenantId !== tenantId) {

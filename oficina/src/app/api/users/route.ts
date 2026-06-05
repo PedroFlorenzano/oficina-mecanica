@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { CreateUser } from "@/application/use-cases/users/CreateUser";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { searchParams } = new URL(request.url);
     const roleFilter = searchParams.get("role");
 
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const userId = session.user.userId;
 
     if (session.user.role !== "ADMIN") {

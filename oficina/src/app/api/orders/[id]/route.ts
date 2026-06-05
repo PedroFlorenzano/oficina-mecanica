@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { UpdateOrderStatus } from "@/application/use-cases/orders/UpdateOrderStatus";
 import { UpdateOrder } from "@/application/use-cases/orders/UpdateOrder";
 import { CancelOrder } from "@/application/use-cases/orders/CancelOrder";
@@ -14,6 +14,8 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
 
     const order = await container.orderRepository.findById(id);
@@ -36,6 +38,7 @@ export async function PATCH(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const userId = session.user.userId;
     const { id } = await params;
     const body = await request.json();
@@ -77,6 +80,7 @@ export async function PUT(
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const body = await request.json();
 

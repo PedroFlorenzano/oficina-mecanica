@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { CreateOrder } from "@/application/use-cases/orders/CreateOrder";
 import { ReserveStock } from "@/application/use-cases/stock/ReserveStock";
 import { ComplaintInput } from "@/domain/repositories/IServiceOrderRepository";
@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const userId = session.user.userId;
 
     const body = await request.json();

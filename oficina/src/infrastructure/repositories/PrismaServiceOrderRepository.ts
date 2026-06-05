@@ -1,35 +1,12 @@
-import { prisma } from "../database/prisma";
+import { PrismaClient, Prisma, OrderStatus } from "@prisma/client";
 import { IServiceOrderRepository, OrderData, OrderDetail as IOrderDetail, ActiveOrder as IActiveOrder, OrderSummary, CreateOrderData, LegacyCreateOrderData, ComplaintInput } from "@/domain/repositories/IServiceOrderRepository";
-import { Prisma, OrderStatus } from "@prisma/client";
-
-type PrismaOrderDetail = Prisma.ServiceOrderGetPayload<{
-  include: {
-    client: true;
-    vehicle: true;
-    createdBy: { select: { name: true } };
-    complaints: { include: { services: true; parts: { include: { stockItem: true } } } };
-    services: { include: { service: true } };
-    parts: { include: { stockItem: true } };
-    statusHistory: true;
-  };
-}>;
-
-type PrismaOrderWithClient = Prisma.ServiceOrderGetPayload<{
-  include: { client: { select: { name: true } }; vehicle: { select: { plate: true; model: true } } };
-}>;
-
-type PrismaActiveOrder = Prisma.ServiceOrderGetPayload<{
-  include: {
-    client: { select: { name: true } };
-    vehicle: { select: { plate: true; brand: true; model: true } };
-    complaints: { select: { description: true } };
-    createdBy: { select: { name: true } };
-  };
-}>;
 
 export class PrismaServiceOrderRepository implements IServiceOrderRepository {
+  // Defense in depth: RLS também filtra no banco
+  constructor(private readonly db: PrismaClient) {}
+
   async findById(id: string): Promise<IOrderDetail | null> {
-    return prisma.serviceOrder.findUnique({
+    return this.db.serviceOrder.findUnique({
       where: { id },
       include: {
         client: true,
@@ -50,7 +27,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async findAll(tenantId: string): Promise<OrderData[]> {
-    return prisma.serviceOrder.findMany({
+    return this.db.serviceOrder.findMany({
       where: { tenantId },
       include: {
         client: { select: { name: true } },
@@ -61,7 +38,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async findActive(tenantId: string): Promise<IActiveOrder[]> {
-    return prisma.serviceOrder.findMany({
+    return this.db.serviceOrder.findMany({
       where: {
         tenantId,
         status: { notIn: ["DELIVERED", "CANCELLED"] },
@@ -78,7 +55,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async getNextNumber(tenantId: string): Promise<number> {
-    const lastOrder = await prisma.serviceOrder.findFirst({
+    const lastOrder = await this.db.serviceOrder.findFirst({
       where: { tenantId },
       orderBy: { number: "desc" },
       select: { number: true },
@@ -87,8 +64,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async createWithComplaints(data: CreateOrderData): Promise<OrderData | null> {
-    return prisma.$transaction(async (tx) => {
-      // getNextNumber dentro da transação para evitar race condition
+    return this.db.$transaction(async (tx) => {
       const lastOrder = await tx.serviceOrder.findFirst({
         where: { tenantId: data.tenantId },
         orderBy: { number: "desc" },
@@ -179,7 +155,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     const servicesTotal = data.services.reduce((sum, s) => sum + (s.price || 0), 0);
     const partsTotal = (data.parts || []).reduce((sum, p) => sum + (p.quantity || 0) * (p.unitPrice || 0), 0);
 
-    return prisma.serviceOrder.create({
+    return this.db.serviceOrder.create({
       data: {
         number: nextNumber,
         status: "WAITING_APPROVAL",
@@ -221,10 +197,10 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async updateStatus(id: string, status: string, userId: string): Promise<OrderData | null> {
-    const order = await prisma.serviceOrder.findUnique({ where: { id } });
+    const order = await this.db.serviceOrder.findUnique({ where: { id } });
     if (!order) return null;
 
-    return prisma.serviceOrder.update({
+    return this.db.serviceOrder.update({
       where: { id },
       data: {
         status: status as OrderStatus,
@@ -240,7 +216,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async findByClientId(clientId: string, tenantId: string): Promise<OrderSummary[]> {
-    return prisma.serviceOrder.findMany({
+    return this.db.serviceOrder.findMany({
       where: { clientId, tenantId },
       select: {
         id: true,
@@ -255,7 +231,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async findByVehicleId(vehicleId: string, tenantId: string): Promise<OrderSummary[]> {
-    return prisma.serviceOrder.findMany({
+    return this.db.serviceOrder.findMany({
       where: { vehicleId, tenantId },
       select: {
         id: true,
@@ -270,7 +246,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async findOilChangeOrders(vehicleId: string, tenantId: string): Promise<{ mileage: number; createdAt: Date }[]> {
-    const orders = await prisma.serviceOrder.findMany({
+    const orders = await this.db.serviceOrder.findMany({
       where: {
         vehicleId,
         tenantId,
@@ -290,10 +266,10 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   }
 
   async cancel(id: string, reason: string, userId: string): Promise<OrderData | null> {
-    const order = await prisma.serviceOrder.findUnique({ where: { id } });
+    const order = await this.db.serviceOrder.findUnique({ where: { id } });
     if (!order) return null;
 
-    return prisma.serviceOrder.update({
+    return this.db.serviceOrder.update({
       where: { id },
       data: {
         status: "CANCELLED",
@@ -316,13 +292,11 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     totalAmount: number,
     notes: string | null
   ): Promise<OrderData> {
-    return prisma.$transaction(async (tx) => {
-      // Deletar dados antigos (cascade não funciona em soft relations)
+    return this.db.$transaction(async (tx) => {
       await tx.orderPart.deleteMany({ where: { orderId } });
       await tx.orderService.deleteMany({ where: { orderId } });
       await tx.complaint.deleteMany({ where: { orderId } });
 
-      // Recriar complaints com serviços e peças
       for (let i = 0; i < complaints.length; i++) {
         const c = complaints[i];
         const complaint = await tx.complaint.create({
@@ -367,7 +341,6 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
         }
       }
 
-      // Atualizar totalAmount e notes
       await tx.serviceOrder.update({
         where: { id: orderId },
         data: { totalAmount, notes },

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { CancelFiscalInvoice } from "@/application/use-cases/fiscal/CancelFiscalInvoice";
 import { RetryInvoice } from "@/application/use-cases/fiscal/RetryInvoice";
 import { handleError } from "@/lib/api-handler";
@@ -13,10 +13,11 @@ export async function PATCH(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Acesso restrito" }, { status: 403 });
     const { id } = await params;
     const body = await request.json();
-    const tenantId = session.user.tenantId;
 
     if (body.action === "cancel") {
       const uc = new CancelFiscalInvoice(container.fiscalRepository);

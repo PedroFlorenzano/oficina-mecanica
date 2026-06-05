@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { IssueFiscalInvoice } from "@/application/use-cases/fiscal/IssueFiscalInvoice";
 import { GetInvoicesByOrder } from "@/application/use-cases/fiscal/GetInvoicesByOrder";
 import { handleError } from "@/lib/api-handler";
@@ -13,6 +13,8 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const uc = new GetInvoicesByOrder(container.fiscalRepository);
     const result = await uc.execute(id, session.user.tenantId);
@@ -29,10 +31,11 @@ export async function POST(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     if (session.user.role !== "ADMIN") return NextResponse.json({ error: "Acesso restrito" }, { status: 403 });
     const { id } = await params;
     const body = await request.json();
-    const tenantId = session.user.tenantId;
 
     const uc = new IssueFiscalInvoice(container.fiscalRepository, container.orderRepository);
     const invoice = await uc.execute(id, body.type, tenantId);

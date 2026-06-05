@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { withTenant } from "@/infrastructure/database/prisma";
 
 export async function GET() {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const prisma = withTenant(tenantId);
     const userId = session.user.userId;
 
     const [assignedOrders, activeTimers, commissionSummary] = await Promise.all([

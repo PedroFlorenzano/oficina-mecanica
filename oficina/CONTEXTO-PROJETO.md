@@ -14,8 +14,8 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 
 **Repositório:** https://github.com/PedroFlorenzano/oficina-mecanica
 **Branch principal:** main
-**Branch de desenvolvimento atual:** feature/autenticacao-perfis
-**Última atualização:** 26/05/2026
+**Branch de desenvolvimento atual:** main
+**Última atualização:** 04/06/2026
 
 ---
 
@@ -24,7 +24,7 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 - **Frontend:** Next.js 16 (App Router) + TypeScript 5 + Tailwind CSS 4
 - **Backend:** API Routes do Next.js (thin controllers)
 - **ORM:** Prisma 6
-- **Banco:** SQLite (dev) — preparado para migrar para PostgreSQL (prod)
+- **Banco:** PostgreSQL 16 (via Docker em dev) — com Row-Level Security (RLS) para isolamento multi-tenant
 - **Auth:** NextAuth v4 + CredentialsProvider + JWT sessions
 - **Hash de senhas:** bcryptjs (salt rounds: 10)
 - **PDF:** @react-pdf/renderer (server-side)
@@ -157,7 +157,7 @@ oficina/src/
 |---|--------|--------|-------------------|
 | 1 | Gestão de Clientes e Veículos | ✅ 100% | CRUD completo, soft-delete + reativação, histórico de OS por cliente/veículo, lembrete de troca de óleo (toggle por veículo), busca por placa |
 | 2 | Autenticação e Perfis de Acesso | ✅ 100% | Login/logout, NextAuth JWT, middleware de proteção, bloqueio após 5 tentativas, 3 roles (ADMIN/ATTENDANT/MECHANIC), gerenciamento de usuários, troca de senha |
-| 3 | Multi-Tenancy | 🟡 20% | tenantId em todos os dados, estrutura pronta — isolamento real depende de PostgreSQL em produção |
+| 3 | Multi-Tenancy | ✅ 100% | tenantId em todos os dados, RLS policies em 22 tabelas, withTenant + prismaAdmin, createContainer por requisição, Docker + validação end-to-end, roles separados (operare_app/operare_admin), seed 2 tenants, 218 testes passando |
 | 4 | Ordem de Serviço (OS) | ✅ 100% | Criação com Reclamações, status padrão WAITING_APPROVAL, cancelamento com motivo, PDF completo, integração estoque (reserva/consumo/reversão), Kanban Pista |
 | 5 | Controle de Estoque | ✅ 100% | CRUD itens, entrada com custo médio ponderado, histórico paginado de movimentos, alertas de mínimo (badge Sidebar + painel), ajuste físico (ADJUSTMENT), log imutável |
 | 6 | Emissão de NF-e/NFS-e | ✅ 100% (simulado) | Infra completa: schema, use cases, API routes, UI config + listagem + botão na OS. Adapter simulado (FakeFiscalAdapter), processamento síncrono, DANFE/DANFSE PDF. Falta: adapter real SEFAZ/Prefeitura + certificado A1 |
@@ -323,16 +323,32 @@ Componentes prontos:
 ```bash
 cd oficina
 npm install
+cp .env.example .env          # editar com seus valores
+
+# Subir PostgreSQL via Docker
+npm run db:docker
+
+# Criar shadow database (primeira vez)
+docker exec -it oficina-postgres-1 psql -U operare -d operare_dev -c "CREATE DATABASE operare_shadow;"
+
+# Aplicar migrations (schema + RLS policies)
 npx prisma migrate dev
-npx prisma generate
+
+# Popular com dados demo (2 tenants)
+npx prisma db seed
+
+# Iniciar
 npm run dev
 # http://localhost:3000
 ```
 
-## Dados de Demo (seed + demo-seed)
+## Dados de Demo
 
-- **Tenant:** Paiffer Bosch Car Service (id: `demo-tenant`)
+- **Tenant 1:** Paiffer Bosch Car Service (id: `tenant-paiffer`)
 - **Admin:** `admin@paiffer.com` / `password123` (role: ADMIN)
+- **Mecânico:** `mecanico@paiffer.com` / `password123` (role: MECHANIC)
+- **Tenant 2:** Demo Oficina (id: `tenant-demo`)
+- **Admin:** `admin@demo.com` / `password123` (role: ADMIN)
 - **Mecânico:** `mecanico@paiffer.com` / `password123` (role: MECHANIC)
 - **Clientes:** 6 (incluindo 1 inativo — "Auto Peças Ltda" para testar reativação)
 - **Veículos:** 6 (incluindo 1 com lembrete de óleo desligado — Toyota Corolla JKL4G56)
@@ -1144,6 +1160,53 @@ O módulo NF-e/NFS-e agora funciona end-to-end com adapter fake (sem SEFAZ/Prefe
 
 ---
 
+## Identidade do Produto — Decisões Tomadas (27/05/2026)
+
+### Nome do SaaS
+
+**Operare** — do latim "operar/trabalhar". Tom profissional, expansível para além de oficinas mecânicas.
+
+- **Domínio:** `operare.tech` (`.com.br` já estava em uso)
+- **Piloto:** Paiffer Bosch Car Service (Sorocaba/SP) — o nome "Paiffer" é da oficina cliente, não do produto
+
+### Segmentos-alvo
+
+| Segmento | Compatibilidade | Observação |
+|----------|----------------|------------|
+| Oficinas mecânicas automotivas | ✅ Core | Piloto atual |
+| Estéticas automotivas | ✅ Alta | Ramo em crescimento no Brasil — OS, serviços, insumos, cronômetro, WhatsApp já cobrem |
+| Oficinas de motos | ✅ Alta | Mesma lógica, sem mudanças |
+| Oficinas de caminhões | ✅ Alta | Mesma lógica |
+| Funilaria/Pintura | ✅ Alta | Pode precisar de fotos de danos no futuro |
+| Elétrica automotiva | ✅ Alta | Sem mudanças necessárias |
+
+### Posicionamento
+
+- **Nacional** (Brasil) — sem planos de internacionalização no curto prazo
+- **Tom:** Profissional, B2B
+- **Modelo:** SaaS com assinatura mensal, multi-tenant
+
+### Estrutura de Domínio Planejada
+
+```
+operare.tech                  → landing page / marketing / cadastro
+app.operare.tech              → aplicação (login + dashboard)
+app.operare.tech/[slug]       → path-based por tenant (ex: app.operare.tech/paiffer)
+```
+
+> **Decisão pendente:** path-based (`app.operare.tech/paiffer`) vs subdomínio (`paiffer.operare.tech`).
+> Path-based é mais simples de implementar (sem wildcard DNS). Subdomínio é mais profissional.
+> Recomendação: começar com path-based e migrar para subdomínio quando houver demanda.
+
+### Multi-Tenancy — Estratégia Definida
+
+- **Abordagem:** Row-Level Security (RLS) no PostgreSQL — uma tabela por entidade, isolamento garantido pelo banco
+- **Motivo:** Menos complexidade operacional que schema-per-tenant; migrations simples; Prisma suporta nativamente
+- **Proteção:** Mesmo que o código esqueça o filtro `tenantId`, o banco bloqueia via policy RLS
+- **Banco:** Migrar de SQLite para PostgreSQL (pré-requisito do RLS)
+
+---
+
 ## Pendente — Roadmap para Produção
 
 > O sistema está funcional e completo para uso em uma oficina (single-tenant). O que resta são itens de infraestrutura de produção, integração fiscal real e comercialização.
@@ -1162,13 +1225,18 @@ O módulo NF-e/NFS-e agora funciona end-to-end com adapter fake (sem SEFAZ/Prefe
 
 ### 2. Multi-Tenancy Real
 
-| Item | Descrição | Dependência |
-|------|-----------|-------------|
-| PostgreSQL | Migrar de SQLite para Postgres | Servidor de banco (RDS, Supabase, etc.) |
-| Isolamento por schema | Um schema por tenant (ou row-level security) | Decisão arquitetural |
-| Onboarding | Fluxo de cadastro de nova oficina (self-service) | UI + API de criação de tenant |
-| Billing/Assinatura | Controle de plano, inadimplência, bloqueio | Gateway de pagamento (Stripe, Asaas) |
-| Subdomínio por tenant | `oficina-x.sistema.com.br` ou path-based | Configuração DNS wildcard |
+| Item | Descrição | Status |
+|------|-----------|--------|
+| PostgreSQL | Migrar de SQLite para Postgres | ✅ Completo |
+| Row-Level Security | Policies em 22 tabelas + roles | ✅ Validado end-to-end |
+| withTenant + prismaAdmin | Propagação de contexto via Prisma Extension | ✅ Implementado |
+| Rotas migradas | 51 autenticadas + 4 cross-tenant | ✅ Todas migradas |
+| Seed multi-tenant | 2 tenants com dados sobrepostos | ✅ Implementado |
+| Docker + validação | PostgreSQL local + testes de isolamento | ✅ Concluído (04/06/2026) |
+| Roles separados | `operare_app` (RLS) + `operare_admin` (BYPASSRLS) | ✅ Criados e testados |
+| Onboarding | Fluxo de cadastro de nova oficina (self-service) | ⬜ UI + API |
+| Billing/Assinatura | Controle de plano, inadimplência, bloqueio | ⬜ Gateway (Stripe/Asaas) |
+| Subdomínio por tenant | path-based (`app.operare.tech/paiffer`) | ⬜ DNS + middleware |
 
 ### 3. Deploy em Produção
 
@@ -1190,3 +1258,140 @@ O módulo NF-e/NFS-e agora funciona end-to-end com adapter fake (sem SEFAZ/Prefe
 | Planos e preços | Básico / Profissional / Enterprise | Análise de mercado |
 | Contrato e LGPD | Termos de uso, política de privacidade | Assessoria jurídica |
 | Suporte | Canal de atendimento (WhatsApp, email, chat) | Definição de SLA |
+
+---
+
+## Migração PostgreSQL + RLS (implementado em 28/05/2026)
+
+### O que foi construído
+
+Migração completa do banco de dados de SQLite para PostgreSQL com implementação de Row-Level Security (RLS) nativo como segunda camada de isolamento multi-tenant. Estratégia **defense in depth**: o código continua filtrando por `tenantId` (camada 1) e o banco bloqueia qualquer acesso que escape via RLS policies (camada 2, independente do código).
+
+### Decisões Arquiteturais
+
+- **Abordagem:** Uma tabela por entidade com RLS policies (não schema-per-tenant)
+- **Motivo:** Menor complexidade operacional, migrations simples, suporte nativo do Prisma
+- **Contexto de tenant:** Propagado via `SET LOCAL app.current_tenant_id` dentro de cada transação (Prisma Extension)
+- **Roles PostgreSQL:** `operare_app` (sem BYPASSRLS, uso normal) + `operare_admin` (BYPASSRLS, login/assinatura pública)
+
+### Arquitetura de Isolamento
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  API Route → requireAuth() → session.user.tenantId             │
+│  → createContainer(tenantId) → repositórios com RLS ativo      │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────────┐
+│  Prisma Extension (withTenant)                                  │
+│  $transaction { SET LOCAL app.current_tenant_id = tenantId }   │
+│  + filtros where: { tenantId } nos repositórios (defense in depth) │
+└────────────────────────┬────────────────────────────────────────┘
+                         │
+┌────────────────────────▼────────────────────────────────────────┐
+│  PostgreSQL — RLS Policies                                      │
+│  operare_app (sem BYPASSRLS): filtra por current_setting(...)  │
+│  operare_admin (BYPASSRLS): acesso irrestrito (login, sign)    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Arquivos criados/modificados
+
+| Arquivo | Ação |
+|---------|------|
+| `oficina/docker-compose.yml` | Criado — PostgreSQL 16 com volume persistente |
+| `oficina/.env.example` | Reescrito — DATABASE_URL, SHADOW_DATABASE_URL, DATABASE_URL_ADMIN |
+| `oficina/.env` | Atualizado — URLs PostgreSQL para dev local |
+| `oficina/package.json` | Script `db:docker` adicionado |
+| `oficina/prisma/schema.prisma` | Provider `postgresql` + `shadowDatabaseUrl` |
+| `oficina/prisma/migrations/20260528100000_add_rls_policies/migration.sql` | RLS completo: 12 tabelas diretas + 10 indiretas |
+| `oficina/src/infrastructure/database/prisma.ts` | Reescrito — `prisma`, `prismaAdmin`, `withTenant()` |
+| `oficina/src/infrastructure/database/__tests__/prisma-extension.test.ts` | 5 testes (unitários + property) |
+| `oficina/src/infrastructure/container.ts` | Reescrito — `createContainer(tenantId)` + `adminContainer` |
+| `oficina/src/infrastructure/repositories/*.ts` | 11 repositórios refatorados (injeção via construtor) |
+| 51 rotas em `src/app/api/` | Migradas para `createContainer(tenantId)` |
+| 4 rotas cross-tenant | Migradas para `adminContainer` |
+| `oficina/prisma/seed.ts` | Reescrito — 2 tenants com dados sobrepostos |
+
+### DI Container — Novo Padrão
+
+```typescript
+// Rotas autenticadas (RLS ativo):
+const session = await requireAuth();
+const tenantId = session.user.tenantId;
+const container = createContainer(tenantId);
+
+// Rotas cross-tenant (BYPASSRLS):
+import { adminContainer } from "@/infrastructure/container";
+// Usado em: login, assinatura pública, webhook WhatsApp, cron reminders
+```
+
+### Repositórios — Novo Padrão
+
+```typescript
+export class PrismaClientRepository implements IClientRepository {
+  // Defense in depth: RLS também filtra no banco
+  constructor(private readonly db: PrismaClient) {}
+  // usa this.db em todas as queries
+}
+```
+
+### RLS Policies — Cobertura
+
+**12 tabelas diretas** (com `tenantId`): `Tenant`, `User`, `Client`, `Vehicle`, `ServiceCatalog`, `ServiceOrder`, `StockItem`, `Commission`, `WhatsAppConfig`, `WhatsAppMessage`, `FiscalConfig`, `FiscalInvoice`
+
+**10 tabelas indiretas** (join com tabela pai): `StockMovement` (→StockItem), `Complaint` (→ServiceOrder), `OrderService` (→ServiceOrder), `OrderPart` (→ServiceOrder), `StatusHistory` (→ServiceOrder), `Signature` (→ServiceOrder), `TimerLog` (→OrderService→ServiceOrder), `TimerAuditLog` (→TimerLog→OrderService→ServiceOrder), `CommissionItem` (→Commission), `FiscalInvoiceItem` (→FiscalInvoice)
+
+### Seed — 2 Tenants para Validação
+
+- **tenant-paiffer** (admin@paiffer.com / password123) — dados reais do piloto
+- **tenant-demo** (admin@demo.com / password123) — dados sobrepostos (mesmos nomes de clientes, mesmas placas, mesmo código de estoque)
+
+### Variáveis de Ambiente
+
+```bash
+# App_Role (sem BYPASSRLS) — uso normal
+DATABASE_URL="postgresql://operare_app:senha@localhost:5432/operare_dev"
+# Shadow database para migrations
+SHADOW_DATABASE_URL="postgresql://operare:operare@localhost:5432/operare_shadow"
+# Admin_Role (BYPASSRLS) — login, assinatura pública
+DATABASE_URL_ADMIN="postgresql://operare_admin:senha@localhost:5432/operare_dev"
+```
+
+### Como Rodar (novo)
+
+```bash
+cd oficina
+npm run db:docker        # Sobe PostgreSQL via Docker
+# Criar shadow DB (primeira vez):
+# docker exec -it oficina-postgres-1 psql -U operare -d operare_dev -c "CREATE DATABASE operare_shadow;"
+npx prisma migrate dev   # Aplica schema + RLS policies
+npx prisma db seed       # Popula 2 tenants com dados demo
+npm run dev              # http://localhost:3000
+```
+
+### Migração concluída ✅ (04/06/2026)
+
+| # | Item | Status |
+|---|------|--------|
+| 1 | Docker Desktop instalado | ✅ |
+| 2 | Migrations aplicadas (schema + RLS) | ✅ |
+| 3 | Roles criados (`operare_app`, `operare_admin`) | ✅ |
+| 4 | Seed com 2 tenants populado | ✅ |
+| 5 | Isolamento RLS validado end-to-end | ✅ |
+| 6 | 218 testes unitários passando | ✅ |
+| 7 | Build de produção OK | ✅ |
+
+**Validação RLS realizada:**
+- Sem tenant configurado → 0 registros retornados (bloqueio total)
+- Com `tenant-paiffer` → apenas dados do Paiffer (6 clientes)
+- Com `tenant-demo` → apenas dados do Demo (2 clientes)
+- Owner (`operare`) com BYPASSRLS → vê todos (8 clientes)
+
+### Testes
+
+- **218 testes unitários passando** (25 suites, zero regressões)
+- **Build de produção** compilando sem erros
+- Isolamento RLS validado manualmente contra PostgreSQL real
+
+*Última atualização: 04/06/2026 — Migração PostgreSQL + RLS completa e validada com Docker.*

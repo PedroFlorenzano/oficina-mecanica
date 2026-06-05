@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { GetMessageLogs } from "@/application/use-cases/whatsapp/GetMessageLogs";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
@@ -7,6 +7,8 @@ import { requireAuth } from "@/lib/auth";
 export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get("orderId") || undefined;
 

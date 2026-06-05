@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { ResumeTimer } from "@/application/use-cases/timer/ResumeTimer";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
@@ -10,8 +10,9 @@ export async function POST(
 ) {
   try {
     const session = await requireAuth();
-    const userId = session.user.userId;
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
+    const userId = session.user.userId;
     const userRole = session.user.role;
 
     const { id: timerLogId } = await params;

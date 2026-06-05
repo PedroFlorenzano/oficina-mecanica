@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { withTenant } from "@/infrastructure/database/prisma";
 import { Prisma } from "@prisma/client";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const prisma = withTenant(tenantId);
 
     if (session.user.role !== "ADMIN") {
       return NextResponse.json({ error: "Acesso restrito a administradores" }, { status: 403 });

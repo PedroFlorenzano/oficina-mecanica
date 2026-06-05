@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { UpdateService } from "@/application/use-cases/services/UpdateService";
 import { DeleteService } from "@/application/use-cases/services/DeleteService";
 import { handleError } from "@/lib/api-handler";
@@ -10,7 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
 
     const service = await container.serviceCatalogRepository.findById(id);
@@ -31,7 +33,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const body = await request.json();
     const useCase = new UpdateService(container.serviceCatalogRepository);
@@ -48,7 +52,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth();
+    const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
     const useCase = new DeleteService(container.serviceCatalogRepository);
     await useCase.execute(id);

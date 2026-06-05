@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
-import { prisma } from "@/infrastructure/database/prisma";
+import { withTenant } from "@/infrastructure/database/prisma";
 
 export async function GET(
   request: NextRequest,
@@ -11,6 +11,7 @@ export async function GET(
     const session = await requireAuth();
     const { id: targetUserId } = await params;
     const tenantId = session.user.tenantId;
+    const prisma = withTenant(tenantId);
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");

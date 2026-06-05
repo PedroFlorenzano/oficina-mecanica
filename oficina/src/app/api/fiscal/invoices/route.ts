@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { searchParams } = new URL(request.url);
-    const invoices = await container.fiscalRepository.findAllInvoices(session.user.tenantId, {
+    const invoices = await container.fiscalRepository.findAllInvoices(tenantId, {
       status: searchParams.get("status") || undefined,
       type: searchParams.get("type") || undefined,
     });

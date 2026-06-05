@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import React from "react";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 import { DanfeDocument, DanfeData } from "@/components/pdf/DanfeDocument";
@@ -12,13 +12,15 @@ export async function GET(
 ) {
   try {
     const session = await requireAuth();
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const { id } = await params;
 
     const invoice = await container.fiscalRepository.findInvoiceById(id, session.user.tenantId);
     if (!invoice) return NextResponse.json({ error: "Nota fiscal não encontrada" }, { status: 404 });
     if (invoice.status !== "AUTHORIZED") return NextResponse.json({ error: "DANFE disponível apenas para notas autorizadas" }, { status: 400 });
 
-    const config = await container.fiscalRepository.getConfig(session.user.tenantId);
+    const config = await container.fiscalRepository.getConfig(tenantId);
 
     const data: DanfeData = {
       type: invoice.type as "NFE" | "NFSE",

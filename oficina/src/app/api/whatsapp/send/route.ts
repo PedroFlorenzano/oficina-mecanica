@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { createContainer } from "@/infrastructure/container";
 import { SendApprovalLink } from "@/application/use-cases/whatsapp/SendApprovalLink";
 import { SendDeliveryNotification } from "@/application/use-cases/whatsapp/SendDeliveryNotification";
 import { SendMaintenanceReminder } from "@/application/use-cases/whatsapp/SendMaintenanceReminder";
@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
     const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
     const body = await request.json();
     const baseUrl = new URL(request.url).origin;
 

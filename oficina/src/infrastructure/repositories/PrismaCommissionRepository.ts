@@ -1,5 +1,4 @@
-import { prisma } from "@/infrastructure/database/prisma";
-import { Prisma, CommissionStatus } from "@prisma/client";
+import { PrismaClient, Prisma, CommissionStatus } from "@prisma/client";
 import {
   ICommissionRepository,
   CommissionData,
@@ -11,8 +10,11 @@ import {
 } from "@/domain/repositories/ICommissionRepository";
 
 export class PrismaCommissionRepository implements ICommissionRepository {
+  // Defense in depth: RLS também filtra no banco
+  constructor(private readonly db: PrismaClient) {}
+
   async create(data: CreateCommissionData): Promise<CommissionData> {
-    return prisma.commission.create({
+    return this.db.commission.create({
       data: {
         mechanicId: data.mechanicId,
         tenantId: data.tenantId,
@@ -34,14 +36,14 @@ export class PrismaCommissionRepository implements ICommissionRepository {
   }
 
   async findById(id: string, tenantId: string): Promise<CommissionData | null> {
-    return prisma.commission.findFirst({
+    return this.db.commission.findFirst({
       where: { id, tenantId },
       include: { mechanic: { select: { name: true } } },
     });
   }
 
   async findByIdWithItems(id: string, tenantId: string): Promise<CommissionData | null> {
-    return prisma.commission.findFirst({
+    return this.db.commission.findFirst({
       where: { id, tenantId },
       include: {
         mechanic: { select: { name: true } },
@@ -74,7 +76,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
       if (filters.endDate) where.endDate = { lte: new Date(filters.endDate) };
     }
 
-    return prisma.commission.findMany({
+    return this.db.commission.findMany({
       where,
       include: { mechanic: { select: { name: true } }, _count: { select: { items: true } } },
       orderBy: { createdAt: "desc" },
@@ -85,7 +87,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     const where: Prisma.CommissionWhereInput = { tenantId, mechanicId };
     if (filters.status) where.status = filters.status as CommissionStatus;
 
-    return prisma.commission.findMany({
+    return this.db.commission.findMany({
       where,
       include: { mechanic: { select: { name: true } }, _count: { select: { items: true } } },
       orderBy: { createdAt: "desc" },
@@ -93,7 +95,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
   }
 
   async findOverlapping(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<CommissionData | null> {
-    return prisma.commission.findFirst({
+    return this.db.commission.findFirst({
       where: {
         mechanicId,
         tenantId,
@@ -105,7 +107,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
   }
 
   async updateStatus(id: string, data: UpdateCommissionStatusData): Promise<CommissionData> {
-    return prisma.commission.update({
+    return this.db.commission.update({
       where: { id },
       data,
       include: { mechanic: { select: { name: true } } },
@@ -113,7 +115,7 @@ export class PrismaCommissionRepository implements ICommissionRepository {
   }
 
   async getEligibleServices(mechanicId: string, tenantId: string, startDate: Date, endDate: Date): Promise<EligibleService[]> {
-    const services = await prisma.orderService.findMany({
+    const services = await this.db.orderService.findMany({
       where: {
         mechanicId,
         order: {
@@ -156,10 +158,10 @@ export class PrismaCommissionRepository implements ICommissionRepository {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     const [pending, approved, paidMonth, paidAll] = await Promise.all([
-      prisma.commission.aggregate({ where: { mechanicId, tenantId, status: "PENDING" }, _sum: { totalCommission: true } }),
-      prisma.commission.aggregate({ where: { mechanicId, tenantId, status: "APPROVED" }, _sum: { totalCommission: true } }),
-      prisma.commission.aggregate({ where: { mechanicId, tenantId, status: "PAID", paidAt: { gte: monthStart } }, _sum: { totalCommission: true } }),
-      prisma.commission.aggregate({ where: { mechanicId, tenantId, status: "PAID" }, _sum: { totalCommission: true } }),
+      this.db.commission.aggregate({ where: { mechanicId, tenantId, status: "PENDING" }, _sum: { totalCommission: true } }),
+      this.db.commission.aggregate({ where: { mechanicId, tenantId, status: "APPROVED" }, _sum: { totalCommission: true } }),
+      this.db.commission.aggregate({ where: { mechanicId, tenantId, status: "PAID", paidAt: { gte: monthStart } }, _sum: { totalCommission: true } }),
+      this.db.commission.aggregate({ where: { mechanicId, tenantId, status: "PAID" }, _sum: { totalCommission: true } }),
     ]);
 
     return {

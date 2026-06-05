@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { container } from "@/infrastructure/container";
+import { adminContainer } from "@/infrastructure/container";
+
+// BYPASSRLS: operação cross-tenant legítima — webhook recebe status de qualquer tenant
 
 // Mapeamento de status da Evolution API para nosso enum
 const STATUS_MAP: Record<string, string> = {
@@ -59,8 +61,8 @@ async function processUpdate(externalId: string, rawStatus: string) {
   const mappedStatus = STATUS_MAP[rawStatus] || STATUS_MAP[rawStatus?.toUpperCase()];
   if (!mappedStatus) return;
 
-  const message = await container.whatsAppRepository.findByExternalId(externalId);
+  const message = await adminContainer.whatsAppRepository.findByExternalId(externalId);
   if (!message) return;
 
-  await container.whatsAppRepository.updateMessageStatus(message.id, mappedStatus);
+  await adminContainer.whatsAppRepository.updateMessageStatus(message.id, mappedStatus);
 }
