@@ -1725,3 +1725,47 @@ Ao selecionar o veículo na criação de OS, exibe os últimos serviços realiza
 - **Arquivo:** `src/app/dashboard/orders/[id]/page.tsx`
 
 *Última atualização: 15/06/2026 — Exibição do mecânico atribuído na tela de detalhe da OS.*
+
+---
+
+## Relatório de Produtividade Comparativo (15/06/2026)
+
+Ranking de mecânicos por eficiência, comparando tempo real apontado vs tempo estimado do catálogo.
+
+- **API:** `GET /api/reports/productivity` — retorna ranking ordenado por % dentro do prazo
+- **Dados por mecânico:** serviços apontados, tempo médio real, tempo médio estimado, % dentro do prazo, total apontado
+- **Página:** `/dashboard/reports/productivity` — tabela ranqueada + cards de resumo (mais eficiente, total serviços, média geral)
+- **Cores:** verde (≥80%), amarelo (≥50%), vermelho (<50%)
+- **Acesso:** Apenas ADMIN
+- **Link:** Botão "Produtividade" na página de relatórios (`/dashboard/reports`)
+
+---
+
+## Duplicar OS (15/06/2026)
+
+Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, reclamações, serviços e peças.
+
+- **API:** `POST /api/orders/[id]/duplicate` — cria nova OS com status WAITING_APPROVAL
+- **Dados copiados:** clientId, vehicleId, mileage, complaints (com services e parts)
+- **Nota automática:** "Duplicada da OS #X"
+- **UI:** Botão "Duplicar" (ícone Copy) na tela de detalhe da OS — redireciona para a nova OS criada
+- **Uso:** Revisões periódicas, serviços recorrentes
+
+---
+
+## Backlog — Próximas Implementações
+
+| # | Item | Descrição | Prioridade |
+|---|------|-----------|-----------|
+| 1 | Impressão da Pista (Kanban) | Versão imprimível do quadro para colar na parede da oficina | Média |
+| 2 | Alerta de garantia | Marcar serviços com garantia (90 dias) e avisar se cliente voltar com mesmo problema | Média |
+| 3 | CI/CD com GitHub Actions | Rodar testes + build no push, evitar regressões | Alta |
+| 4 | Integração gateway pagamento | Stripe ou Asaas para cobrar assinaturas (infra billing pronta) | Alta |
+| 5 | Landing page completa | Conteúdo de vendas, screenshots, depoimentos, CTA | Média |
+| 6 | Testes E2E | Cypress/Playwright para fluxos críticos (login, criar OS, pista) | Média |
+| 7 | Migrar middleware para proxy | Next.js 16 deprecou middleware.ts em favor de proxy | Baixa |
+| 8 | Relatório de peças mais usadas | Top 10 peças consumidas por período, para planejamento de compras | Média |
+| 9 | Exportar OS em lote (CSV/Excel) | Selecionar várias OS e exportar dados para planilha | Baixa |
+| 10 | App mobile (PWA) | Service worker + manifest para instalar no celular do mecânico | Futura |
+
+*Última atualização: 15/06/2026 — Relatório produtividade + Duplicar OS + Backlog registrado.*

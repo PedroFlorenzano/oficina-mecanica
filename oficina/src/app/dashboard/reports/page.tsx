@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { BarChart3, FileDown } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, FileDown, Users } from "lucide-react";
 import { PageHeader, Card, Button, Input } from "@/components/ui";
 
 interface ReportData {
@@ -61,14 +62,22 @@ export default function ReportsPage() {
         title="Relatórios"
         description="Resumo financeiro e operacional"
         action={
-          <a
-            href={`/api/reports/pdf${startDate || endDate ? `?${new URLSearchParams({ ...(startDate && { startDate }), ...(endDate && { endDate }) })}` : ""}`}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
-          >
-            <FileDown size={16} /> Exportar PDF
-          </a>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/dashboard/reports/productivity"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700"
+            >
+              <Users size={16} /> Produtividade
+            </Link>
+            <a
+              href={`/api/reports/pdf${startDate || endDate ? `?${new URLSearchParams({ ...(startDate && { startDate }), ...(endDate && { endDate }) })}` : ""}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium"
+            >
+              <FileDown size={16} /> Exportar PDF
+            </a>
+          </div>
         }
       />
 

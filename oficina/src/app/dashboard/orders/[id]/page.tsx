@@ -2,7 +2,8 @@
 
 import { useState, useEffect, use, Fragment } from "react";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil, ClipboardList } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil, ClipboardList, Copy } from "lucide-react";
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
@@ -63,6 +64,7 @@ const TERMINAL_STATUSES = ["COMPLETED", "DELIVERED", "CANCELLED"];
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data: session } = useSession();
+  const router = useRouter();
   const userId = session?.user?.userId ?? "";
   const userRole = session?.user?.role ?? "";
 
@@ -198,6 +200,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <a href={`/api/orders/${order.id}/checklist`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-teal-300 bg-teal-50 rounded-lg text-sm font-medium hover:bg-teal-100 text-teal-700">
             <ClipboardList size={16} /> Checklist
           </a>
+          <button onClick={async () => {
+            const res = await fetch(`/api/orders/${order.id}/duplicate`, { method: "POST" });
+            if (res.ok) { const data = await res.json(); router.push(`/dashboard/orders/${data.id}`); }
+            else { const err = await res.json(); setWhatsAppMsg(`✗ ${err.error || "Erro ao duplicar"}`); setTimeout(() => setWhatsAppMsg(""), 5000); }
+          }} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">
+            <Copy size={16} /> Duplicar
+          </button>
           <button onClick={handleOilLabel} className="inline-flex items-center gap-2 px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium hover:bg-amber-100 text-amber-700">
             <Droplet size={16} /> Etiqueta Óleo
           </button>
