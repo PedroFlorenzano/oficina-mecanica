@@ -13,7 +13,7 @@ interface ComplaintData {
   id: string;
   number: number;
   description: string;
-  services: { id: string; description: string; price: number; timeMinutes?: number | null }[];
+  services: { id: string; description: string; price: number; timeMinutes?: number | null; mechanicId?: string | null }[];
   parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; stockItem?: { supplier?: string | null } | null }[];
 }
 
@@ -82,6 +82,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   // Estado WhatsApp
   const [whatsAppMsg, setWhatsAppMsg] = useState("");
 
+  // Mapa de mecânicos (id → nome)
+  const [mechanicMap, setMechanicMap] = useState<Record<string, string>>({});
+
   const fetchOrder = () => {
     fetch(`/api/orders/${id}`)
       .then((r) => { if (!r.ok) throw new Error("Falha"); return r.json(); })
@@ -92,6 +95,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   useEffect(() => { fetchOrder(); }, [id]);
 
+  useEffect(() => {
+    fetch("/api/users?role=MECHANIC").then((r) => r.ok ? r.json() : []).then((users: { id: string; name: string }[]) => {
+      const map: Record<string, string> = {};
+      users.forEach((u) => { map[u.id] = u.name; });
+      setMechanicMap(map);
+    }).catch(() => {});
+  }, []);
   const changeStatus = async (newStatus: string) => {
     setUpdating(true);
     await fetch(`/api/orders/${id}`, {
@@ -378,6 +388,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                       <thead className="text-xs text-slate-400">
                         <tr>
                           <th className="text-left py-1">Descrição</th>
+                          <th className="text-left py-1 w-28">Mecânico</th>
                           <th className="text-right py-1 w-24">Tempo</th>
                           <th className="text-right py-1 w-28">Valor</th>
                         </tr>
@@ -387,11 +398,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                           <Fragment key={s.id}>
                             <tr>
                               <td className="py-1.5 text-slate-700">{s.description}</td>
+                              <td className="py-1.5 text-slate-500 text-xs">{s.mechanicId ? mechanicMap[s.mechanicId] || "—" : "—"}</td>
                               <td className="py-1.5 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
                               <td className="py-1.5 text-right font-medium text-slate-800">{formatCurrency(s.price)}</td>
                             </tr>
                             <tr>
-                              <td colSpan={3} className="py-2 px-0">
+                              <td colSpan={4} className="py-2 px-0">
                                 <TimerControl
                                   orderServiceId={s.id}
                                   userId={userId}
