@@ -1656,3 +1656,61 @@ O mecânico agora vê o tempo previsto para cada serviço junto ao cronômetro, 
 | `src/app/dashboard/orders/[id]/page.tsx` | Passa `estimatedMinutes={s.timeMinutes}` ao TimerControl |
 
 *Última atualização: 15/06/2026 — Seleção múltipla + tempo previsto no cronômetro.*
+
+---
+
+## Melhorias de UX na OS — Parte 2 (15/06/2026)
+
+### Select de Mecânico por Serviço
+
+Na criação e edição da OS, cada linha de serviço agora tem um dropdown "Mecânico" para atribuir o responsável.
+
+- **Dropdown:** Busca mecânicos via `GET /api/users?role=MECHANIC`
+- **Backend:** Já suportava `mechanicId` no DTO — apenas adicionada a UI
+- **Onde:** Criação (`/dashboard/orders/new`) e Edição (`/dashboard/orders/[id]/edit`)
+- **Grid:** Expandida de 4 para 5 colunas (Serviço | Preço | Tempo | Mecânico | Lixeira)
+
+### Checklist de Recebimento do Veículo (PDF)
+
+Folha impressa para o cliente assinar na entrega do veículo, registrando avarias pré-existentes.
+
+- **Componente:** `src/components/pdf/ChecklistDocument.tsx`
+- **Seções:** Dados (cliente/veículo/KM), Combustível (barra de nível), Exterior (8 itens), Interior (8 itens), Pertences (4 itens), Observações, Assinaturas
+- **Formato:** Cada item tem checkboxes OK / Avaria / N/A
+- **Rota:** `GET /api/orders/[id]/checklist` → PDF inline
+- **UI:** Botão "Checklist" (ícone ClipboardList, verde-teal) na tela de detalhe da OS
+
+### Notificações no Dashboard (Badge/Sino)
+
+Componente de notificações no header do dashboard com alertas em tempo real.
+
+- **API:** `GET /api/dashboard/notifications` — retorna pendências com contagem e link
+- **Alertas:** OS aguardando aprovação, itens de estoque abaixo do mínimo, agendamentos pendentes
+- **UI:** `src/components/NotificationBell.tsx` — sino com badge vermelho + dropdown ao clicar
+- **Auto-refresh:** A cada 60 segundos
+- **Posição:** No header do dashboard, antes do avatar do usuário
+
+### Histórico de Serviços do Veículo na Criação da OS
+
+Ao selecionar o veículo na criação de OS, exibe os últimos serviços realizados nele.
+
+- **Busca:** `GET /api/vehicles/[id]/history` ao selecionar veículo
+- **Exibição:** Painel amarelo com os últimos 5 serviços (nº OS, data, descrição dos serviços, valor)
+- **Repositório:** `findByVehicleId` atualizado para incluir `services.description`
+- **Utilidade:** Permite verificar se um serviço já foi feito recentemente, sugerir revisões
+
+### Arquivos criados/modificados
+
+| Arquivo | Ação |
+|---------|------|
+| `src/app/dashboard/orders/new/page.tsx` | Select mecânico + histórico veículo |
+| `src/app/dashboard/orders/[id]/edit/page.tsx` | Select mecânico |
+| `src/components/pdf/ChecklistDocument.tsx` | Criado — PDF checklist |
+| `src/app/api/orders/[id]/checklist/route.ts` | Criado — rota GET PDF |
+| `src/app/api/dashboard/notifications/route.ts` | Criado — API notificações |
+| `src/components/NotificationBell.tsx` | Criado — sino + dropdown |
+| `src/app/dashboard/layout.tsx` | Adicionado NotificationBell no header |
+| `src/app/dashboard/orders/[id]/page.tsx` | Botão Checklist |
+| `src/infrastructure/repositories/PrismaServiceOrderRepository.ts` | services no findByVehicleId |
+
+*Última atualização: 15/06/2026 — 4 melhorias UX: mecânico por serviço, checklist, notificações, histórico veículo.*

@@ -5,6 +5,7 @@ import Sidebar from "@/components/Sidebar";
 import LogoutButton from "@/components/LogoutButton";
 import RemountOnNavigate from "@/components/RemountOnNavigate";
 import GlobalSearch from "@/components/GlobalSearch";
+import NotificationBell from "@/components/NotificationBell";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -45,6 +46,7 @@ export default async function DashboardLayout({
             {/* Breadcrumb placeholder */}
           </div>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             {/* User info */}
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">

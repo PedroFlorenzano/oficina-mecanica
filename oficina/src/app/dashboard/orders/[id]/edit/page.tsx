@@ -31,6 +31,7 @@ interface ServiceItem {
   price: number;
   timeMinutes: number;
   serviceId?: string;
+  mechanicId?: string;
 }
 
 interface PartItem {
@@ -46,6 +47,11 @@ interface ComplaintItem {
   services: ServiceItem[];
   parts: PartItem[];
   expanded: boolean;
+}
+
+interface Mechanic {
+  id: string;
+  name: string;
 }
 
 interface OrderData {
@@ -75,6 +81,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
 
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [mechanics, setMechanics] = useState<Mechanic[]>([]);
   const [showServiceModal, setShowServiceModal] = useState<number | null>(null);
   const [showPartModal, setShowPartModal] = useState<number | null>(null);
 
@@ -84,10 +91,12 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
       fetch(`/api/orders/${id}`).then((r) => { if (!r.ok) throw new Error(); return r.json(); }),
       fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }),
       fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }),
-    ]).then(([orderData, services, stock]) => {
+      fetch("/api/users?role=MECHANIC").then((r) => { if (!r.ok) return []; return r.json(); }),
+    ]).then(([orderData, services, stock, mechs]) => {
       setOrder(orderData);
       setCatalogServices(services);
       setStockItems(stock);
+      setMechanics(mechs);
       setNotes(orderData.notes || "");
 
       // Preencher formulário com dados atuais
@@ -99,6 +108,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             price: s.price,
             timeMinutes: s.timeMinutes || 0,
             serviceId: s.serviceId || undefined,
+            mechanicId: s.mechanicId || undefined,
           })),
           parts: c.parts.map((p: OrderData["complaints"][number]["parts"][number]) => ({
             description: p.description,
@@ -214,6 +224,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             price: s.price,
             timeMinutes: s.timeMinutes,
             serviceId: s.serviceId,
+            mechanicId: s.mechanicId,
           })),
           parts: c.parts.filter(p => p.description).map(p => ({
             description: p.description,
@@ -321,7 +332,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                     </div>
                     <div className="space-y-2">
                       {complaint.services.map((s, si) => (
-                        <div key={si} className="grid grid-cols-[1fr_100px_80px_30px] gap-2 items-end">
+                        <div key={si} className="grid grid-cols-[1fr_100px_80px_120px_30px] gap-2 items-end">
                           <Combobox
                             options={serviceOptions}
                             value={s.description}
@@ -334,7 +345,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                               const svc = catalogServices.find(sv => sv.id === opt.id);
                               if (svc) {
                                 const u = [...complaints];
-                                u[ci].services[si] = { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id };
+                                u[ci].services[si] = { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id, mechanicId: u[ci].services[si].mechanicId };
                                 setComplaints(u);
                               }
                             }}
@@ -351,6 +362,15 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                             <input type="number" value={s.timeMinutes || ""}
                               onChange={(e) => { const u = [...complaints]; u[ci].services[si].timeMinutes = Number(e.target.value); setComplaints(u); }}
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Mecânico</label>
+                            <select value={s.mechanicId || ""}
+                              onChange={(e) => { const u = [...complaints]; u[ci].services[si].mechanicId = e.target.value || undefined; setComplaints(u); }}
+                              className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                              <option value="">—</option>
+                              {mechanics.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
                           </div>
                           {complaint.services.length > 1 && (
                             <button type="button" onClick={() => { const u = [...complaints]; u[ci].services = u[ci].services.filter((_, idx) => idx !== si); setComplaints(u); }}

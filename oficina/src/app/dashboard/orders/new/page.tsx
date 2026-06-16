@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, ListChecks, History } from "lucide-react";
 import Link from "next/link";
 import { Combobox, ComboboxOption, MultiSelectModal } from "@/components/ui";
 import type { MultiSelectItem } from "@/components/ui";
@@ -43,6 +43,7 @@ interface ServiceItem {
   timeMinutes: number;
   serviceId?: string;
   commissionRate?: number | null;
+  mechanicId?: string;
 }
 
 interface PartItem {
@@ -60,6 +61,20 @@ interface ComplaintItem {
   expanded: boolean;
 }
 
+interface Mechanic {
+  id: string;
+  name: string;
+}
+
+interface VehicleHistoryItem {
+  id: string;
+  number: number;
+  status: string;
+  createdAt: string;
+  totalAmount: number;
+  services: string[];
+}
+
 export default function NewOrderPage() {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>([]);
@@ -75,6 +90,8 @@ export default function NewOrderPage() {
   const [clientSearch, setClientSearch] = useState("");
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
+  const [mechanics, setMechanics] = useState<Mechanic[]>([]);
+  const [vehicleHistory, setVehicleHistory] = useState<VehicleHistoryItem[]>([]);
   const clientAbortRef = useRef<AbortController | null>(null);
 
   // Multi-select modal states
@@ -84,6 +101,7 @@ export default function NewOrderPage() {
   useEffect(() => {
     fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }).then(setCatalogServices).catch(() => {});
     fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }).then(setStockItems).catch(() => {});
+    fetch("/api/users?role=MECHANIC").then((r) => { if (!r.ok) return []; return r.json(); }).then(setMechanics).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -223,6 +241,7 @@ export default function NewOrderPage() {
             timeMinutes: s.timeMinutes,
             serviceId: s.serviceId,
             commissionRate: s.commissionRate ?? undefined,
+            mechanicId: s.mechanicId,
           })),
           parts: c.parts.filter(p => p.description).map(p => ({
             description: p.description,
@@ -301,7 +320,21 @@ export default function NewOrderPage() {
             <div className="md:col-span-2">
               <label className="block text-xs font-medium text-slate-600 mb-1">VEÍCULO *</label>
               <select value={vehicleId}
-                onChange={(e) => { setVehicleId(e.target.value); const v = selectedClient?.vehicles.find((v) => v.id === e.target.value); if (v) setMileageIn(v.mileage); }}
+                onChange={(e) => {
+                  setVehicleId(e.target.value);
+                  const v = selectedClient?.vehicles.find((v) => v.id === e.target.value);
+                  if (v) setMileageIn(v.mileage);
+                  if (e.target.value) {
+                    fetch(`/api/vehicles/${e.target.value}/history`).then((r) => r.ok ? r.json() : []).then((data) => {
+                      const orders = Array.isArray(data) ? data : (data.orders || []);
+                      const items = orders.slice(0, 5).map((o: { id: string; number: number; status: string; createdAt: string; totalAmount: number; services?: { description: string }[] }) => ({
+                        id: o.id, number: o.number, status: o.status, createdAt: o.createdAt, totalAmount: o.totalAmount,
+                        services: o.services?.map((s) => s.description) || [],
+                      }));
+                      setVehicleHistory(items);
+                    }).catch(() => setVehicleHistory([]));
+                  } else { setVehicleHistory([]); }
+                }}
                 disabled={!selectedClient}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-slate-100">
                 <option value="">Selecione...</option>
@@ -337,6 +370,30 @@ export default function NewOrderPage() {
             </div>
           </div>
         </div>
+
+        {/* HISTÓRICO DO VEÍCULO */}
+        {vehicleHistory.length > 0 && (
+          <div className="bg-amber-50 rounded-xl border border-amber-200 p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <History size={16} className="text-amber-600" />
+              <h3 className="text-sm font-bold text-amber-800">Últimos serviços neste veículo</h3>
+            </div>
+            <div className="space-y-2">
+              {vehicleHistory.map((h) => (
+                <div key={h.id} className="flex items-center justify-between text-xs bg-white rounded-lg px-3 py-2 border border-amber-100">
+                  <div>
+                    <span className="font-medium text-slate-700">OS #{h.number}</span>
+                    <span className="text-slate-400 ml-2">{new Date(h.createdAt).toLocaleDateString("pt-BR")}</span>
+                    {h.services.length > 0 && (
+                      <p className="text-slate-500 mt-0.5">{h.services.slice(0, 3).join(", ")}{h.services.length > 3 ? "..." : ""}</p>
+                    )}
+                  </div>
+                  <span className="font-medium text-slate-600">{formatCurrency(h.totalAmount)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* RECLAMAÇÕES DO CLIENTE */}
         <div className="space-y-4">
@@ -394,7 +451,7 @@ export default function NewOrderPage() {
                     </div>
                     <div className="space-y-2">
                       {complaint.services.map((s, si) => (
-                        <div key={si} className="grid grid-cols-[1fr_100px_80px_30px] gap-2 items-end">
+                        <div key={si} className="grid grid-cols-[1fr_100px_80px_120px_30px] gap-2 items-end">
                           <Combobox
                             options={serviceOptions}
                             value={s.description}
@@ -413,6 +470,7 @@ export default function NewOrderPage() {
                                   timeMinutes: svc.estimatedTime || 0,
                                   serviceId: svc.id,
                                   commissionRate: svc.commissionRate,
+                                  mechanicId: u[ci].services[si].mechanicId,
                                 };
                                 setComplaints(u);
                               }
@@ -427,11 +485,20 @@ export default function NewOrderPage() {
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Tempo (min)</label>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Tempo</label>
                             <input type="number" value={s.timeMinutes || ""}
                               onChange={(e) => { const u = [...complaints]; u[ci].services[si].timeMinutes = Number(e.target.value); setComplaints(u); }}
                               placeholder="Min"
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Mecânico</label>
+                            <select value={s.mechanicId || ""}
+                              onChange={(e) => { const u = [...complaints]; u[ci].services[si].mechanicId = e.target.value || undefined; setComplaints(u); }}
+                              className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
+                              <option value="">—</option>
+                              {mechanics.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
                           </div>
                           {complaint.services.length > 1 && (
                             <button type="button" onClick={() => { const u = [...complaints]; u[ci].services = u[ci].services.filter((_, idx) => idx !== si); setComplaints(u); }}

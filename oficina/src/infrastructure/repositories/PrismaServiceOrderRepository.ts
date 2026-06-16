@@ -240,6 +240,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
         totalAmount: true,
         createdAt: true,
         client: { select: { name: true } },
+        services: { select: { description: true } },
       },
       orderBy: { createdAt: "desc" },
     }) as unknown as OrderSummary[];

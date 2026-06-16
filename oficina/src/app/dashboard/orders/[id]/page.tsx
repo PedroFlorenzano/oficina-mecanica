@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, Fragment } from "react";
 import { useSession } from "next-auth/react";
-import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil } from "lucide-react";
+import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil, ClipboardList } from "lucide-react";
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
@@ -184,6 +184,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </button>
           <a href={`/api/orders/${order.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">
             <FileDown size={16} /> Baixar PDF
+          </a>
+          <a href={`/api/orders/${order.id}/checklist`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-teal-300 bg-teal-50 rounded-lg text-sm font-medium hover:bg-teal-100 text-teal-700">
+            <ClipboardList size={16} /> Checklist
           </a>
           <button onClick={handleOilLabel} className="inline-flex items-center gap-2 px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium hover:bg-amber-100 text-amber-700">
             <Droplet size={16} /> Etiqueta Óleo
