@@ -1714,3 +1714,14 @@ Ao selecionar o veículo na criação de OS, exibe os últimos serviços realiza
 | `src/infrastructure/repositories/PrismaServiceOrderRepository.ts` | services no findByVehicleId |
 
 *Última atualização: 15/06/2026 — 4 melhorias UX: mecânico por serviço, checklist, notificações, histórico veículo.*
+
+---
+
+## Correção — Mecânico visível na tela de detalhe da OS (15/06/2026)
+
+- **Problema:** Ao atribuir mecânico no formulário de edição, o dado era salvo no banco mas não aparecia na tela de detalhe da OS
+- **Causa:** A interface `ComplaintData.services` não incluía `mechanicId` e a tabela não tinha coluna "Mecânico"
+- **Correção:** Adicionada coluna "Mecânico" na tabela de serviços (complaints e ungrouped), com fetch de mecânicos via `GET /api/users?role=MECHANIC` e mapa id→nome
+- **Arquivo:** `src/app/dashboard/orders/[id]/page.tsx`
+
+*Última atualização: 15/06/2026 — Exibição do mecânico atribuído na tela de detalhe da OS.*
