@@ -29,6 +29,7 @@ export interface TimerControlProps {
   userId: string;
   userRole: string; // "MECHANIC" | "ADMIN" | "ATTENDANT"
   serviceDescription?: string;
+  estimatedMinutes?: number | null;
 }
 
 // ─── Helper ───────────────────────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export default function TimerControl({
   userId,
   userRole,
   serviceDescription,
+  estimatedMinutes,
 }: TimerControlProps) {
   const isMechanic = userRole === "MECHANIC";
 
@@ -288,6 +290,19 @@ export default function TimerControl({
             {status === "ativa" ? "tempo em andamento" : "tempo líquido"}
           </span>
         </div>
+
+        {/* Tempo estimado/previsto */}
+        {estimatedMinutes != null && estimatedMinutes > 0 && (
+          <div className="flex items-center gap-2 mb-3 px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">
+            <Clock size={14} className="text-amber-600 shrink-0" />
+            <span className="text-xs font-medium text-amber-700">
+              Tempo previsto: {formatSeconds(estimatedMinutes * 60)}
+            </span>
+            {displaySeconds > estimatedMinutes * 60 && (
+              <span className="text-xs font-medium text-red-600 ml-auto">⚠ Excedido</span>
+            )}
+          </div>
+        )}
 
         {/* Error message */}
         {error && (

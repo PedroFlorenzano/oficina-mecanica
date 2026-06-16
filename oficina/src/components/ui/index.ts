@@ -10,3 +10,5 @@ export { Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from ".
 export { default as PageHeader } from "./PageHeader";
 export { default as EmptyState } from "./EmptyState";
 export { default as Toast } from "./Toast";
+export { default as MultiSelectModal } from "./MultiSelectModal";
+export type { MultiSelectItem } from "./MultiSelectModal";

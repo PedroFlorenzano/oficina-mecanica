@@ -394,6 +394,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                                   userId={userId}
                                   userRole={userRole}
                                   serviceDescription={s.description}
+                                  estimatedMinutes={s.timeMinutes}
                                 />
                               </td>
                             </tr>
@@ -470,6 +471,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         userId={userId}
                         userRole={userRole}
                         serviceDescription={s.description}
+                        estimatedMinutes={s.timeMinutes}
                       />
                     </td>
                   </tr>

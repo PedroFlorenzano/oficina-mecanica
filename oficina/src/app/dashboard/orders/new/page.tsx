@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import Link from "next/link";
-import { Combobox, ComboboxOption } from "@/components/ui";
+import { Combobox, ComboboxOption, MultiSelectModal } from "@/components/ui";
+import type { MultiSelectItem } from "@/components/ui";
 import { formatCurrency } from "@/lib/format";
 
 interface Client {
@@ -76,6 +77,10 @@ export default function NewOrderPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const clientAbortRef = useRef<AbortController | null>(null);
 
+  // Multi-select modal states
+  const [showServiceModal, setShowServiceModal] = useState<number | null>(null);
+  const [showPartModal, setShowPartModal] = useState<number | null>(null);
+
   useEffect(() => {
     fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }).then(setCatalogServices).catch(() => {});
     fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }).then(setStockItems).catch(() => {});
@@ -128,6 +133,47 @@ export default function NewOrderPage() {
     rightLabel: formatCurrency(item.sellPrice),
     rightSublabel: `Estoque: ${item.quantity}`,
   }));
+
+  const serviceModalItems: MultiSelectItem[] = catalogServices.map((s) => ({
+    id: s.id,
+    label: s.description,
+    sublabel: s.category || undefined,
+    rightLabel: formatCurrency(s.defaultPrice),
+  }));
+
+  const partModalItems: MultiSelectItem[] = stockItems.map((item) => ({
+    id: item.id,
+    label: item.description,
+    sublabel: `${item.code} • ${item.brand || ""}`,
+    rightLabel: formatCurrency(item.sellPrice),
+  }));
+
+  const addMultipleServices = (ci: number, ids: string[]) => {
+    const u = [...complaints];
+    const newServices = ids.map((id) => {
+      const svc = catalogServices.find((s) => s.id === id)!;
+      return { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id, commissionRate: svc.commissionRate };
+    });
+    // Remove empty placeholder if exists
+    if (u[ci].services.length === 1 && !u[ci].services[0].description) {
+      u[ci].services = newServices;
+    } else {
+      u[ci].services.push(...newServices);
+    }
+    setComplaints(u);
+    setShowServiceModal(null);
+  };
+
+  const addMultipleParts = (ci: number, ids: string[]) => {
+    const u = [...complaints];
+    const newParts = ids.map((id) => {
+      const item = stockItems.find((s) => s.id === id)!;
+      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice: item.sellPrice, stockItemId: item.id };
+    });
+    u[ci].parts.push(...newParts);
+    setComplaints(u);
+    setShowPartModal(null);
+  };
 
   const getComplaintTotal = (c: ComplaintItem) => {
     const svcTotal = c.services.reduce((sum, s) => sum + (s.price || 0), 0);
@@ -339,8 +385,12 @@ export default function NewOrderPage() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-700">Serviços</h3>
-                      <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeMinutes: 0 }); setComplaints(u); }}
-                        className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setShowServiceModal(ci)}
+                          className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><ListChecks size={12} /> Adicionar Vários</button>
+                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeMinutes: 0 }); setComplaints(u); }}
+                          className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       {complaint.services.map((s, si) => (
@@ -396,8 +446,12 @@ export default function NewOrderPage() {
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-700">Peças</h3>
-                      <button type="button" onClick={() => { const u = [...complaints]; u[ci].parts.push({ description: "", brand: "", quantity: 1, unitPrice: 0 }); setComplaints(u); }}
-                        className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => setShowPartModal(ci)}
+                          className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><ListChecks size={12} /> Adicionar Várias</button>
+                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].parts.push({ description: "", brand: "", quantity: 1, unitPrice: 0 }); setComplaints(u); }}
+                          className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
+                      </div>
                     </div>
                     {complaint.parts.length === 0 ? (
                       <p className="text-slate-400 text-xs">Nenhuma peça adicionada</p>
@@ -496,6 +550,26 @@ export default function NewOrderPage() {
           </Link>
         </div>
       </form>
+
+      {/* Modais de seleção múltipla */}
+      {showServiceModal !== null && (
+        <MultiSelectModal
+          title="Selecionar Serviços"
+          items={serviceModalItems}
+          excludeIds={complaints[showServiceModal].services.filter((s) => s.serviceId).map((s) => s.serviceId!)}
+          onConfirm={(ids) => addMultipleServices(showServiceModal, ids)}
+          onClose={() => setShowServiceModal(null)}
+        />
+      )}
+      {showPartModal !== null && (
+        <MultiSelectModal
+          title="Selecionar Peças"
+          items={partModalItems}
+          excludeIds={complaints[showPartModal].parts.filter((p) => p.stockItemId).map((p) => p.stockItemId!)}
+          onConfirm={(ids) => addMultipleParts(showPartModal, ids)}
+          onClose={() => setShowPartModal(null)}
+        />
+      )}
     </div>
   );
 }

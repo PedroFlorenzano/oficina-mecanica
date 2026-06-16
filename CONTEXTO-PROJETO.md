@@ -1619,3 +1619,40 @@ BILLING_WEBHOOK_SECRET=sua-chave-secreta  # Validação do webhook
 ```
 
 *Última atualização: 05/06/2026 — Módulo 15 (Billing/Assinatura) infra implementada.*
+
+
+---
+
+## Melhorias de UX na Ordem de Serviço (15/06/2026)
+
+### Seleção Múltipla de Serviços e Peças
+
+Ao criar ou editar uma OS, o atendente pode agora selecionar vários serviços ou peças de uma vez, evitando adicionar um a um.
+
+- **Componente:** `src/components/ui/MultiSelectModal.tsx` — modal reutilizável com busca, checkboxes e confirmação em lote
+- **Botão:** "Adicionar Vários" (ícone ListChecks) ao lado do "Adicionar" individual
+- **Comportamento:** Abre modal com lista completa do catálogo/estoque, busca por texto, seleção com checkboxes, confirma e todos os itens são inseridos com preço/tempo/vínculo preenchidos
+- **Onde:** Criação (`/dashboard/orders/new`) e Edição (`/dashboard/orders/[id]/edit`)
+- **Excluídos:** Itens já adicionados na reclamação não aparecem no modal (evita duplicata)
+
+### Tempo Estimado Visível no Cronômetro do Mecânico
+
+O mecânico agora vê o tempo previsto para cada serviço junto ao cronômetro, sabendo o limite esperado.
+
+- **Prop:** `estimatedMinutes` adicionada ao `TimerControl`
+- **UI:** Banner amarelo "Tempo previsto: HH:MM:SS" logo abaixo do cronômetro real
+- **Alerta:** Se o tempo apontado exceder o estimado, aparece "⚠ Excedido" em vermelho
+- **Origem do dado:** `OrderService.timeMinutes` (copiado do `ServiceCatalog.estimatedTime` ao criar a OS)
+
+### Arquivos criados/modificados
+
+| Arquivo | Ação |
+|---------|------|
+| `src/components/ui/MultiSelectModal.tsx` | Criado — componente modal de seleção múltipla |
+| `src/components/ui/index.ts` | Exporta MultiSelectModal e MultiSelectItem |
+| `src/app/dashboard/orders/new/page.tsx` | Botões "Adicionar Vários" + modais + handlers |
+| `src/app/dashboard/orders/[id]/edit/page.tsx` | Botões "Adicionar Vários" + modais + handlers |
+| `src/components/timer/TimerControl.tsx` | Prop `estimatedMinutes` + exibição tempo previsto |
+| `src/app/dashboard/orders/[id]/page.tsx` | Passa `estimatedMinutes={s.timeMinutes}` ao TimerControl |
+
+*Última atualização: 15/06/2026 — Seleção múltipla + tempo previsto no cronômetro.*
