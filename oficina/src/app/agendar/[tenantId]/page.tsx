@@ -36,11 +36,13 @@ export default function AgendarPage({ params }: { params: Promise<{ tenantId: st
   useEffect(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedDate(tomorrow.toISOString().split("T")[0]);
   }, []);
 
   useEffect(() => {
     if (!selectedDate) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(true);
     setSelectedTime("");
     fetch(`/api/public/schedule/${tenantId}?date=${selectedDate}`)

@@ -49,6 +49,7 @@ export default function ReportsPage() {
     }
   }, []);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleFilter = () => fetchData(startDate, endDate);

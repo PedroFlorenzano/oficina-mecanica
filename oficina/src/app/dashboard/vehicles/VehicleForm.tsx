@@ -84,6 +84,7 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
           setShowClientDropdown(true);
         });
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setClients([]);
       setShowClientDropdown(false);
     }

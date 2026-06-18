@@ -18,6 +18,7 @@ jest.mock("next/navigation", () => ({
 
 // ─── Mock lucide-react icons (avoid SVG issues in jsdom) ─────────────────────
 jest.mock("lucide-react", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require("react");
   const icon = (name: string) =>
     // eslint-disable-next-line react/display-name
@@ -39,6 +40,7 @@ jest.mock("lucide-react", () => {
 // ─── Mock @/components/ui ─────────────────────────────────────────────────────
 // Modal uses document.body manipulation; we mock it for test simplicity.
 jest.mock("@/components/ui", () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const React = require("react");
 
   const Button = ({

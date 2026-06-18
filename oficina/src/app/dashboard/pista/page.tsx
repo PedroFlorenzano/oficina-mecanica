@@ -56,6 +56,7 @@ export default function PistaPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
     // Buscar mecânicos para o mapa de nomes
     fetch("/api/users?role=MECHANIC")

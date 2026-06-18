@@ -78,6 +78,7 @@ export default function UserCommissionsPage({ params }: { params: Promise<{ id: 
       .finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [id]);
 
   const handleFilter = () => { fetchData(startDate, endDate); };

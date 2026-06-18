@@ -67,7 +67,7 @@ export function ManualDocument() {
         <Text style={s.h3}>Buscar</Text>
         <Text style={s.p}>Barra de busca: nome, CPF/CNPJ, telefone ou placa de veículo.</Text>
         <Text style={s.h3}>Inativar / Reativar</Text>
-        <Text style={s.p}>Ícone 🚫 para inativar (histórico mantido). Marque "Mostrar inativos" para reativar.</Text>
+        <Text style={s.p}>Ícone 🚫 para inativar (histórico mantido). Marque {'"'}Mostrar inativos{'"'} para reativar.</Text>
 
         <Text style={s.h2}>Veículos</Text>
         <Text style={s.bullet}>• Menu lateral → Veículos → Novo Veículo</Text>
@@ -81,9 +81,9 @@ export function ManualDocument() {
         <Text style={s.h2}>Ordens de Serviço (OS)</Text>
         <Text style={s.h3}>Criar Nova OS</Text>
         <Text style={s.bullet}>• Selecione cliente → veículo → informe KM de entrada</Text>
-        <Text style={s.bullet}>• Adicione reclamações do cliente (ex: "Barulho na suspensão")</Text>
+        <Text style={s.bullet}>• Adicione reclamações do cliente (ex: {'"'}Barulho na suspensão{'"'})</Text>
         <Text style={s.bullet}>• Para cada reclamação, adicione serviços e peças</Text>
-        <Text style={s.bullet}>• A OS é criada com status "Aguardando Aprovação"</Text>
+        <Text style={s.bullet}>• A OS é criada com status {'"'}Aguardando Aprovação{'"'}</Text>
 
         <Text style={s.h3}>Conceito de Reclamações</Text>
         <Text style={s.p}>Cada OS é organizada por reclamações do cliente. Cada reclamação agrupa seus serviços e peças, com subtotal individual e total geral.</Text>
@@ -150,9 +150,9 @@ export function ManualDocument() {
       <Page size="A4" style={s.page}>
         <Text style={s.h2}>WhatsApp e Assinatura Digital</Text>
         <Text style={s.h3}>Aprovação</Text>
-        <Text style={s.p}>Na OS "Aguardando Aprovação" → Enviar Aprovação → cliente recebe link → assina com o dedo → OS muda para "Aguardando Início".</Text>
+        <Text style={s.p}>Na OS {'"'}Aguardando Aprovação{'"'} → Enviar Aprovação → cliente recebe link → assina com o dedo → OS muda para {'"'}Aguardando Início{'"'}.</Text>
         <Text style={s.h3}>Entrega</Text>
-        <Text style={s.p}>Na OS "Concluída" → Notificar Entrega → cliente confirma → OS muda para "Entregue".</Text>
+        <Text style={s.p}>Na OS {'"'}Concluída{'"'} → Notificar Entrega → cliente confirma → OS muda para {'"'}Entregue{'"'}.</Text>
         <Text style={s.h3}>Automático</Text>
         <Text style={s.bullet}>• Toda mudança de status na Pista notifica o cliente</Text>
         <Text style={s.bullet}>• Lembrete preventivo diário (troca de óleo vencida)</Text>

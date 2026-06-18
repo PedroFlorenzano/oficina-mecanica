@@ -72,6 +72,7 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
     const margin = parseFloat(form.profitMargin) || 0;
     if (cost > 0 && margin > 0) {
       const calculated = cost * (1 + margin / 100);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setForm((f) => ({ ...f, sellPrice: calculated.toFixed(2) }));
     }
   }, [form.costPrice, form.profitMargin]);

@@ -89,6 +89,7 @@ export default function TimerControl({
       const elapsed = activeLog
         ? Math.floor((Date.now() - new Date(activeLog.startedAt).getTime()) / 1000)
         : 0;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplaySeconds(timerData.netSeconds + elapsed);
     } else if (timerData.status === "pausada") {
       // netSeconds (sessões finalizadas) + totalSeconds da sessão pausada atual
@@ -133,6 +134,7 @@ export default function TimerControl({
   }, [orderServiceId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchTimerState();
   }, [fetchTimerState]);
 

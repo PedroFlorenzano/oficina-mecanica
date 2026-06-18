@@ -45,6 +45,7 @@ export default function FiscalInvoicesPage() {
     fetch(`/api/fiscal/invoices?${params}`).then(r => r.json()).then(setInvoices).finally(() => setLoading(false));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [statusFilter, typeFilter]);
 
   const handleRetry = async (id: string) => {

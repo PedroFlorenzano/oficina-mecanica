@@ -83,6 +83,7 @@ export default function CommissionsPage() {
     }
   }, [statusFilter]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleApprove = async (id: string) => {

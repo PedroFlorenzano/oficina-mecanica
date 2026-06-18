@@ -101,6 +101,13 @@ export default function Combobox({
     }
   }, [highlightedIndex]);
 
+  const handleSelect = useCallback((option: ComboboxOption) => {
+    onSelect(option);
+    onChange(option.label);
+    setIsOpen(false);
+    setHighlightedIndex(-1);
+  }, [onSelect, onChange]);
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (disabled) return;
@@ -138,15 +145,8 @@ export default function Combobox({
           break;
       }
     },
-    [isOpen, highlightedIndex, filtered, disabled]
+    [isOpen, highlightedIndex, filtered, disabled, handleSelect]
   );
-
-  const handleSelect = (option: ComboboxOption) => {
-    onSelect(option);
-    onChange(option.label);
-    setIsOpen(false);
-    setHighlightedIndex(-1);
-  };
 
   const handleFocus = () => {
     if (!disabled) {

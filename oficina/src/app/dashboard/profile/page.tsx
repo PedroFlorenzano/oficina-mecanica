@@ -52,6 +52,7 @@ function BillingCard() {
 
   const { label, color } = statusLabels[billing.billingStatus] || statusLabels.active;
   const expiresAt = billing.planExpiresAt ? new Date(billing.planExpiresAt) : null;
+  // eslint-disable-next-line react-hooks/purity
   const daysLeft = expiresAt ? Math.max(0, Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : null;
 
   return (

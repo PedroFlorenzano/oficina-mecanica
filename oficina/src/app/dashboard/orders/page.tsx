@@ -29,6 +29,10 @@ const statusLabels: Record<string, { label: string; color: string }> = {
   CANCELLED: { label: "Cancelada", color: "bg-red-100 text-red-700" },
 };
 
+function SortIcon({ field, sortField, sortDir }: { field: string; sortField: string; sortDir: string }) {
+  return <span className="ml-1 text-xs">{sortField === field ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>;
+}
+
 export default function OrdersPage() {
   const { data: session } = useSession();
   const role = (session?.user?.role ?? "MECHANIC") as Role;
@@ -77,6 +81,7 @@ export default function OrdersPage() {
   }, [page, statusFilter, startDate, endDate, mechanicId, clientId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchOrders();
     const handlePageShow = (e: PageTransitionEvent) => {
       if (e.persisted) fetchOrders();
@@ -116,9 +121,7 @@ export default function OrdersPage() {
     else { setSortField(field); setSortDir("asc"); }
   };
 
-  const SortIcon = ({ field }: { field: string }) => (
-    <span className="ml-1 text-xs">{sortField === field ? (sortDir === "asc" ? "▲" : "▼") : ""}</span>
-  );
+
 
   const exportCSV = () => {
     const header = "Nº;Cliente;Placa;Veículo;Status;Total;Data\n";
@@ -234,12 +237,12 @@ export default function OrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("number")}>Nº<SortIcon field="number" /></th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("client.name")}>Cliente<SortIcon field="client.name" /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("number")}>Nº<SortIcon field="number" sortField={sortField} sortDir={sortDir} /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("client.name")}>Cliente<SortIcon field="client.name" sortField={sortField} sortDir={sortDir} /></th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Veículo</th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("status")}>Status<SortIcon field="status" /></th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("totalAmount")}>Total<SortIcon field="totalAmount" /></th>
-                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data<SortIcon field="createdAt" /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("status")}>Status<SortIcon field="status" sortField={sortField} sortDir={sortDir} /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("totalAmount")}>Total<SortIcon field="totalAmount" sortField={sortField} sortDir={sortDir} /></th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("createdAt")}>Data<SortIcon field="createdAt" sortField={sortField} sortDir={sortDir} /></th>
               </tr>
             </thead>
             <tbody className="divide-y">

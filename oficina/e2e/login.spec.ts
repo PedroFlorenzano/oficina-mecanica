@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { login, USERS } from "./helpers/auth";
+import { login } from "./helpers/auth";
 
 test.describe("Login", () => {
   test("admin Paiffer acessa dashboard", async ({ page }) => {
