@@ -52,6 +52,7 @@
     "tailwindcss": "^4",
     "ts-jest": "^29.4.10",
     "tsx": "^4.22.3",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^8.0.3"
   }
 }
