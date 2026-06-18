@@ -15,7 +15,7 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 **Repositório:** https://github.com/PedroFlorenzano/oficina-mecanica
 **Branch principal:** main
 **Branch de desenvolvimento atual:** main
-**Última atualização:** 04/06/2026
+**Última atualização:** 17/06/2026
 
 ---
 
@@ -1759,13 +1759,107 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 |---|------|-----------|-----------|
 | 1 | Impressão da Pista (Kanban) | Versão imprimível do quadro para colar na parede da oficina | Média |
 | 2 | Alerta de garantia | Marcar serviços com garantia (90 dias) e avisar se cliente voltar com mesmo problema | Média |
-| 3 | CI/CD com GitHub Actions | Rodar testes + build no push, evitar regressões | Alta |
+| 3 | ~~CI/CD com GitHub Actions~~ | ✅ Implementado (17/06/2026) | — |
 | 4 | Integração gateway pagamento | Stripe ou Asaas para cobrar assinaturas (infra billing pronta) | Alta |
 | 5 | Landing page completa | Conteúdo de vendas, screenshots, depoimentos, CTA | Média |
-| 6 | Testes E2E | Cypress/Playwright para fluxos críticos (login, criar OS, pista) | Média |
+| 6 | ~~Testes E2E~~ | ✅ Implementado (17/06/2026) — Playwright, multi-tenant | — |
 | 7 | Migrar middleware para proxy | Next.js 16 deprecou middleware.ts em favor de proxy | Baixa |
 | 8 | Relatório de peças mais usadas | Top 10 peças consumidas por período, para planejamento de compras | Média |
 | 9 | Exportar OS em lote (CSV/Excel) | Selecionar várias OS e exportar dados para planilha | Baixa |
 | 10 | App mobile (PWA) | Service worker + manifest para instalar no celular do mecânico | Futura |
 
-*Última atualização: 15/06/2026 — Relatório produtividade + Duplicar OS + Backlog registrado.*
+---
+
+## Tempo Previsto no PDF da OS (17/06/2026)
+
+A coluna "Tempo" na tabela de serviços do PDF agora mostra o **Tempo Previsto** (do catálogo de serviços) em vez do tempo apontado pelo cronômetro. Isso permite que o mecânico veja quanto tempo cada serviço deveria levar ao receber a OS impressa.
+
+- **Alteração:** `OSDocument.tsx` — coluna renomeada para "Tempo Previsto", exibe `service.estimatedTime`
+- **Repositório:** `findById` agora inclui `service` (ServiceCatalog) nos serviços dentro de complaints
+- **Exibição:** Formato "1h 30min", "45 min" ou "—" se não cadastrado
+
+---
+
+## CI/CD com GitHub Actions (17/06/2026)
+
+Pipeline de integração contínua configurado em `.github/workflows/ci.yml`.
+
+### Job 1 — `test-and-build`
+
+Roda em todo push e PR para `main`:
+1. `npm ci`
+2. `npx prisma generate`
+3. `npm run lint`
+4. `npm test` (218 testes unitários)
+5. `npm run build`
+
+### Job 2 — `e2e`
+
+Roda após o job 1 passar, com PostgreSQL service:
+1. `npx playwright install chromium`
+2. `npx prisma migrate deploy`
+3. `npx prisma db seed`
+4. `npx playwright test`
+
+---
+
+## Testes E2E — Playwright (17/06/2026)
+
+Testes end-to-end com foco em **isolamento multi-tenant** (SaaS) e fluxos críticos.
+
+### Estrutura
+
+```
+oficina/
+├── playwright.config.ts
+└── e2e/
+    ├── helpers/auth.ts         # login() com 3 usuários (2 tenants, 2 roles)
+    ├── login.spec.ts           # Login com múltiplos usuários/tenants
+    ├── criar-os.spec.ts        # Criar OS + isolamento de clientes entre tenants
+    ├── pista.spec.ts           # Kanban por tenant + restrição de role
+    └── multi-tenant.spec.ts    # Isolamento: clientes, estoque, OS entre tenants
+```
+
+### Cobertura
+
+| Teste | O que valida |
+|-------|-------------|
+| Login admin Paiffer | Acesso OK |
+| Login admin Demo | Acesso OK (outro tenant) |
+| Login mecânico | Acesso OK (outro role) |
+| Credenciais inválidas | Mensagem de erro |
+| Criar OS (Paiffer) | Fluxo completo |
+| Demo não vê clientes do Paiffer | Isolamento na busca |
+| Pista isolada por tenant | OS diferentes por tenant |
+| Mecânico sem acesso a /api/users | Restrição RBAC |
+| Clientes isolados | Cada tenant vê só os seus |
+| Estoque isolado | Cada tenant vê só os seus |
+| IDs de OS disjuntos | Zero vazamento cross-tenant |
+
+### Scripts
+
+```bash
+npm test          # 218 testes unitários (Jest)
+npm run test:e2e  # Testes E2E (Playwright) — requer banco + seed
+```
+
+---
+
+## Contagem de Testes
+
+**Total: 218 testes unitários + 11 testes E2E**
+
+| Módulo | Testes |
+|--------|--------|
+| Timer (cronômetro) | 86 + 7 properties |
+| Comissões | 31 + 5 financeiros |
+| Estoque | 8 + 8 financeiros |
+| OS (criação/cancelamento/edição) | 4 + 10 + 4 financeiros |
+| NF-e | 6 financeiros |
+| Clientes/Veículos | 6 |
+| Kanban | 8 properties |
+| TimerControl (componente) | 9 |
+| Imutabilidade StockMovement | 3 |
+| **E2E (Playwright)** | **11 testes multi-tenant** |
+
+*Última atualização: 17/06/2026 — Tempo previsto no PDF, CI/CD GitHub Actions, Testes E2E Playwright.*

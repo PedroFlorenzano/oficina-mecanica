@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: oficina
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: oficina/package-lock.json
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - run: npm run lint
+
+      - run: npm test
+
+      - run: npm run build
+        env:
+          NEXTAUTH_SECRET: ci-secret
+          NEXTAUTH_URL: http://localhost:3000
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    defaults:
+      run:
+        working-directory: oficina
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: operare
+          POSTGRES_PASSWORD: operare
+          POSTGRES_DB: operare_dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: oficina/package-lock.json
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
+
+      - run: npx prisma db seed
+        env:
+          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
+
+      - run: npx playwright test
+        env:
+          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
+          DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
+          NEXTAUTH_SECRET: ci-secret
+          NEXTAUTH_URL: http://localhost:3000

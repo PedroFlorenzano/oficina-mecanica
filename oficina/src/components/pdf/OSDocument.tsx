@@ -6,6 +6,7 @@ interface OSServiceItem {
   price: number;
   timeMinutes?: number | null;
   complaintId?: string | null;
+  service?: { estimatedTime?: number | null } | null;
 }
 
 interface OSPartItem {
@@ -262,7 +263,7 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                         <Text style={[styles.fieldLabel, { marginBottom: 3 }]}>SERVIÇOS</Text>
                         <View style={styles.tableHeader}>
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                          <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo</Text>
+                          <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo Previsto</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
                         </View>
                         {(c.services || []).map((sv: OSServiceItem, idx: number) => (
@@ -272,7 +273,7 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                           >
                             <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
                             <Text style={[styles.cellTextMuted, styles.colTime]}>
-                              {formatMinutes(sv.timeMinutes)}
+                              {formatMinutes(sv.service?.estimatedTime)}
                             </Text>
                             <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
                           </View>
@@ -324,13 +325,13 @@ export function OSDocument({ order }: { order: OSOrderData }) {
             <View style={styles.card}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo</Text>
+                <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo Previsto</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
               </View>
               {ungroupedServices.map((sv: OSServiceItem, idx: number) => (
                 <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
                   <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
-                  <Text style={[styles.cellTextMuted, styles.colTime]}>{formatMinutes(sv.timeMinutes)}</Text>
+                  <Text style={[styles.cellTextMuted, styles.colTime]}>{formatMinutes(sv.service?.estimatedTime)}</Text>
                   <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
                 </View>
               ))}

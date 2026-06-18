@@ -15,7 +15,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
         complaints: {
           orderBy: { number: "asc" },
           include: {
-            services: true,
+            services: { include: { service: true } },
             parts: { include: { stockItem: true } },
           },
         },
