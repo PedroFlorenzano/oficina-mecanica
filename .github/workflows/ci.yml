@@ -78,8 +78,16 @@ jobs:
         env:
           DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
 
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
+          DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
+          NEXTAUTH_SECRET: ci-secret
+          NEXTAUTH_URL: http://localhost:3000
+
       - run: npx playwright test
         env:
+          CI: "true"
           DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
           DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
           NEXTAUTH_SECRET: ci-secret

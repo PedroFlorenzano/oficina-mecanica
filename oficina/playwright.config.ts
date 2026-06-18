@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  baseURL: "http://localhost:3000",
+  baseURL: process.env.BASE_URL || "http://localhost:3000",
   timeout: 30_000,
   retries: 0,
   use: {
@@ -10,9 +10,9 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   webServer: {
-    command: "npm run dev",
+    command: process.env.CI ? "npm start" : "npm run dev",
     url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 60_000,
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
   },
 });
