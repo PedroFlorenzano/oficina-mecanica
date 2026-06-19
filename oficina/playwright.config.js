@@ -1,9 +1,10 @@
-import { defineConfig } from "@playwright/test";
+// @ts-check
+const { defineConfig } = require("@playwright/test");
 
-export default defineConfig({
+module.exports = defineConfig({
   testDir: "./e2e",
-  baseURL: process.env.BASE_URL || "http://localhost:3000",
-  timeout: 30_000,
+  baseURL: "http://localhost:3000",
+  timeout: 30000,
   retries: 0,
   use: {
     headless: true,
@@ -15,6 +16,6 @@ export default defineConfig({
         command: "npm run dev",
         url: "http://localhost:3000",
         reuseExistingServer: true,
-        timeout: 120_000,
+        timeout: 120000,
       },
 });
