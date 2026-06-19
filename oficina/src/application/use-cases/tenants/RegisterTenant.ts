@@ -49,7 +49,7 @@ export class RegisterTenant {
     const hashedPassword = await bcrypt.hash(input.adminPassword, 10);
 
     const trialExpires = new Date();
-    trialExpires.setDate(trialExpires.getDate() + 14);
+    trialExpires.setDate(trialExpires.getDate() + 15);
 
     const tenant = await this.db.tenant.create({
       data: {

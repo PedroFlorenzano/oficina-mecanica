@@ -97,8 +97,9 @@ oficina/src/
 │   │   ├── auth/[...nextauth]/  # NextAuth handler + authOptions exportado
 │   │   ├── clients/         # GET, POST, [id]/GET/PUT/PATCH/DELETE, [id]/history
 │   │   ├── vehicles/        # GET, POST, [id]/GET/PUT/DELETE, [id]/history, [id]/oil-reminder
-│   │   ├── orders/          # GET, POST, [id]/GET/PATCH, [id]/pdf, [id]/oil-label,
-│   │   │                     # [id]/invoice/GET/POST, [id]/signatures,
+│   │   ├── orders/          # GET, POST, [id]/GET/PUT/PATCH, [id]/pdf, [id]/oil-label,
+│   │   │                     # [id]/invoice/GET/POST, [id]/budget, [id]/duplicate,
+│   │   │                     # [id]/checklist, [id]/photos/GET/POST, [id]/photos/[photoId]/DELETE,
 │   │   │                     # pista/GET/PATCH, [id]/timers/GET (GetTimersByOrder)
 │   │   ├── order-services/  # [id]/timers/GET (GetTimersByService)
 │   │   ├── timer-logs/      # POST (StartTimer), [id]/pause/PATCH, [id]/resume/POST,
@@ -169,7 +170,7 @@ oficina/src/
 | 12 | Fotos na OS (Antes/Depois/Dano) | ✅ 100% | Upload múltiplo (JPEG/PNG/WebP, max 10MB), categorias (Antes/Depois/Dano), galeria com lightbox, exclusão, armazenamento em disco (uploads/), RLS via ServiceOrder, API routes |
 | 13 | Onboarding Self-Service | ✅ 100% | Cadastro público de nova oficina (tenant + admin), validação CNPJ/email/senha, página /register com formulário completo, link na tela de login |
 | 14 | Agendamento Online | ✅ 100% | Config por tenant (horário, slots, dias), página pública /agendar/[tenantId], slots disponíveis, booking com validação, painel admin com confirmar/cancelar/concluir, link no Sidebar |
-| 15 | Billing/Assinatura | ✅ 100% (infra) | Campos plan/billingStatus/planExpiresAt no Tenant, trial 14 dias no cadastro, CheckSubscription (bloqueia suspended/cancelled/trial expirado), webhook genérico para gateway (Stripe/Asaas), API GET /api/billing |
+| 15 | Billing/Assinatura | ✅ 100% (infra) | Campos plan/billingStatus/planExpiresAt no Tenant, trial 15 dias no cadastro, CheckSubscription (bloqueia suspended/cancelled/trial expirado), webhook genérico para gateway (Stripe/Asaas), API GET /api/billing |
 
 ---
 
@@ -299,7 +300,7 @@ Componentes prontos:
 5. **Catálogo de Serviços** — Pré-cadastrado, permite criação inline na OS
 6. **Múltiplos mecânicos por OS** — Suportado (por serviço via `mechanicId`)
 7. **Billing/Inadimplência** — Recebido via webhook externo
-8. **Multi-tenancy** — Dados isolados por `tenantId`; em dev usa `demo-tenant`; isolamento real com schema por tenant no PostgreSQL (produção)
+8. **Multi-tenancy** — Dados isolados por `tenantId`; RLS policies em 22 tabelas (PostgreSQL); defense in depth (código filtra + banco bloqueia)
 9. **Comissões** — Calculadas sobre valor bruto, aprovação do admin antes do pagamento
 10. **Estoque** — Saldo negativo bloqueado, custo médio ponderado, log imutável (sem UPDATE/DELETE em StockMovement)
 11. **NF-e/NFS-e** — Máx 3 retries automáticas via BullMQ, depois notificação ao admin
@@ -314,11 +315,11 @@ Componentes prontos:
 |-------|--------|-------------|
 | 1 | ✅ Estoque completo | — |
 | 2 | ✅ Autenticação | — |
-| 3 | Cronômetro de Serviço | Auth (vincular ao mecânico logado) |
-| 4 | Gestão de Comissões | Auth + Cronômetro |
-| 5 | Assinatura Digital | — (independente) |
-| 6 | Etiqueta de Troca de Óleo | — (independente, ZPL/Zebra) |
-| 7 | NF-e/NFS-e + WhatsApp + lembrete preventivo | Auth, BullMQ/Redis |
+| 3 | ✅ Cronômetro de Serviço | Auth (vincular ao mecânico logado) |
+| 4 | ✅ Gestão de Comissões | Auth + Cronômetro |
+| 5 | ✅ Assinatura Digital | — (independente) |
+| 6 | ✅ Etiqueta de Troca de Óleo | — (independente) |
+| 7 | ✅ NF-e/NFS-e + WhatsApp + lembrete preventivo | Auth |
 
 ---
 
@@ -923,7 +924,7 @@ Cliente não aprova serviço → Atendente clica "Editar Orçamento" na OS
 
 ## Contagem de Testes
 
-**Total: 213 testes unitários passando** (24 suites)
+**Total: 218 testes unitários passando** (25 suites)
 
 | Módulo | Testes |
 |--------|--------|
@@ -1078,7 +1079,7 @@ commissionRate  Float?  // % comissão snapshot (null = usa taxa do mecânico)
 
 ### Contagem de Testes
 
-**Total: 213 testes unitários passando** (24 suites) — +1 property test novo (filterOrders por mechanicId)
+**Total: 218 testes unitários passando** (25 suites)
 
 ---
 
@@ -1238,8 +1239,8 @@ app.operare.tech/[slug]       → path-based por tenant (ex: app.operare.tech/pa
 | Seed multi-tenant | 2 tenants com dados sobrepostos | ✅ Implementado |
 | Docker + validação | PostgreSQL local + testes de isolamento | ✅ Concluído (04/06/2026) |
 | Roles separados | `operare_app` (RLS) + `operare_admin` (BYPASSRLS) | ✅ Criados e testados |
-| Onboarding | Fluxo de cadastro de nova oficina (self-service) | ⬜ UI + API |
-| Billing/Assinatura | Controle de plano, inadimplência, bloqueio | ⬜ Gateway (Stripe/Asaas) |
+| Onboarding | Fluxo de cadastro de nova oficina (self-service) | ✅ Implementado |
+| Billing/Assinatura | Controle de plano, inadimplência, bloqueio | ✅ Infra pronta (falta gateway real) |
 | Subdomínio por tenant | path-based (`app.operare.tech/paiffer`) | ⬜ DNS + middleware |
 
 ### 3. Deploy em Produção
@@ -1555,7 +1556,7 @@ enum AppointmentStatus { PENDING, CONFIRMED, CANCELLED, COMPLETED }
 
 ### O que foi construído
 
-Infraestrutura completa de controle de assinatura: campos no Tenant, trial automático de 14 dias no cadastro, use case de verificação de acesso, e webhook genérico para receber eventos de gateways de pagamento (Stripe, Asaas, etc.).
+Infraestrutura completa de controle de assinatura: campos no Tenant, trial automático de 15 dias no cadastro, use case de verificação de acesso, e webhook genérico para receber eventos de gateways de pagamento (Stripe, Asaas, etc.).
 
 ### Schema adicionado
 
@@ -1570,7 +1571,7 @@ billingStatus  String  @default("active") // active, past_due, suspended, cancel
 
 | Plano | Descrição |
 |-------|-----------|
-| `trial` | Teste gratuito por 14 dias (criado automaticamente no onboarding) |
+| `trial` | Teste gratuito por 15 dias (criado automaticamente no onboarding) |
 | `basic` | Plano básico — funcionalidades essenciais |
 | `professional` | Plano profissional — todos os módulos |
 | `enterprise` | Plano enterprise — customizado |
