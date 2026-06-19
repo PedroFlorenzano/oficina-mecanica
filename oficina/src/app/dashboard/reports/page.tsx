@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { BarChart3, FileDown, Users } from "lucide-react";
+import { BarChart3, FileDown, Users, Package } from "lucide-react";
 import { PageHeader, Card, Button, Input } from "@/components/ui";
 
 interface ReportData {
@@ -69,6 +69,12 @@ export default function ReportsPage() {
               className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700"
             >
               <Users size={16} /> Produtividade
+            </Link>
+            <Link
+              href="/dashboard/reports/parts"
+              className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700"
+            >
+              <Package size={16} /> Peças Mais Usadas
             </Link>
             <a
               href={`/api/reports/pdf${startDate || endDate ? `?${new URLSearchParams({ ...(startDate && { startDate }), ...(endDate && { endDate }) })}` : ""}`}

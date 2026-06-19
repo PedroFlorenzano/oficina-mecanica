@@ -1757,16 +1757,16 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 
 | # | Item | Descrição | Prioridade |
 |---|------|-----------|-----------|
-| 1 | Impressão da Pista (Kanban) | Versão imprimível do quadro para colar na parede da oficina | Média |
+| 1 | ~~Impressão da Pista (Kanban)~~ | ✅ Implementado (19/06/2026) | — |
 | 2 | Alerta de garantia | Marcar serviços com garantia (90 dias) e avisar se cliente voltar com mesmo problema | Média |
 | 3 | ~~CI/CD com GitHub Actions~~ | ✅ Implementado (17/06/2026) | — |
 | 4 | Integração gateway pagamento | Stripe ou Asaas para cobrar assinaturas (infra billing pronta) | Alta |
 | 5 | Landing page completa | Conteúdo de vendas, screenshots, depoimentos, CTA | Média |
 | 6 | ~~Testes E2E~~ | ✅ Implementado (17/06/2026) — Playwright, multi-tenant | — |
 | 7 | Migrar middleware para proxy | Next.js 16 deprecou middleware.ts em favor de proxy | Baixa |
-| 8 | Relatório de peças mais usadas | Top 10 peças consumidas por período, para planejamento de compras | Média |
+| 8 | ~~Relatório de peças mais usadas~~ | ✅ Implementado (19/06/2026) | — |
 | 9 | Exportar OS em lote (CSV/Excel) | Selecionar várias OS e exportar dados para planilha | Baixa |
-| 10 | App mobile (PWA) | Service worker + manifest para instalar no celular do mecânico | Futura |
+| 10 | ~~App mobile (PWA)~~ | ✅ Implementado (19/06/2026) — manifest + service worker | — |
 
 ---
 
@@ -1891,6 +1891,41 @@ CI=true npm run test:e2e
 
 ---
 
+## Impressão da Pista — Kanban (19/06/2026)
+
+Versão imprimível do quadro Kanban para colar na parede da oficina.
+
+- **Botão:** "Imprimir Pista" no header da página, escondido na impressão (`print:hidden`)
+- **CSS @media print:** Layout landscape, grid 5 colunas, sidebar/header/filtros escondidos
+- **Atributo:** `data-print-pista` no container das colunas (usado pelo CSS de impressão)
+- **Comportamento:** `window.print()` — abre diálogo nativo de impressão
+
+---
+
+## Relatório de Peças Mais Usadas (19/06/2026)
+
+Top 10 peças consumidas por período, para planejamento de compras.
+
+- **API:** `GET /api/reports/parts?startDate=&endDate=` → array top 10 por quantidade consumida
+- **Dados:** Agrupa `StockMovement` tipo `CONSUMPTION` por item, calcula qtd total e custo total
+- **Página:** `/dashboard/reports/parts` — tabela com ranking, barra visual proporcional, filtro por período
+- **Acesso:** Apenas ADMIN
+- **Link:** Botão "Peças Mais Usadas" na página de relatórios (`/dashboard/reports`)
+
+---
+
+## PWA — Progressive Web App (19/06/2026)
+
+O app pode ser instalado no celular do mecânico/atendente via "Adicionar à tela inicial".
+
+- **`public/manifest.json`** — name, short_name, start_url `/dashboard`, display standalone, theme_color `#2563eb`
+- **`public/sw.js`** — Service worker network-first (busca sempre dados frescos, fallback para cache)
+- **Ícones:** SVG placeholder (letra "O" em fundo azul) — 192×192 e 512×512
+- **Meta tags no layout:** `apple-mobile-web-app-capable`, `theme-color`, `apple-touch-icon`
+- **Registro:** Script inline no `<body>` — `navigator.serviceWorker.register('/sw.js')`
+
+---
+
 ## Contagem de Testes
 
 **Total: 218 testes unitários + 13 testes E2E**
@@ -1908,4 +1943,4 @@ CI=true npm run test:e2e
 | Imutabilidade StockMovement | 3 |
 | **E2E (Playwright)** | **13 testes multi-tenant** |
 
-*Última atualização: 19/06/2026 — CI/CD e testes E2E 100% funcionais no GitHub Actions.*
+*Última atualização: 19/06/2026 — Impressão da Pista, Relatório de peças, PWA.*

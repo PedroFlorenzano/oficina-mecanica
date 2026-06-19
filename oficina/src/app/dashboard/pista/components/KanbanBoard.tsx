@@ -57,6 +57,7 @@ export function KanbanBoard({
       {/* Scroll container */}
       <div
         ref={scrollRef}
+        data-print-pista=""
         className="flex gap-4 overflow-x-auto pb-4 min-h-[500px] snap-x snap-mandatory"
       >
         {KANBAN_COLUMNS.map((status) => {
