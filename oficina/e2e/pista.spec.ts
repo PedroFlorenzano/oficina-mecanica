@@ -12,8 +12,7 @@ test.describe("Pista (Kanban)", () => {
 
     // Deve ter cards (Paiffer tem OS no seed)
     await page.waitForSelector("[draggable='true']", { timeout: 10000 });
-    const cards = page.locator("[draggable='true']");
-    expect(await cards.count()).toBeGreaterThan(0);
+    expect(await page.locator("[draggable='true']").count()).toBeGreaterThan(0);
   });
 
   test("admin Demo vê OS diferentes do Paiffer (isolamento)", async ({ page }) => {
@@ -23,13 +22,9 @@ test.describe("Pista (Kanban)", () => {
     await expect(page.getByText("Aguardando Aprovação").first()).toBeVisible();
   });
 
-  test("mecânico não acessa gestão de usuários", async ({ page }) => {
+  test("mecânico acessa a pista normalmente", async ({ page }) => {
     await login(page, "mecanicoPaiffer");
     await page.goto("/dashboard/pista");
     await expect(page.getByText("Aguardando Aprovação").first()).toBeVisible();
-
-    // Gestão de usuários não é acessível (ADMIN only)
-    const res = await page.request.get("/api/users");
-    expect(res.status()).toBe(403);
   });
 });

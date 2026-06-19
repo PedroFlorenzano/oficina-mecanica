@@ -18,20 +18,16 @@ test.describe("Isolamento Multi-Tenant", () => {
     expect(demoClients).toBeGreaterThan(0);
   });
 
-  test("API retorna OS diferentes por tenant", async ({ page }) => {
+  test("API retorna OS diferentes por tenant", async ({ page, context }) => {
     // Login como Paiffer
     await login(page, "adminPaiffer");
     const paifferRes = await page.request.get("/api/orders");
     expect(paifferRes.ok()).toBeTruthy();
     const paifferOrders = await paifferRes.json();
 
-    // Login como Demo em novo contexto via API
-    await page.goto("/login");
-    await page.getByLabel("E-mail").fill("admin@demo.com");
-    await page.getByLabel("Senha").fill("password123");
-    await page.getByRole("button", { name: "Entrar" }).click();
-    await page.waitForURL("/dashboard**");
-
+    // Limpar cookies e relogar como Demo
+    await context.clearCookies();
+    await login(page, "adminDemo");
     const demoRes = await page.request.get("/api/orders");
     expect(demoRes.ok()).toBeTruthy();
     const demoOrders = await demoRes.json();
