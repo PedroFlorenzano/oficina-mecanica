@@ -23,14 +23,16 @@ test.describe("Isolamento Multi-Tenant", () => {
     await login(page, "adminPaiffer");
     const paifferRes = await page.request.get("/api/orders");
     expect(paifferRes.ok()).toBeTruthy();
-    const paifferOrders = await paifferRes.json();
+    const paifferBody = await paifferRes.json();
+    const paifferOrders = Array.isArray(paifferBody) ? paifferBody : paifferBody.data || [];
 
     // Limpar cookies e relogar como Demo
     await context.clearCookies();
     await login(page, "adminDemo");
     const demoRes = await page.request.get("/api/orders");
     expect(demoRes.ok()).toBeTruthy();
-    const demoOrders = await demoRes.json();
+    const demoBody = await demoRes.json();
+    const demoOrders = Array.isArray(demoBody) ? demoBody : demoBody.data || [];
 
     // IDs devem ser disjuntos
     const demoIds = new Set(demoOrders.map((o: { id: string }) => o.id));

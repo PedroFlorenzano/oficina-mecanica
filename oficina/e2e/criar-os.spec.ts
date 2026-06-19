@@ -7,8 +7,8 @@ test.describe("Criar OS", () => {
     await page.goto("/dashboard/orders/new");
     // Verifica que a página carregou com os campos esperados
     await expect(page.locator("input[placeholder='Buscar cliente...']")).toBeVisible();
-    await expect(page.getByText("CLIENTE")).toBeVisible();
-    await expect(page.getByText("VEÍCULO")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "CLIENTE", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "VEÍCULO", exact: true })).toBeVisible();
   });
 
   test("admin Demo não vê clientes do tenant Paiffer", async ({ page }) => {
