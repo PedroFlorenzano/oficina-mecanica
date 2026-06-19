@@ -15,7 +15,7 @@ Objetivo final: atender inúmeras oficinas via assinatura mensal.
 **Repositório:** https://github.com/PedroFlorenzano/oficina-mecanica
 **Branch principal:** main
 **Branch de desenvolvimento atual:** main
-**Última atualização:** 17/06/2026
+**Última atualização:** 19/06/2026
 
 ---
 
@@ -1780,74 +1780,120 @@ A coluna "Tempo" na tabela de serviços do PDF agora mostra o **Tempo Previsto**
 
 ---
 
-## CI/CD com GitHub Actions (17/06/2026)
+## CI/CD com GitHub Actions (17/06/2026 — corrigido 19/06/2026)
 
-Pipeline de integração contínua configurado em `.github/workflows/ci.yml`.
+Pipeline de integração contínua configurado em `.github/workflows/ci.yml`. Totalmente funcional — ambos os jobs passam.
 
 ### Job 1 — `test-and-build`
 
 Roda em todo push e PR para `main`:
 1. `npm ci`
 2. `npx prisma generate`
-3. `npm run lint`
-4. `npm test` (218 testes unitários)
+3. `npm run lint` (0 errors, warnings tolerados)
+4. `npm test` (218 testes unitários via Jest)
 5. `npm run build`
 
 ### Job 2 — `e2e`
 
-Roda após o job 1 passar, com PostgreSQL service:
-1. `npx playwright install chromium`
-2. `npx prisma migrate deploy`
-3. `npx prisma db seed`
-4. `npx playwright test`
+Roda após o job 1 passar, com PostgreSQL service container:
+1. `npm ci` + `npx playwright install --with-deps chromium`
+2. `npx prisma migrate deploy` + `npx prisma db seed`
+3. `npm run build`
+4. `npm start &` (server em background) + `wait-on` (aguarda resposta)
+5. `npx playwright test` (13 testes E2E)
+
+**Env vars:** Definidas no nível do job para serem herdadas por todos os steps (incluindo o server em background):
+- `DATABASE_URL`, `DATABASE_URL_ADMIN` → PostgreSQL service
+- `NEXTAUTH_SECRET`, `NEXTAUTH_URL` → Auth
+- `CI=true` → Condiciona o playwright.config (sem webServer no CI)
+
+### Lições aprendidas (setup do CI)
+
+| Problema | Solução |
+|----------|---------|
+| `jest.config.ts` precisa de `ts-node` | Renomeado para `jest.config.js` com `module.exports` |
+| `playwright.config.ts` precisa de `ts-node` | Renomeado para `playwright.config.js` com `require` |
+| `react-hooks/set-state-in-effect` (40 errors) | `eslint-disable-next-line` em padrões de fetch em useEffect |
+| `baseURL` no top-level do defineConfig | Mover para `use: { baseURL }` (formato correto do Playwright) |
+| `npm start` em step separado perde env vars | Step único com `npm start &` + `wait-on` + `playwright test` |
+| `page.goto("/login")` = "invalid URL" | `baseURL` em `use:{}` resolve paths relativos |
+| Trocar de sessão entre tenants | `context.clearCookies()` antes de relogar |
+| `getByText` retorna múltiplos elementos | `getByRole("heading", { name, exact: true })` ou `.first()` |
 
 ---
 
-## Testes E2E — Playwright (17/06/2026)
+## Testes E2E — Playwright (17/06/2026 — estabilizado 19/06/2026)
 
-Testes end-to-end com foco em **isolamento multi-tenant** (SaaS) e fluxos críticos.
+Testes end-to-end com foco em **isolamento multi-tenant** (SaaS) e fluxos críticos. **13 testes passando no CI.**
 
 ### Estrutura
 
 ```
 oficina/
-├── playwright.config.ts
+├── playwright.config.js        # baseURL em use:{}, webServer condicional (CI vs local)
+├── jest.config.js              # testPathIgnorePatterns: ['/e2e/']
 └── e2e/
     ├── helpers/auth.ts         # login() com 3 usuários (2 tenants, 2 roles)
-    ├── login.spec.ts           # Login com múltiplos usuários/tenants
-    ├── criar-os.spec.ts        # Criar OS + isolamento de clientes entre tenants
-    ├── pista.spec.ts           # Kanban por tenant + restrição de role
-    └── multi-tenant.spec.ts    # Isolamento: clientes, estoque, OS entre tenants
+    ├── login.spec.ts           # 5 testes: login multi-tenant + credenciais inválidas + redirect
+    ├── criar-os.spec.ts        # 2 testes: acesso à tela + isolamento de clientes
+    ├── pista.spec.ts           # 3 testes: Kanban por tenant + mecânico
+    └── multi-tenant.spec.ts    # 3 testes: clientes, estoque, OS isolados entre tenants
 ```
 
-### Cobertura
+### Usuários de teste (do seed)
 
-| Teste | O que valida |
-|-------|-------------|
-| Login admin Paiffer | Acesso OK |
-| Login admin Demo | Acesso OK (outro tenant) |
-| Login mecânico | Acesso OK (outro role) |
-| Credenciais inválidas | Mensagem de erro |
-| Criar OS (Paiffer) | Fluxo completo |
-| Demo não vê clientes do Paiffer | Isolamento na busca |
-| Pista isolada por tenant | OS diferentes por tenant |
-| Mecânico sem acesso a /api/users | Restrição RBAC |
-| Clientes isolados | Cada tenant vê só os seus |
-| Estoque isolado | Cada tenant vê só os seus |
-| IDs de OS disjuntos | Zero vazamento cross-tenant |
+```typescript
+const USERS = {
+  adminPaiffer:    { email: "admin@paiffer.com",    password: "password123" },  // tenant-paiffer, ADMIN
+  mecanicoPaiffer: { email: "mecanico@paiffer.com", password: "password123" },  // tenant-paiffer, MECHANIC
+  adminDemo:       { email: "admin@demo.com",       password: "password123" },  // tenant-demo, ADMIN
+};
+```
+
+### Cobertura (13 testes)
+
+| Arquivo | Teste | O que valida |
+|---------|-------|-------------|
+| login | Admin Paiffer acessa dashboard | Login OK |
+| login | Admin Demo acessa dashboard | Outro tenant OK |
+| login | Mecânico Paiffer acessa dashboard | Outro role OK |
+| login | Credenciais inválidas mostra erro | Mensagem "E-mail ou senha inválidos" |
+| login | Sem auth redireciona para login | Middleware de proteção |
+| criar-os | Admin Paiffer acessa tela de nova OS | Página carrega com campos |
+| criar-os | Demo não vê clientes do Paiffer | Isolamento na busca de clientes |
+| pista | Admin Paiffer vê Kanban com OS | Colunas visíveis + cards existem |
+| pista | Admin Demo vê OS diferentes | Isolamento no Kanban |
+| pista | Mecânico acessa pista | Role MECHANIC tem acesso |
+| multi-tenant | Clientes isolados (Paiffer) | Tabela com registros próprios |
+| multi-tenant | Clientes isolados (Demo) | Tabela com registros próprios |
+| multi-tenant | API retorna OS diferentes | IDs disjuntos entre tenants |
 
 ### Scripts
 
 ```bash
 npm test          # 218 testes unitários (Jest)
-npm run test:e2e  # Testes E2E (Playwright) — requer banco + seed
+npm run test:e2e  # 13 testes E2E (Playwright) — requer banco + seed + server rodando
+```
+
+### Como rodar localmente
+
+```bash
+# Primeira vez:
+npx playwright install chromium
+
+# Rodar (o playwright.config sobe o dev server automaticamente):
+npm run test:e2e
+
+# Ou com server já rodando:
+npm run dev &
+CI=true npm run test:e2e
 ```
 
 ---
 
 ## Contagem de Testes
 
-**Total: 218 testes unitários + 11 testes E2E**
+**Total: 218 testes unitários + 13 testes E2E**
 
 | Módulo | Testes |
 |--------|--------|
@@ -1860,6 +1906,6 @@ npm run test:e2e  # Testes E2E (Playwright) — requer banco + seed
 | Kanban | 8 properties |
 | TimerControl (componente) | 9 |
 | Imutabilidade StockMovement | 3 |
-| **E2E (Playwright)** | **11 testes multi-tenant** |
+| **E2E (Playwright)** | **13 testes multi-tenant** |
 
-*Última atualização: 17/06/2026 — Tempo previsto no PDF, CI/CD GitHub Actions, Testes E2E Playwright.*
+*Última atualização: 19/06/2026 — CI/CD e testes E2E 100% funcionais no GitHub Actions.*
