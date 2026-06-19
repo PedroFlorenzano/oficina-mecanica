@@ -41,6 +41,12 @@ jobs:
     defaults:
       run:
         working-directory: oficina
+    env:
+      DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
+      DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
+      NEXTAUTH_SECRET: ci-secret
+      NEXTAUTH_URL: http://localhost:3000
+      CI: "true"
 
     services:
       postgres:
@@ -71,32 +77,13 @@ jobs:
       - run: npx playwright install --with-deps chromium
 
       - run: npx prisma migrate deploy
-        env:
-          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
 
       - run: npx prisma db seed
-        env:
-          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
 
       - run: npm run build
-        env:
-          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
-          DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
-          NEXTAUTH_SECRET: ci-secret
-          NEXTAUTH_URL: http://localhost:3000
 
-      - name: Start server
-        run: npm start &
-        env:
-          DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
-          DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
-          NEXTAUTH_SECRET: ci-secret
-          NEXTAUTH_URL: http://localhost:3000
-
-      - name: Wait for server
-        run: npx wait-on http://localhost:3000 --timeout 30000
-
-      - run: npx playwright test
-        env:
-          CI: "true"
-          BASE_URL: http://localhost:3000
+      - name: Run E2E tests
+        run: |
+          npm start &
+          npx wait-on http://localhost:3000 --timeout 60000
+          npx playwright test

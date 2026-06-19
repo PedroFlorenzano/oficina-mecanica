@@ -2,12 +2,14 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { defineConfig } = require("@playwright/test");
 
+const baseURL = "http://localhost:3000";
+
 module.exports = defineConfig({
   testDir: "./e2e",
-  baseURL: "http://localhost:3000",
   timeout: 30000,
   retries: 0,
   use: {
+    baseURL,
     headless: true,
     screenshot: "only-on-failure",
   },
@@ -15,7 +17,7 @@ module.exports = defineConfig({
     ? undefined
     : {
         command: "npm run dev",
-        url: "http://localhost:3000",
+        url: baseURL,
         reuseExistingServer: true,
         timeout: 120000,
       },
