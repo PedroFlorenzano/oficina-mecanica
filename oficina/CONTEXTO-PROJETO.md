@@ -170,7 +170,7 @@ oficina/src/
 | 12 | Fotos na OS (Antes/Depois/Dano) | ✅ 100% | Upload múltiplo (JPEG/PNG/WebP, max 10MB), categorias (Antes/Depois/Dano), galeria com lightbox, exclusão, armazenamento em disco (uploads/), RLS via ServiceOrder, API routes |
 | 13 | Onboarding Self-Service | ✅ 100% | Cadastro público de nova oficina (tenant + admin), validação CNPJ/email/senha, página /register com formulário completo, link na tela de login |
 | 14 | Agendamento Online | ✅ 100% | Config por tenant (horário, slots, dias), página pública /agendar/[tenantId], slots disponíveis, booking com validação, painel admin com confirmar/cancelar/concluir, link no Sidebar |
-| 15 | Billing/Assinatura | ✅ 100% (infra) | Campos plan/billingStatus/planExpiresAt no Tenant, trial 15 dias no cadastro, CheckSubscription (bloqueia suspended/cancelled/trial expirado), webhook genérico para gateway (Stripe/Asaas), API GET /api/billing |
+| 15 | Billing/Assinatura | ✅ 100% (infra + UI) | Campos plan/billingStatus/planExpiresAt no Tenant, trial 15 dias no cadastro, CheckSubscription, webhook genérico, API GET /api/billing, página /dashboard/billing (plano R$1.500), banner trial, link sidebar |
 
 ---
 
@@ -1764,10 +1764,18 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 | 4 | Integração gateway pagamento | Stripe ou Asaas para cobrar assinaturas (infra billing pronta) | Alta |
 | 5 | Landing page completa | Conteúdo de vendas, screenshots, depoimentos, CTA | Média |
 | 6 | ~~Testes E2E~~ | ✅ Implementado (17/06/2026) — Playwright, multi-tenant | — |
-| 7 | Migrar middleware para proxy | Next.js 16 deprecou middleware.ts em favor de proxy | Baixa |
+| 7 | ~~Migrar middleware para proxy~~ | ❌ Não necessário (Next.js 16 mantém middleware.ts) | — |
 | 8 | ~~Relatório de peças mais usadas~~ | ✅ Implementado (19/06/2026) | — |
 | 9 | Exportar OS em lote (CSV/Excel) | Selecionar várias OS e exportar dados para planilha | Baixa |
 | 10 | ~~App mobile (PWA)~~ | ✅ Implementado (19/06/2026) — manifest + service worker | — |
+| 11 | ~~Path-based multi-tenant~~ | ✅ Implementado (24/06/2026) — slug no Tenant + rota /[slug] | — |
+| 12 | ~~Billing/Assinatura UI~~ | ✅ Implementado (24/06/2026) — /dashboard/billing R$1.500 | — |
+| 13 | ~~Canal de suporte~~ | ✅ Implementado (24/06/2026) — botão flutuante WhatsApp + email | — |
+| 14 | ~~Banner trial expirando~~ | ✅ Implementado (24/06/2026) — amarelo/vermelho ≤5 dias | — |
+| 15 | Deploy produção | Vercel/VPS + domínio operare.tech + SSL | Alta |
+| 16 | Backup diário | PostgreSQL → S3 (cron + pg_dump) | Alta |
+| 17 | Monitoramento | Sentry (erros) + UptimeRobot (uptime) | Média |
+| 18 | Contrato / LGPD | Termos de uso, política de privacidade | Média |
 
 ---
 
@@ -2410,3 +2418,104 @@ src/app/api/fiscal/
 - **Migrations:** 2 novas (add_nfe_emission_fields, add_modelo_nacional)
 
 *Última atualização: 24/06/2026 — Módulo fiscal 100% funcional. Todas as features do Syscar cobertas.*
+
+---
+
+## Sessão 24/06/2026 — Parte 2 (UX, Multi-tenant, Billing)
+
+### Path-based Multi-Tenant
+
+Campo `slug` (unique) adicionado ao model `Tenant`. Cada oficina tem URL própria:
+- `operare.tech/paiffer` → redireciona para `/login?tenant=paiffer` → login exibe nome da oficina
+- Onboarding (`RegisterTenant`) gera slug automaticamente a partir do nome
+- Após login, dashboard é acessado em `/dashboard` (tenant vem do JWT como antes)
+- Seed: `paiffer` e `demo`
+
+**Arquivos:**
+- `prisma/schema.prisma` — campo `slug String @unique` no Tenant
+- `src/app/[slug]/page.tsx` — rota que resolve slug e redireciona para login
+- `src/app/login/page.tsx` — aceita `?tenant=slug`, exibe nome da oficina
+- `src/application/use-cases/tenants/RegisterTenant.ts` — gera slug (normalize + dedup)
+
+### Canal de Suporte
+
+Botão flutuante (azul, canto inferior direito) em todas as páginas do dashboard. Ao clicar, popup com:
+- WhatsApp: +55 19 99423-9392 (abre wa.me com mensagem pré-preenchida)
+- Email: pedroflorenzano.dev@gmail.com
+- Horário: Seg–Sex, 8h–18h
+
+**Arquivo:** `src/components/SupportButton.tsx` (adicionado ao layout)
+
+### Banner Trial Expirando
+
+Barra no topo do dashboard quando plan=trial e dias restantes ≤ 5:
+- Amarelo: ≤5 dias
+- Vermelho: ≤2 dias ou expirado
+- Link "Ver planos" → `/dashboard/billing`
+- Botão × para fechar (dismissível por sessão)
+
+**Arquivo:** `src/components/TrialBanner.tsx` (adicionado ao layout)
+
+### Página de Billing (/dashboard/billing)
+
+- Card com plano atual (Trial ou Completo), badge de status, data expiração
+- Plano único: **R$ 1.500/mês** com 10 features (alinhado com landing page)
+- Botão "Assinar" (placeholder até gateway real)
+- Seção histórico de pagamentos (placeholder)
+- Link "Assinatura" na sidebar (ADMIN only, ícone CreditCard)
+- Removido BillingCard duplicado da página Meu Perfil (agora é só link para /dashboard/billing)
+
+### Ícones PWA
+
+SVGs 192×192 e 512×512 com design de anel (O estilizado como engrenagem/roda) em fundo azul #2563eb com cantos arredondados. Substituem os placeholders anteriores.
+
+### Bug Fixes
+
+| Bug | Causa | Correção |
+|-----|-------|----------|
+| Flash/pisca ao navegar entre páginas | `RemountOnNavigate` forçava `window.location.replace()` a cada rota | Removido hard reload, agora é passthrough |
+| Config. Fiscal marcada como ativa ao abrir Notas Fiscais | `startsWith(href + "/")` no NavItem | Sub-items usam match exato (`pathname === href`) |
+| Tipo RPS com valores ABRASF em vez de DSF | Default "1" no schema e UI | Corrigido para "RPS" (DSF) |
+
+### Schema — Alterações desta sessão
+
+```prisma
+// Tenant
+slug  String  @unique
+
+// FiscalConfig (novos)
+nfeIndPag       String? @default("0")
+nfeTpag         String? @default("99")
+nfeFinNFe       String? @default("1")
+nfeIndFinal     String? @default("1")
+nfeIndPres      String? @default("1")
+nfeTpEmis       String? @default("1")
+modeloNacional  Boolean @default(false)
+tipoRPS         String? @default("RPS")  // (corrigido de "1")
+```
+
+### Migrations desta sessão
+
+1. `20260624125354_add_nfe_emission_fields` — 6 campos emissão NF-e
+2. `20260624130653_add_modelo_nacional` — toggle modelo nacional
+3. `20260624150000_add_tenant_slug` — slug unique no Tenant
+
+### Contagem de Testes
+
+**Total: 218 testes unitários + 13 testes E2E** (zero regressões)
+
+### Pendências Restantes
+
+| # | Item | Prioridade |
+|---|------|-----------|
+| 1 | Deploy em produção (Vercel/VPS + domínio operare.tech) | Alta |
+| 2 | Integração gateway pagamento (Stripe/Asaas) | Alta |
+| 3 | Backup diário PostgreSQL → S3 | Alta |
+| 4 | Monitoramento (Sentry + UptimeRobot) | Média |
+| 5 | Alerta de garantia (90 dias por serviço) | Média |
+| 6 | Exportar OS em lote CSV/Excel | Baixa |
+| 7 | Contrato / LGPD (termos de uso) | Média |
+| 8 | Landing page completa (conteúdo de vendas) | Média |
+| 9 | NFC-e modelo 65 (cupom fiscal) | Baixa |
+
+*Última atualização: 24/06/2026 — Path-based multi-tenant, billing R$1.500, suporte, trial banner, fix flash navegação.*
