@@ -1,5 +1,67 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
+// Code128-C encoder (otimizado para dígitos — ideal para chave de acesso)
+const CODE128_PATTERNS: number[][] = [
+  [2,1,2,2,2,2],[2,2,2,1,2,2],[2,2,2,2,2,1],[1,2,1,2,2,3],[1,2,1,3,2,2],
+  [1,3,1,2,2,2],[1,2,2,2,1,3],[1,2,2,3,1,2],[1,3,2,2,1,2],[2,2,1,2,1,3],
+  [2,2,1,3,1,2],[2,3,1,2,1,2],[1,1,2,2,3,2],[1,2,2,1,3,2],[1,2,2,2,3,1],
+  [1,1,3,2,2,2],[1,2,3,1,2,2],[1,2,3,2,2,1],[2,2,3,2,1,1],[2,2,1,1,3,2],
+  [2,2,1,2,3,1],[2,1,3,2,1,2],[2,2,3,1,1,2],[3,1,2,1,3,1],[3,1,1,2,2,2],
+  [3,2,1,1,2,2],[3,2,1,2,2,1],[3,1,2,2,1,2],[3,2,2,1,1,2],[3,2,2,2,1,1],
+  [2,1,2,1,2,3],[2,1,2,3,2,1],[2,3,2,1,2,1],[1,1,1,3,2,3],[1,3,1,1,2,3],
+  [1,3,1,3,2,1],[1,1,2,3,1,3],[1,3,2,1,1,3],[1,3,2,3,1,1],[2,1,1,3,1,3],
+  [2,3,1,1,1,3],[2,3,1,3,1,1],[1,1,2,1,3,3],[1,1,2,3,3,1],[1,3,2,1,3,1],
+  [1,1,3,1,2,3],[1,1,3,3,2,1],[1,3,3,1,2,1],[3,1,3,1,2,1],[2,1,1,3,3,1],
+  [2,3,1,1,3,1],[2,1,3,1,1,3],[2,1,3,3,1,1],[2,1,3,1,3,1],[3,1,1,1,2,3],
+  [3,1,1,3,2,1],[3,3,1,1,2,1],[3,1,2,1,1,3],[3,1,2,3,1,1],[3,3,2,1,1,1],
+  [3,1,4,1,1,1],[2,2,1,4,1,1],[4,3,1,1,1,1],[1,1,1,2,2,4],[1,1,1,4,2,2],
+  [1,2,1,1,2,4],[1,2,1,4,2,1],[1,4,1,1,2,2],[1,4,1,2,2,1],[1,1,2,2,1,4],
+  [1,1,2,4,1,2],[1,2,2,1,1,4],[1,2,2,4,1,1],[1,4,2,1,1,2],[1,4,2,2,1,1],
+  [2,4,1,2,1,1],[2,2,1,1,1,4],[4,1,3,1,1,1],[2,4,1,1,1,2],[1,3,4,1,1,1],
+  [1,1,1,2,4,2],[1,2,1,1,4,2],[1,2,1,2,4,1],[1,1,4,2,1,2],[1,2,4,1,1,2],
+  [1,2,4,2,1,1],[4,1,1,2,1,2],[4,2,1,1,1,2],[4,2,1,2,1,1],[2,1,2,1,4,1],
+  [2,1,4,1,2,1],[4,1,2,1,2,1],[1,1,1,1,4,3],[1,1,1,3,4,1],[1,3,1,1,4,1],
+  [1,1,4,1,1,3],[1,1,4,3,1,1],[4,1,1,1,1,3],[4,1,1,3,1,1],[1,1,3,1,4,1],
+  [1,1,4,1,3,1],[3,1,1,1,4,1],[4,1,1,1,3,1],[2,1,1,4,1,2],[2,1,1,2,1,4],
+  [2,1,1,2,3,2],[2,3,3,1,1,1,2],
+];
+const START_C = 105;
+const STOP = 106;
+
+function encodeCode128C(digits: string): boolean[] {
+  const values: number[] = [START_C];
+  for (let i = 0; i < digits.length; i += 2) {
+    values.push(parseInt(digits.substring(i, i + 2), 10));
+  }
+  // Checksum
+  let checksum = values[0];
+  for (let i = 1; i < values.length; i++) checksum += values[i] * i;
+  values.push(checksum % 103);
+  values.push(STOP);
+  // Convert to bars
+  const bars: boolean[] = [];
+  for (const val of values) {
+    const pattern = CODE128_PATTERNS[val];
+    for (let i = 0; i < pattern.length; i++) {
+      const isBar = i % 2 === 0;
+      for (let j = 0; j < pattern[i]; j++) bars.push(isBar);
+    }
+  }
+  return bars;
+}
+
+function BarcodeView({ value }: { value: string }) {
+  if (!value || value.length < 10) return null;
+  const bars = encodeCode128C(value);
+  return (
+    <View style={{ flexDirection: "row", height: 36, alignSelf: "center", marginVertical: 4 }}>
+      {bars.map((isBlack, i) => (
+        <View key={i} style={{ width: 0.8, height: 36, backgroundColor: isBlack ? "#000" : "#fff" }} />
+      ))}
+    </View>
+  );
+}
+
 export interface DanfeItem {
   description: string;
   quantity: number;
@@ -90,6 +152,9 @@ export function DanfeDocument({ data }: { data: DanfeData }) {
             <Text style={s.value}>{data.protocolNumber}</Text>
           </View>
         </View>
+
+        {/* Código de barras da chave de acesso */}
+        {data.accessKey && <BarcodeView value={data.accessKey} />}
 
         {/* Chave de acesso */}
         <View style={s.accessKeyBox}>
