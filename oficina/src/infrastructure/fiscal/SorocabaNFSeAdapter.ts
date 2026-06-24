@@ -6,7 +6,7 @@ import { IFiscalAdapter, FiscalAdapterInput, FiscalAuthorization, FiscalCancella
 import { CertificateManager, CertificateData } from "./CertificateManager";
 
 /**
- * Configuração NFS-e Sorocaba (sistema DSF).
+ * Configuração NFS-e padrão DSF (genérico para qualquer município DSF).
  */
 export interface SorocabaNFSeConfig {
   pfxBase64: string;
@@ -17,34 +17,38 @@ export interface SorocabaNFSeConfig {
   codigoServico: string;   // ex: "1401" (LC 116 item 14.01)
   aliquotaISS: number;     // ex: 2.01
   serie: string;           // ex: "U"
-  // Credenciais webservice (pode não ser necessário para Sorocaba)
   wsUsuario?: string;
   wsSenha?: string;
+  // Dados do município (catálogo DSF)
+  municipioUrl: string;
+  municipioSiaf: string;
+  municipioSoapns: string;
+  municipioCodigo: string;
+  municipioNome: string;
 }
 
-const DSF_SOROCABA = {
-  url: "https://www.issdigitalsod.com.br/WsNFe2/LoteRps.jws",
-  siaf: "7145",
-  version: "1",
-  soapns: "http://proces.wsnfe2.dsfnet.com.br",
-  municipio: "3552205",
-};
-
 /**
- * Adapter NFS-e DSF para Sorocaba.
- * Padrão DSF com assinatura XMLDSig + hash SHA-1 no RPS.
+ * Adapter NFS-e padrão DSF (genérico para qualquer município DSF).
+ * Usado por Sorocaba, Campinas, Campo Grande, Uberlândia, etc.
  * Requer certificado digital A1 cadastrado na prefeitura.
  */
 export class SorocabaNFSeAdapter implements IFiscalAdapter {
   private certManager: CertificateManager;
   private config: SorocabaNFSeConfig;
   private parser: XMLParser;
+  private dsf: { url: string; siaf: string; soapns: string; municipio: string };
 
   constructor(config: SorocabaNFSeConfig) {
     this.config = config;
     this.certManager = new CertificateManager();
     this.certManager.load(config.pfxBase64, config.pfxPassword);
     this.parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
+    this.dsf = {
+      url: config.municipioUrl,
+      siaf: config.municipioSiaf,
+      soapns: config.municipioSoapns,
+      municipio: config.municipioCodigo,
+    };
   }
 
   async authorize(input: FiscalAdapterInput): Promise<FiscalAuthorization> {
@@ -101,10 +105,10 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
     const xml = [
       `<ns1:ReqCancelamentoNFSe xmlns:ns1="http://localhost:8080/WsNFe2/lote" xmlns:tipos="http://localhost:8080/WsNFe2/tp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`,
       `<Cabecalho>`,
-      `<CodCidade>${DSF_SOROCABA.siaf}</CodCidade>`,
+      `<CodCidade>${this.dsf.siaf}</CodCidade>`,
       `<CPFCNPJRemetente>${this.config.cnpj}</CPFCNPJRemetente>`,
       `<transacao>true</transacao>`,
-      `<Versao>${DSF_SOROCABA.version}</Versao>`,
+      `<Versao>${"1"}</Versao>`,
       `</Cabecalho>`,
       `<Lote Id="lote:1">`,
       `<Nota>`,
@@ -138,7 +142,7 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
     return [
       `<ns1:ReqEnvioLoteRPS xmlns:ns1="http://localhost:8080/WsNFe2/lote" xmlns:tipos="http://localhost:8080/WsNFe2/tp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://localhost:8080/WsNFe2/lote http://localhost:8080/WsNFe2/xsd/ReqEnvioLoteRPS.xsd">`,
       `<Cabecalho>`,
-      `<CodCidade>${DSF_SOROCABA.siaf}</CodCidade>`,
+      `<CodCidade>${this.dsf.siaf}</CodCidade>`,
       `<CPFCNPJRemetente>${this.config.cnpj}</CPFCNPJRemetente>`,
       `<RazaoSocialRemetente>${this.escapeXml(this.config.razaoSocial)}</RazaoSocialRemetente>`,
       `<transacao>true</transacao>`,
@@ -147,7 +151,7 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
       `<QtdRPS>1</QtdRPS>`,
       `<ValorTotalServicos>${valorTotal.toFixed(2)}</ValorTotalServicos>`,
       `<ValorTotalDeducoes>0.00</ValorTotalDeducoes>`,
-      `<Versao>${DSF_SOROCABA.version}</Versao>`,
+      `<Versao>${"1"}</Versao>`,
       `<MetodoEnvio>WS</MetodoEnvio>`,
       `</Cabecalho>`,
       `<Lote Id="lote:1">`,
@@ -191,15 +195,15 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
       `<NumeroEnderecoTomador></NumeroEnderecoTomador>`,
       `<TipoBairroTomador></TipoBairroTomador>`,
       `<BairroTomador></BairroTomador>`,
-      `<CidadeTomador>${DSF_SOROCABA.municipio}</CidadeTomador>`,
-      `<CidadeTomadorDescricao>SOROCABA</CidadeTomadorDescricao>`,
+      `<CidadeTomador>${this.dsf.municipio}</CidadeTomador>`,
+      `<CidadeTomadorDescricao>${this.config.municipioNome}</CidadeTomadorDescricao>`,
       `<CEPTomador></CEPTomador>`,
       `<EmailTomador></EmailTomador>`,
       `<CodigoAtividade>${this.config.codigoServico}</CodigoAtividade>`,
       `<AliquotaAtividade>${aliquota}</AliquotaAtividade>`,
       `<TipoRecolhimento>A</TipoRecolhimento>`,
-      `<MunicipioPrestacao>${DSF_SOROCABA.municipio}</MunicipioPrestacao>`,
-      `<MunicipioPrestacaoDescricao>SOROCABA</MunicipioPrestacaoDescricao>`,
+      `<MunicipioPrestacao>${this.dsf.municipio}</MunicipioPrestacao>`,
+      `<MunicipioPrestacaoDescricao>${this.config.municipioNome}</MunicipioPrestacaoDescricao>`,
       `<Operacao>A</Operacao>`,
       `<Tributacao>H</Tributacao>`,
       `<ValorPIS>0.00</ValorPIS>`,
@@ -271,7 +275,7 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
   private sendSoap(content: string, operation: string, certData: CertificateData): Promise<string> {
     const soapEnvelope = [
       `<?xml version="1.0" encoding="UTF-8"?>`,
-      `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:dsf="${DSF_SOROCABA.soapns}">`,
+      `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:dsf="${this.dsf.soapns}">`,
       `<soapenv:Body>`,
       `<dsf:${operation}>`,
       `<mensagemXml><![CDATA[${content}]]></mensagemXml>`,
@@ -281,7 +285,7 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
     ].join("");
 
     return new Promise((resolve, reject) => {
-      const url = new URL(DSF_SOROCABA.url);
+      const url = new URL(this.dsf.url);
       const options: https.RequestOptions = {
         hostname: url.hostname,
         port: 443,
