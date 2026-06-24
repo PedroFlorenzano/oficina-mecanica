@@ -18,6 +18,7 @@ import {
   MessageCircle,
   FileText,
   CalendarDays,
+  Settings,
 } from "lucide-react";
 
 import {
@@ -45,9 +46,10 @@ interface NavItemProps {
   label: string;
   icon: React.ElementType;
   alertCount?: number;
+  sub?: boolean;
 }
 
-function NavItem({ href, label, icon: Icon, alertCount = 0 }: NavItemProps) {
+function NavItem({ href, label, icon: Icon, alertCount = 0, sub }: NavItemProps) {
   const pathname = usePathname();
   const active =
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
@@ -55,7 +57,7 @@ function NavItem({ href, label, icon: Icon, alertCount = 0 }: NavItemProps) {
   return (
     <Link
       href={href}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-all relative
+      className={`flex items-center gap-3 ${sub ? "px-3 pl-8" : "px-3"} py-2 rounded-lg text-sm transition-all relative
         ${
           active
             ? "bg-blue-50 text-blue-700 font-medium border-l-3 border-blue-600 ml-0"
@@ -132,6 +134,9 @@ export default function Sidebar({ role, customPermissions }: SidebarProps) {
           )}
           {role === "ADMIN" && (
             <NavItem href="/dashboard/fiscal/invoices" label="Notas Fiscais" icon={FileText} />
+          )}
+          {role === "ADMIN" && (
+            <NavItem href="/dashboard/fiscal" label="Config. Fiscal" icon={Settings} sub />
           )}
           {role === "ADMIN" && (
             <NavItem href="/dashboard/appointments" label="Agendamentos" icon={CalendarDays} />
