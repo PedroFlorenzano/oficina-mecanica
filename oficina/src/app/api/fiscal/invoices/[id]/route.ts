@@ -20,8 +20,20 @@ export async function PATCH(
     const body = await request.json();
 
     if (body.action === "cancel") {
-      const uc = new CancelFiscalInvoice(container.fiscalRepository);
-      const result = await uc.execute(id, body.reason, tenantId);
+      const invoice = await container.fiscalRepository.findInvoiceById(id, tenantId);
+      if (!invoice) return NextResponse.json({ error: "Nota não encontrada" }, { status: 404 });
+      if (invoice.status !== "AUTHORIZED") return NextResponse.json({ error: "Apenas notas autorizadas podem ser canceladas" }, { status: 400 });
+      if (!body.reason || String(body.reason).trim().length < 15) return NextResponse.json({ error: "Motivo deve ter no mínimo 15 caracteres" }, { status: 400 });
+
+      // Chamar adapter real para cancelar na SEFAZ/Prefeitura
+      const config = await container.fiscalRepository.getConfig(tenantId);
+      if (config?.certificateBase64 && invoice.accessKey) {
+        const invoiceType = (invoice.type || "NFSE") as "NFE" | "NFSE";
+        const adapter = createFiscalAdapter(config, invoiceType);
+        await adapter.cancel(invoice.accessKey, body.reason.trim(), invoice.protocolNumber || undefined);
+      }
+
+      const result = await container.fiscalRepository.cancelInvoice(id, body.reason.trim());
       return NextResponse.json(result);
     }
 

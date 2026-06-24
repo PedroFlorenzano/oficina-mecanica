@@ -26,7 +26,7 @@ export class FakeFiscalAdapter implements IFiscalAdapter {
     };
   }
 
-  async cancel(accessKey: string, reason: string): Promise<FiscalCancellation> {
+  async cancel(accessKey: string, reason: string, _protocolNumber?: string): Promise<FiscalCancellation> {
     await new Promise(r => setTimeout(r, 200 + Math.random() * 300));
 
     const protocolNumber = this.generateProtocol();

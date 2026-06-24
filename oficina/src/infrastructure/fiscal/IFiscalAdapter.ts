@@ -31,5 +31,5 @@ export interface FiscalAdapterInput {
 
 export interface IFiscalAdapter {
   authorize(input: FiscalAdapterInput): Promise<FiscalAuthorization>;
-  cancel(accessKey: string, reason: string): Promise<FiscalCancellation>;
+  cancel(accessKey: string, reason: string, protocolNumber?: string): Promise<FiscalCancellation>;
 }

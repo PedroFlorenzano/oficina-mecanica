@@ -127,14 +127,15 @@ export class SefazNFeAdapter implements IFiscalAdapter {
     throw new Error(getSefazRejeicaoMessage(cStat, xMotivo));
   }
 
-  async cancel(accessKey: string, reason: string): Promise<FiscalCancellation> {
+  async cancel(accessKey: string, reason: string, protocolNumber?: string): Promise<FiscalCancellation> {
     const certData = this.certManager.getCertificateData();
     const signer = new XmlSigner(certData);
     const cnpj = certData.cnpj;
     const tpAmb = this.config.tpAmb;
     const nSeqEvento = "1";
     const dhEvento = new Date().toISOString().replace(/\.\d{3}Z/, "-03:00");
-    const nProt = accessKey; // Na prática, precisa do número do protocolo de autorização
+    const nProt = protocolNumber || "";
+    if (!nProt) throw new Error("Número de protocolo de autorização é obrigatório para cancelamento de NF-e");
 
     const eventId = `ID110111${accessKey}${nSeqEvento.padStart(2, "0")}`;
 
@@ -190,6 +191,69 @@ export class SefazNFeAdapter implements IFiscalAdapter {
     }
 
     throw new Error(`Erro no cancelamento: ${JSON.stringify(retEvento).substring(0, 300)}`);
+  }
+
+  async cartaCorrecao(accessKey: string, correcao: string, nSeqEvento?: number): Promise<{ protocolNumber: string; xmlContent: string }> {
+    const certData = this.certManager.getCertificateData();
+    const signer = new XmlSigner(certData);
+    const cnpj = certData.cnpj;
+    const tpAmb = this.config.tpAmb;
+    const seq = String(nSeqEvento || 1).padStart(2, "0");
+    const dhEvento = new Date().toISOString().replace(/\.\d{3}Z/, "-03:00");
+    const eventId = `ID110110${accessKey}${seq}`;
+
+    const infEvento = [
+      `<infEvento Id="${eventId}">`,
+      `<cOrgao>${this.config.cUF}</cOrgao>`,
+      `<tpAmb>${tpAmb}</tpAmb>`,
+      `<CNPJ>${cnpj}</CNPJ>`,
+      `<chNFe>${accessKey}</chNFe>`,
+      `<dhEvento>${dhEvento}</dhEvento>`,
+      `<tpEvento>110110</tpEvento>`,
+      `<nSeqEvento>${nSeqEvento || 1}</nSeqEvento>`,
+      `<verEvento>1.00</verEvento>`,
+      `<detEvento versao="1.00">`,
+      `<descEvento>Carta de Correcao</descEvento>`,
+      `<xCorrecao>${correcao}</xCorrecao>`,
+      `<xCondUso>A Carta de Correcao e disciplinada pelo paragrafo 1o-A do art. 7o do Convenio S/N, de 15 de dezembro de 1970 e pode ser utilizada para regularizacao de erro ocorrido na emissao de documento fiscal, desde que o erro nao esteja relacionado com: I - as variaveis que determinam o valor do imposto tais como: base de calculo, aliquota, diferenca de preco, quantidade, valor da operacao ou da prestacao; II - a correcao de dados cadastrais que implique mudanca do remetente ou do destinatario; III - a data de emissao ou de saida.</xCondUso>`,
+      `</detEvento>`,
+      `</infEvento>`,
+    ].join("");
+
+    const eventoXml = `<evento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">${infEvento}</evento>`;
+    const signedEvento = signer.signEvento(eventoXml, eventId);
+
+    const envEvento = [
+      `<envEvento xmlns="http://www.portalfiscal.inf.br/nfe" versao="1.00">`,
+      `<idLote>${Date.now()}</idLote>`,
+      signedEvento,
+      `</envEvento>`,
+    ].join("");
+
+    const soapBody = this.buildSoapEnvelope("nfeRecepcaoEvento", envEvento);
+    const endpoints = this.config.tpAmb === 2 ? SEFAZ_SP.homologacao : SEFAZ_SP.producao;
+    const response = await this.sendSoap(endpoints.evento, soapBody, "nfeRecepcaoEvento");
+
+    const parsed = this.parser.parse(response);
+    const retEvento = this.extractFromSoap(parsed, "retEnvEvento");
+
+    if (!retEvento) {
+      throw new Error(`Resposta inesperada na CC-e: ${response.substring(0, 500)}`);
+    }
+
+    const infEvResp = (retEvento?.retEvento as Record<string, unknown>)?.infEvento as Record<string, unknown> | undefined;
+    if (infEvResp) {
+      const cStat = String(infEvResp.cStat);
+      if (cStat === "135" || cStat === "136") {
+        return {
+          protocolNumber: String(infEvResp.nProt || ""),
+          xmlContent: signedEvento,
+        };
+      }
+      throw new Error(getSefazRejeicaoMessage(cStat, String(infEvResp.xMotivo)));
+    }
+
+    throw new Error(`Erro na CC-e: ${JSON.stringify(retEvento).substring(0, 300)}`);
   }
 
   async inutilizar(ano: number, serie: number, numInicio: number, numFim: number, justificativa: string): Promise<{ protocolNumber: string; xmlContent: string }> {
