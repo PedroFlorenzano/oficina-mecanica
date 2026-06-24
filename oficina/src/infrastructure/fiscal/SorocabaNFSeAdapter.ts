@@ -1,41 +1,46 @@
 import * as https from "https";
-import * as zlib from "zlib";
-import { SignedXml } from "xml-crypto";
+import * as crypto from "crypto";
 import { XMLParser } from "fast-xml-parser";
+import { SignedXml } from "xml-crypto";
 import { IFiscalAdapter, FiscalAdapterInput, FiscalAuthorization, FiscalCancellation } from "./IFiscalAdapter";
 import { CertificateManager, CertificateData } from "./CertificateManager";
 
 /**
- * Configuração para o adapter NFS-e Nacional (SEFIN/ADN).
+ * Configuração NFS-e Sorocaba (sistema DSF).
  */
-export interface NFSeNacionalConfig {
+export interface SorocabaNFSeConfig {
   pfxBase64: string;
   pfxPassword: string;
   cnpj: string;
   inscricaoMunicipal: string;
   razaoSocial: string;
-  cLocEmi: string;   // Código IBGE do município emissor (7 dígitos) ex: "3552205"
-  cTribNac: string;  // Código tributação nacional (ex: "01.02.07.00" → manutenção)
-  cTribMun: string;  // Código tributação municipal (ex: "7102")
-  production?: boolean;
+  codigoServico: string;   // ex: "1401" (LC 116 item 14.01)
+  aliquotaISS: number;     // ex: 2.01
+  serie: string;           // ex: "U"
+  // Credenciais webservice (pode não ser necessário para Sorocaba)
+  wsUsuario?: string;
+  wsSenha?: string;
 }
 
-const ENDPOINTS = {
-  production: "https://sefin.nfse.gov.br/SefinNacional/nfse",
-  homologation: "https://sefin.producaorestrita.nfse.gov.br/SefinNacional/nfse",
+const DSF_SOROCABA = {
+  url: "https://www.issdigitalsod.com.br/WsNFe2/LoteRps.jws",
+  siaf: "7145",
+  version: "1",
+  soapns: "http://proces.wsnfe2.dsfnet.com.br",
+  municipio: "3552205",
 };
 
 /**
- * Adapter NFS-e padrão nacional (SEFIN Nacional).
- * API REST com DPS assinado em XML, gzip+base64, JSON body.
- * Funciona para qualquer município conveniado (incluindo Sorocaba).
+ * Adapter NFS-e DSF para Sorocaba.
+ * Padrão DSF com assinatura XMLDSig + hash SHA-1 no RPS.
+ * Requer certificado digital A1 cadastrado na prefeitura.
  */
-export class NFSeNacionalAdapter implements IFiscalAdapter {
+export class SorocabaNFSeAdapter implements IFiscalAdapter {
   private certManager: CertificateManager;
-  private config: NFSeNacionalConfig;
+  private config: SorocabaNFSeConfig;
   private parser: XMLParser;
 
-  constructor(config: NFSeNacionalConfig) {
+  constructor(config: SorocabaNFSeConfig) {
     this.config = config;
     this.certManager = new CertificateManager();
     this.certManager.load(config.pfxBase64, config.pfxPassword);
@@ -44,234 +49,248 @@ export class NFSeNacionalAdapter implements IFiscalAdapter {
 
   async authorize(input: FiscalAdapterInput): Promise<FiscalAuthorization> {
     const certData = this.certManager.getCertificateData();
-    const tpAmb = this.config.production ? "1" : "2";
+    const dtEmissao = new Date().toISOString().split("T")[0];
+    const valorTotal = input.items.reduce((sum, i) => sum + i.totalPrice, 0);
 
-    // Montar DPS XML
-    const dpsXml = this.buildDpsXml(input, tpAmb);
+    // Montar RPS
+    const rpsXml = this.buildRps(input, dtEmissao, valorTotal);
 
-    // Assinar infDPS
-    const signedXml = this.signDps(dpsXml, certData);
+    // Montar lote envio síncrono
+    const loteXml = this.buildLoteEnvio(rpsXml, dtEmissao, valorTotal);
 
-    // Gzip + base64
-    const gzipped = zlib.gzipSync(Buffer.from(signedXml, "utf8"), { level: 9 });
-    const base64Payload = gzipped.toString("base64");
+    // Assinar Lote
+    const signedXml = this.signLote(loteXml, certData);
 
-    // Enviar POST
-    const endpoint = this.config.production ? ENDPOINTS.production : ENDPOINTS.homologation;
-    const body = JSON.stringify({ dpsXmlGZipB64: base64Payload });
+    // Enviar via SOAP
+    const response = await this.sendSoap(signedXml, "enviarSincrono", certData);
 
-    const response = await this.sendRequest("POST", endpoint, body, certData);
-    const parsed = JSON.parse(response);
+    // Parsear resposta
+    const parsed = this.parser.parse(response);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retorno = this.findTag(parsed, "RetornoEnvioLoteRPS") as any;
 
-    // Verificar sucesso
-    if (parsed.chaveAcesso || parsed.chNFSe) {
-      const chave = parsed.chaveAcesso || parsed.chNFSe;
+    if (!retorno) {
+      throw new Error(`Resposta inesperada da Prefeitura: ${response.substring(0, 500)}`);
+    }
+
+    if (retorno.Sucesso === "true" || retorno.Sucesso === true) {
+      const nota = retorno.ChaveNFeRPS?.ChaveNFe || retorno.ListaNFSe?.ConsultaNFSe;
+      const numNota = nota?.NumeroNFe || nota?.NumeroNota || input.number;
+      const codVerif = nota?.CodigoVerificacao || "";
       return {
-        accessKey: chave,
-        protocolNumber: chave,
+        accessKey: `${numNota}-${codVerif}`,
+        protocolNumber: String(codVerif),
         xmlContent: signedXml,
-        number: input.number,
+        number: Number(numNota),
         series: input.series,
         issueDate: new Date(),
       };
     }
 
-    // Erro
-    const erros = parsed.erros || parsed.erro;
-    const mensagem = this.extractErros(erros);
-    throw new Error(`Rejeição NFS-e Nacional: ${mensagem}`);
+    const erros = retorno.Erros?.Erro;
+    const msg = Array.isArray(erros)
+      ? erros.map((e: { Descricao?: string }) => e.Descricao).join("; ")
+      : erros?.Descricao || JSON.stringify(retorno).substring(0, 300);
+    throw new Error(`Rejeição NFS-e Sorocaba: ${msg}`);
   }
 
   async cancel(accessKey: string, reason: string): Promise<FiscalCancellation> {
     const certData = this.certManager.getCertificateData();
-    const tpAmb = this.config.production ? "1" : "2";
+    const [numero, codigoVerificacao] = accessKey.split("-");
 
-    // Montar evento de cancelamento
-    const eventoXml = this.buildCancelamentoXml(accessKey, reason, tpAmb);
-    const signedXml = this.signEvento(eventoXml, certData);
+    const xml = [
+      `<ns1:ReqCancelamentoNFSe xmlns:ns1="http://localhost:8080/WsNFe2/lote" xmlns:tipos="http://localhost:8080/WsNFe2/tp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">`,
+      `<Cabecalho>`,
+      `<CodCidade>${DSF_SOROCABA.siaf}</CodCidade>`,
+      `<CPFCNPJRemetente>${this.config.cnpj}</CPFCNPJRemetente>`,
+      `<transacao>true</transacao>`,
+      `<Versao>${DSF_SOROCABA.version}</Versao>`,
+      `</Cabecalho>`,
+      `<Lote Id="lote:1">`,
+      `<Nota>`,
+      `<InscricaoMunicipalPrestador>${this.config.inscricaoMunicipal}</InscricaoMunicipalPrestador>`,
+      `<NumeroNota>${numero}</NumeroNota>`,
+      `<CodigoVerificacao>${codigoVerificacao}</CodigoVerificacao>`,
+      `<MotivoCancelamento>${this.escapeXml(reason)}</MotivoCancelamento>`,
+      `</Nota>`,
+      `</Lote>`,
+      `</ns1:ReqCancelamentoNFSe>`,
+    ].join("");
 
-    // Gzip + base64
-    const gzipped = zlib.gzipSync(Buffer.from(signedXml, "utf8"), { level: 9 });
-    const base64Payload = gzipped.toString("base64");
+    const signedXml = this.signLote(xml, certData);
+    const response = await this.sendSoap(signedXml, "cancelar", certData);
+    const parsed = this.parser.parse(response);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const retorno = this.findTag(parsed, "RetornoCancelamentoNFSe") as any;
 
-    // Enviar POST para /{chave}/eventos
-    const endpoint = this.config.production ? ENDPOINTS.production : ENDPOINTS.homologation;
-    const url = `${endpoint}/${accessKey}/eventos`;
-    const body = JSON.stringify({ pedidoRegistroEventoXmlGZipB64: base64Payload });
-
-    const response = await this.sendRequest("POST", url, body, certData);
-    const parsed = JSON.parse(response);
-
-    if (parsed.chaveAcesso || parsed.chNFSe || !parsed.erros) {
-      return { protocolNumber: accessKey, xmlContent: signedXml };
+    if (retorno?.Sucesso === "true" || retorno?.Sucesso === true) {
+      return { protocolNumber: codigoVerificacao || "", xmlContent: signedXml };
     }
 
-    const mensagem = this.extractErros(parsed.erros || parsed.erro);
-    throw new Error(`Erro cancelamento NFS-e: ${mensagem}`);
+    const erros = retorno?.Erros?.Erro;
+    const msg = Array.isArray(erros)
+      ? erros.map((e: { Descricao?: string }) => e.Descricao).join("; ")
+      : erros?.Descricao || "Erro desconhecido no cancelamento";
+    throw new Error(`Erro cancelamento NFS-e: ${msg}`);
   }
 
-  private buildDpsXml(input: FiscalAdapterInput, tpAmb: string): string {
-    const now = new Date();
-    const dhEmi = now.toISOString().replace(/\.\d{3}Z/, "-03:00");
-    const dCompet = now.toISOString().split("T")[0];
-    const cnpj = this.config.cnpj.replace(/\D/g, "");
-    const serie = String(input.series).padStart(5, "0");
-    const nDPS = String(input.number).padStart(15, "0");
-    const dpsId = `DPS${this.config.cLocEmi.padStart(7, "0")}2${cnpj.padStart(14, "0")}${serie}${nDPS}`;
+  private buildLoteEnvio(rpsXml: string, dtEmissao: string, valorTotal: number): string {
+    return [
+      `<ns1:ReqEnvioLoteRPS xmlns:ns1="http://localhost:8080/WsNFe2/lote" xmlns:tipos="http://localhost:8080/WsNFe2/tp" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://localhost:8080/WsNFe2/lote http://localhost:8080/WsNFe2/xsd/ReqEnvioLoteRPS.xsd">`,
+      `<Cabecalho>`,
+      `<CodCidade>${DSF_SOROCABA.siaf}</CodCidade>`,
+      `<CPFCNPJRemetente>${this.config.cnpj}</CPFCNPJRemetente>`,
+      `<RazaoSocialRemetente>${this.escapeXml(this.config.razaoSocial)}</RazaoSocialRemetente>`,
+      `<transacao>true</transacao>`,
+      `<dtInicio>${dtEmissao}</dtInicio>`,
+      `<dtFim>${dtEmissao}</dtFim>`,
+      `<QtdRPS>1</QtdRPS>`,
+      `<ValorTotalServicos>${valorTotal.toFixed(2)}</ValorTotalServicos>`,
+      `<ValorTotalDeducoes>0.00</ValorTotalDeducoes>`,
+      `<Versao>${DSF_SOROCABA.version}</Versao>`,
+      `<MetodoEnvio>WS</MetodoEnvio>`,
+      `</Cabecalho>`,
+      `<Lote Id="lote:1">`,
+      rpsXml,
+      `</Lote>`,
+      `</ns1:ReqEnvioLoteRPS>`,
+    ].join("");
+  }
 
-    const cpfCnpjTomador = (input.cnpj || "").replace(/\D/g, "");
-    const tomadorTag = cpfCnpjTomador.length === 11
-      ? `<CPF>${cpfCnpjTomador}</CPF>`
-      : `<CNPJ>${cpfCnpjTomador}</CNPJ>`;
-
+  private buildRps(input: FiscalAdapterInput, dtEmissao: string, valorTotal: number): string {
+    const hashStr = this.buildRpsHash(input, dtEmissao, valorTotal);
     const descricao = input.items.map((i) => `${i.description} (${i.quantity}x)`).join("; ");
-    const vServ = input.totalAmount.toFixed(2);
+    const cpfCnpjTomador = (input.cnpj || "").replace(/\D/g, "").padStart(14, "0");
+    const aliquota = (this.config.aliquotaISS / 100).toFixed(4); // 2.01 → 0.0201
+
+    const itensXml = input.items.map((item) => [
+      `<Item>`,
+      `<DiscriminacaoServico>${this.escapeXml(item.description)}</DiscriminacaoServico>`,
+      `<Quantidade>${item.quantity.toFixed(2)}</Quantidade>`,
+      `<ValorUnitario>${item.unitPrice.toFixed(4)}</ValorUnitario>`,
+      `<ValorTotal>${item.totalPrice.toFixed(2)}</ValorTotal>`,
+      `<Tributavel>S</Tributavel>`,
+      `</Item>`,
+    ].join("")).join("");
 
     return [
-      `<?xml version="1.0" encoding="UTF-8"?>`,
-      `<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">`,
-      `<infDPS Id="${dpsId}">`,
-      `<tpAmb>${tpAmb}</tpAmb>`,
-      `<dhEmi>${dhEmi}</dhEmi>`,
-      `<verAplic>OPERARE1.0</verAplic>`,
-      `<serie>${String(input.series)}</serie>`,
-      `<nDPS>${String(input.number)}</nDPS>`,
-      `<dCompet>${dCompet}</dCompet>`,
-      `<tpEmit>1</tpEmit>`,
-      `<cLocEmi>${this.config.cLocEmi}</cLocEmi>`,
-      `<prest>`,
-      `<CNPJ>${cnpj}</CNPJ>`,
-      `<IM>${this.config.inscricaoMunicipal}</IM>`,
-      `<xNome>${this.escapeXml(this.config.razaoSocial)}</xNome>`,
-      `<regTrib>`,
-      `<opSimpNac>1</opSimpNac>`,
-      `<regEspTrib>0</regEspTrib>`,
-      `</regTrib>`,
-      `</prest>`,
-      `<toma>`,
-      tomadorTag,
-      `<xNome>${this.escapeXml(input.razaoSocial)}</xNome>`,
-      `</toma>`,
-      `<serv>`,
-      `<locPrest>`,
-      `<cLocPrestacao>${this.config.cLocEmi}</cLocPrestacao>`,
-      `</locPrest>`,
-      `<cServ>`,
-      `<cTribNac>${this.config.cTribNac}</cTribNac>`,
-      `<cTribMun>${this.config.cTribMun}</cTribMun>`,
-      `<xDescServ>${this.escapeXml(descricao)}</xDescServ>`,
-      `<cNBS>1.0101</cNBS>`,
-      `</cServ>`,
-      `</serv>`,
-      `<valores>`,
-      `<vServPrest>`,
-      `<vServ>${vServ}</vServ>`,
-      `</vServPrest>`,
-      `<trib>`,
-      `<tribMun>`,
-      `<tribISSQN>1</tribISSQN>`,
-      `<tpRetISSQN>1</tpRetISSQN>`,
-      `</tribMun>`,
-      `<totTrib>`,
-      `<vTotTrib>`,
-      `<vTotTribFed>0.00</vTotTribFed>`,
-      `<vTotTribEst>0.00</vTotTribEst>`,
-      `<vTotTribMun>0.00</vTotTribMun>`,
-      `</vTotTrib>`,
-      `</totTrib>`,
-      `</trib>`,
-      `</valores>`,
-      `</infDPS>`,
-      `</DPS>`,
+      `<RPS Id="rps:${input.number}">`,
+      `<Assinatura>${hashStr}</Assinatura>`,
+      `<InscricaoMunicipalPrestador>${this.config.inscricaoMunicipal}</InscricaoMunicipalPrestador>`,
+      `<RazaoSocialPrestador>${this.escapeXml(this.config.razaoSocial)}</RazaoSocialPrestador>`,
+      `<TipoRPS>RPS</TipoRPS>`,
+      `<SerieRPS>${this.config.serie}</SerieRPS>`,
+      `<NumeroRPS>${input.number}</NumeroRPS>`,
+      `<DataEmissaoRPS>${dtEmissao}</DataEmissaoRPS>`,
+      `<SituacaoRPS>N</SituacaoRPS>`,
+      `<SeriePrestacao>99</SeriePrestacao>`,
+      `<CPFCNPJTomador>${cpfCnpjTomador}</CPFCNPJTomador>`,
+      `<RazaoSocialTomador>${this.escapeXml(input.razaoSocial)}</RazaoSocialTomador>`,
+      `<TipoLogradouroTomador></TipoLogradouroTomador>`,
+      `<LogradouroTomador></LogradouroTomador>`,
+      `<NumeroEnderecoTomador></NumeroEnderecoTomador>`,
+      `<TipoBairroTomador></TipoBairroTomador>`,
+      `<BairroTomador></BairroTomador>`,
+      `<CidadeTomador>${DSF_SOROCABA.municipio}</CidadeTomador>`,
+      `<CidadeTomadorDescricao>SOROCABA</CidadeTomadorDescricao>`,
+      `<CEPTomador></CEPTomador>`,
+      `<EmailTomador></EmailTomador>`,
+      `<CodigoAtividade>${this.config.codigoServico}</CodigoAtividade>`,
+      `<AliquotaAtividade>${aliquota}</AliquotaAtividade>`,
+      `<TipoRecolhimento>A</TipoRecolhimento>`,
+      `<MunicipioPrestacao>${DSF_SOROCABA.municipio}</MunicipioPrestacao>`,
+      `<MunicipioPrestacaoDescricao>SOROCABA</MunicipioPrestacaoDescricao>`,
+      `<Operacao>A</Operacao>`,
+      `<Tributacao>H</Tributacao>`,
+      `<ValorPIS>0.00</ValorPIS>`,
+      `<ValorCOFINS>0.00</ValorCOFINS>`,
+      `<ValorINSS>0.00</ValorINSS>`,
+      `<ValorIR>0.00</ValorIR>`,
+      `<ValorCSLL>0.00</ValorCSLL>`,
+      `<AliquotaPIS>0.0000</AliquotaPIS>`,
+      `<AliquotaCOFINS>0.0000</AliquotaCOFINS>`,
+      `<AliquotaINSS>0.0000</AliquotaINSS>`,
+      `<AliquotaIR>0.0000</AliquotaIR>`,
+      `<AliquotaCSLL>0.0000</AliquotaCSLL>`,
+      `<DescricaoRPS>${this.escapeXml(descricao)}</DescricaoRPS>`,
+      `<DDDPrestador></DDDPrestador>`,
+      `<TelefonePrestador></TelefonePrestador>`,
+      `<DDDTomador></DDDTomador>`,
+      `<TelefoneTomador></TelefoneTomador>`,
+      `<Itens>`,
+      itensXml,
+      `</Itens>`,
+      `</RPS>`,
     ].join("");
   }
 
-  private buildCancelamentoXml(chNFSe: string, motivo: string, tpAmb: string): string {
-    const tipoEvento = "101101";
-    const idPedReg = `PRE${chNFSe}${tipoEvento}`;
-    const dhEvento = new Date().toISOString().replace(/\.\d{3}Z/, "-03:00");
-    const cnpj = this.config.cnpj.replace(/\D/g, "");
+  /**
+   * Hash SHA-1 do RPS conforme padrão DSF:
+   * IM(11) + Serie(5) + NumeroRPS(12) + DataEmissao(8) + Tributacao(2)
+   * + SituacaoRPS(1) + ISSRetido(1) + ValorServicos(15) + ValorDeducoes(15) + CodigoAtividade(10) + CPFCNPJ(14)
+   */
+  private buildRpsHash(input: FiscalAdapterInput, dtEmissao: string, valorTotal: number): string {
+    const im = this.config.inscricaoMunicipal.padStart(11, "0");
+    const serie = this.config.serie.padEnd(5, " ");
+    const numero = String(input.number).padStart(12, "0");
+    const dt = dtEmissao.replace(/-/g, "");
+    const tributacao = "H ".substring(0, 2); // H = Simples Nacional, pad to 2
+    const situacao = "N";
+    const issRetido = "N"; // TipoRecolhimento A → não retido
+    const valorServ = String(Math.round(valorTotal * 100)).padStart(15, "0");
+    const valorDeduc = "0".padStart(15, "0");
+    const codAtividade = this.config.codigoServico.padStart(10, "0");
+    const cpfCnpj = (input.cnpj || "").replace(/\D/g, "").padStart(14, "0");
 
-    return [
-      `<?xml version="1.0" encoding="UTF-8"?>`,
-      `<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="1.01">`,
-      `<infPedReg Id="${idPedReg}">`,
-      `<tpAmb>${tpAmb}</tpAmb>`,
-      `<verAplic>OPERARE1.0</verAplic>`,
-      `<dhEvento>${dhEvento}</dhEvento>`,
-      `<CNPJAutor>${cnpj}</CNPJAutor>`,
-      `<chNFSe>${chNFSe}</chNFSe>`,
-      `<e101101>`,
-      `<xDesc>Cancelamento de NFS-e</xDesc>`,
-      `<cMotivo>2</cMotivo>`,
-      `<xMotivo>${this.escapeXml(motivo)}</xMotivo>`,
-      `</e101101>`,
-      `</infPedReg>`,
-      `</pedRegEvento>`,
-    ].join("");
+    const content = `${im}${serie}${numero}${dt}${tributacao}${situacao}${issRetido}${valorServ}${valorDeduc}${codAtividade}${cpfCnpj}`;
+    return crypto.createHash("sha1").update(content, "ascii").digest("hex");
   }
 
-  private signDps(xml: string, certData: CertificateData): string {
+  private signLote(xml: string, certData: CertificateData): string {
     const sig = new SignedXml({
       privateKey: certData.privateKeyPem,
       publicCert: certData.certificatePem,
       canonicalizationAlgorithm: "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
-      signatureAlgorithm: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+      signatureAlgorithm: "http://www.w3.org/2000/09/xmldsig#rsa-sha1",
     });
-
     sig.addReference({
-      xpath: `//*[local-name()='infDPS']`,
-      uri: "",
-      digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256",
+      xpath: `//*[local-name()='Lote']`,
+      uri: "#lote:1",
+      digestAlgorithm: "http://www.w3.org/2000/09/xmldsig#sha1",
       transforms: [
         "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
         "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
       ],
     });
-
     sig.computeSignature(xml, {
-      location: { reference: `//*[local-name()='DPS']`, action: "append" },
+      location: { reference: `//*[local-name()='Lote']`, action: "append" },
     });
-
     return sig.getSignedXml();
   }
 
-  private signEvento(xml: string, certData: CertificateData): string {
-    const sig = new SignedXml({
-      privateKey: certData.privateKeyPem,
-      publicCert: certData.certificatePem,
-      canonicalizationAlgorithm: "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
-      signatureAlgorithm: "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
-    });
+  private sendSoap(content: string, operation: string, certData: CertificateData): Promise<string> {
+    const soapEnvelope = [
+      `<?xml version="1.0" encoding="UTF-8"?>`,
+      `<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:dsf="${DSF_SOROCABA.soapns}">`,
+      `<soapenv:Body>`,
+      `<dsf:${operation}>`,
+      `<mensagemXml><![CDATA[${content}]]></mensagemXml>`,
+      `</dsf:${operation}>`,
+      `</soapenv:Body>`,
+      `</soapenv:Envelope>`,
+    ].join("");
 
-    sig.addReference({
-      xpath: `//*[local-name()='infPedReg']`,
-      uri: "",
-      digestAlgorithm: "http://www.w3.org/2001/04/xmlenc#sha256",
-      transforms: [
-        "http://www.w3.org/2000/09/xmldsig#enveloped-signature",
-        "http://www.w3.org/TR/2001/REC-xml-c14n-20010315",
-      ],
-    });
-
-    sig.computeSignature(xml, {
-      location: { reference: `//*[local-name()='pedRegEvento']`, action: "append" },
-    });
-
-    return sig.getSignedXml();
-  }
-
-  private sendRequest(method: string, url: string, body: string, certData: CertificateData): Promise<string> {
     return new Promise((resolve, reject) => {
-      const urlObj = new URL(url);
+      const url = new URL(DSF_SOROCABA.url);
       const options: https.RequestOptions = {
-        hostname: urlObj.hostname,
+        hostname: url.hostname,
         port: 443,
-        path: urlObj.pathname + urlObj.search,
-        method,
+        path: url.pathname,
+        method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          "Content-Length": Buffer.byteLength(body, "utf8"),
+          "Content-Type": "text/xml;charset=UTF-8",
+          "SOAPAction": `"${operation}"`,
+          "Content-Length": Buffer.byteLength(soapEnvelope, "utf8"),
         },
         key: certData.privateKeyPem,
         cert: certData.certificatePem,
@@ -282,32 +301,40 @@ export class NFSeNacionalAdapter implements IFiscalAdapter {
         const chunks: Buffer[] = [];
         res.on("data", (chunk) => chunks.push(chunk));
         res.on("end", () => {
-          const responseBody = Buffer.concat(chunks).toString("utf8");
+          const body = Buffer.concat(chunks).toString("utf8");
           if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(responseBody);
-          } else if (res.statusCode === 422 || res.statusCode === 400) {
-            // Erros de validação — retorna o body para parse
-            resolve(responseBody);
+            resolve(this.extractOutputXml(body));
           } else {
-            reject(new Error(`HTTP ${res.statusCode}: ${responseBody.substring(0, 500)}`));
+            reject(new Error(`HTTP ${res.statusCode}: ${body.substring(0, 500)}`));
           }
         });
       });
 
-      req.on("error", (err) => reject(new Error(`Erro de conexão com SEFIN Nacional: ${err.message}`)));
-      req.setTimeout(30000, () => { req.destroy(); reject(new Error("Timeout na comunicação com SEFIN Nacional (30s)")); });
-      req.write(body, "utf8");
+      req.on("error", (err) => reject(new Error(`Erro de conexão com Prefeitura de Sorocaba: ${err.message}`)));
+      req.setTimeout(30000, () => { req.destroy(); reject(new Error("Timeout na comunicação com Prefeitura (30s)")); });
+      req.write(soapEnvelope, "utf8");
       req.end();
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private extractErros(erros: any): string {
-    if (!erros) return "Erro desconhecido";
-    if (Array.isArray(erros)) {
-      return erros.map((e) => e.descricao || e.Descricao || e.mensagem || JSON.stringify(e)).join("; ");
+  private extractOutputXml(soapResponse: string): string {
+    const match = soapResponse.match(/<outputXML[^>]*>([\s\S]*?)<\/outputXML>/i)
+      || soapResponse.match(/<return[^>]*>([\s\S]*?)<\/return>/i);
+    if (match) {
+      return match[1].replace(/^<!\[CDATA\[/, "").replace(/\]\]>$/, "");
     }
-    return erros.descricao || erros.Descricao || erros.mensagem || JSON.stringify(erros);
+    return soapResponse;
+  }
+
+  private findTag(obj: unknown, key: string): unknown {
+    if (!obj || typeof obj !== "object") return null;
+    const record = obj as Record<string, unknown>;
+    if (key in record) return record[key];
+    for (const v of Object.values(record)) {
+      const found = this.findTag(v, key);
+      if (found) return found;
+    }
+    return null;
   }
 
   private escapeXml(str: string): string {
