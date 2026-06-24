@@ -49,7 +49,7 @@ const DEFAULTS: FiscalConfig = {
   razaoSocial: "", cityCode: "3552205", nfeSeries: 1, nfseSeries: "U", nextNfeNumber: 1, nextNfseNumber: 1,
   nfeCfop: "5405", emitLogradouro: "", emitNumero: "", emitBairro: "", emitCEP: "", cnae: "", codigoServico: "1401", codigoServicoMunicipal: "1401",
   descricaoServico: "", aliquotaISS: 2.01, regimeEspecial: "1", regimeApuracao: "2",
-  naturezaOperacao: "1", tipoRPS: "1", wsUsuario: "", wsSenha: "",
+  naturezaOperacao: "1", tipoRPS: "RPS", wsUsuario: "", wsSenha: "",
 };
 
 export default function FiscalConfigPage() {
@@ -246,10 +246,10 @@ export default function FiscalConfigPage() {
               <fieldset className="border border-slate-200 rounded-lg p-4">
                 <legend className="text-sm font-semibold text-red-600 px-2">Integração WebService</legend>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Select label="Tipo RPS" value={config.tipoRPS || "1"} onChange={set("tipoRPS")} options={[
-                    { value: "1", label: "1 - Recibo Provisório de Serviços" },
-                    { value: "2", label: "2 - RPS Mista (conjugada)" },
-                    { value: "3", label: "3 - Cupom" },
+                  <Select label="Tipo RPS" value={config.tipoRPS || "RPS"} onChange={set("tipoRPS")} options={[
+                    { value: "RPS", label: "RPS - Recibo Provisório de Serviços" },
+                    { value: "RPS-M", label: "RPS-M - Mista (conjugada)" },
+                    { value: "RPS-C", label: "RPS-C - Cupom" },
                   ]} />
                   <Input label="Usuário WebService" value={config.wsUsuario || ""} onChange={set("wsUsuario")} placeholder="(opcional)" />
                   <Input label="Senha WebService" type="password" value={config.wsSenha || ""} onChange={set("wsSenha")} placeholder="(opcional)" />
