@@ -23,6 +23,10 @@ export interface FiscalAdapterInput {
   cityCode: string | null;
   items: { description: string; quantity: number; unitPrice: number; totalPrice: number; cfop?: string | null; ncm?: string | null; serviceCode?: string | null }[];
   totalAmount: number;
+  // Endereço do tomador/destinatário (opcional)
+  tomadorEndereco?: string | null;
+  tomadorEmail?: string | null;
+  tomadorTelefone?: string | null;
 }
 
 export interface IFiscalAdapter {

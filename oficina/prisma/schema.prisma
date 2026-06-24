@@ -448,6 +448,11 @@ model FiscalConfig {
   cityCode            String?  // IBGE city code
   // NF-e
   nfeCfop             String?  @default("5405")
+  // Endereço do emitente (NF-e exige estruturado)
+  emitLogradouro      String?
+  emitNumero          String?
+  emitBairro          String?
+  emitCEP             String?
   // NFS-e
   cnae                String?  // ex: "452000100"
   codigoServico       String?  @default("1401") // LC116 item

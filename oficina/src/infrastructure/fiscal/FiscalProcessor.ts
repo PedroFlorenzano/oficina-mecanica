@@ -45,6 +45,9 @@ export class FiscalProcessor {
         serviceCode: i.serviceCode,
       })),
       totalAmount: invoice.totalAmount,
+      tomadorEndereco: invoice.order?.client?.address || null,
+      tomadorEmail: invoice.order?.client?.email || null,
+      tomadorTelefone: invoice.order?.client?.phone || null,
     };
 
     let lastError = "";

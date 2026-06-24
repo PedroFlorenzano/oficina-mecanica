@@ -68,13 +68,13 @@ export function createFiscalAdapter(config: FiscalConfigData, type?: "NFE" | "NF
     cUF,
     cMunFG: config.cityCode || "",
     enderEmit: {
-      xLgr: "", // Preenchido na emissão a partir do cadastro do tenant
-      nro: "",
-      xBairro: "",
+      xLgr: config.emitLogradouro || "",
+      nro: config.emitNumero || "S/N",
+      xBairro: config.emitBairro || "",
       cMun: config.cityCode || "",
-      xMun: "",
+      xMun: DSF_MUNICIPIOS[config.cityCode || ""]?.nome || "",
       UF: UF_FROM_IBGE[cUF] || "SP",
-      CEP: "",
+      CEP: config.emitCEP || "",
     },
   };
   return new SefazNFeAdapter(adapterConfig);

@@ -15,6 +15,10 @@ export interface FiscalConfigData {
   nextNfseNumber: number;
   cityCode: string | null;
   nfeCfop: string | null;
+  emitLogradouro: string | null;
+  emitNumero: string | null;
+  emitBairro: string | null;
+  emitCEP: string | null;
   cnae: string | null;
   codigoServico: string | null;
   codigoServicoMunicipal: string | null;
@@ -66,7 +70,7 @@ export interface FiscalInvoiceData {
   retryCount: number;
   createdAt: Date;
   items?: FiscalInvoiceItemData[];
-  order?: { number: number; client: { name: string } };
+  order?: { number: number; client: { name: string; document: string; email?: string | null; phone?: string | null; address?: string | null } };
 }
 
 export interface IFiscalRepository {

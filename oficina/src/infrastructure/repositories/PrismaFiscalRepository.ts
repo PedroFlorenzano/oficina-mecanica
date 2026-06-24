@@ -32,7 +32,7 @@ export class PrismaFiscalRepository implements IFiscalRepository {
   }
 
   async findInvoiceById(id: string, tenantId: string): Promise<FiscalInvoiceData | null> {
-    return this.db.fiscalInvoice.findFirst({ where: { id, tenantId }, include: { items: true, order: { select: { number: true, client: { select: { name: true } } } } } }) as unknown as FiscalInvoiceData | null;
+    return this.db.fiscalInvoice.findFirst({ where: { id, tenantId }, include: { items: true, order: { select: { number: true, client: { select: { name: true, document: true, email: true, phone: true, address: true } } } } } }) as unknown as FiscalInvoiceData | null;
   }
 
   async findInvoicesByOrder(orderId: string, tenantId: string): Promise<FiscalInvoiceData[]> {

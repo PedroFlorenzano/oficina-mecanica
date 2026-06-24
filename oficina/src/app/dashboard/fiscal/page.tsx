@@ -17,6 +17,10 @@ interface FiscalConfig {
   nextNfeNumber: number;
   nextNfseNumber: number;
   nfeCfop: string;
+  emitLogradouro: string;
+  emitNumero: string;
+  emitBairro: string;
+  emitCEP: string;
   cnae: string;
   codigoServico: string;
   codigoServicoMunicipal: string;
@@ -43,7 +47,7 @@ type TabId = typeof TABS[number]["id"];
 const DEFAULTS: FiscalConfig = {
   enabled: false, environment: "production", cnpj: "", inscricaoEstadual: "", inscricaoMunicipal: "",
   razaoSocial: "", cityCode: "3552205", nfeSeries: 1, nfseSeries: "U", nextNfeNumber: 1, nextNfseNumber: 1,
-  nfeCfop: "5405", cnae: "", codigoServico: "1401", codigoServicoMunicipal: "1401",
+  nfeCfop: "5405", emitLogradouro: "", emitNumero: "", emitBairro: "", emitCEP: "", cnae: "", codigoServico: "1401", codigoServicoMunicipal: "1401",
   descricaoServico: "", aliquotaISS: 2.01, regimeEspecial: "1", regimeApuracao: "2",
   naturezaOperacao: "1", tipoRPS: "1", wsUsuario: "", wsSenha: "",
 };
@@ -268,6 +272,16 @@ export default function FiscalConfigPage() {
                   <Input label="CNPJ" value={config.cnpj || ""} onChange={set("cnpj")} placeholder="00.000.000/0000-00" />
                   <Input label="Inscrição Estadual" value={config.inscricaoEstadual || ""} onChange={set("inscricaoEstadual")} />
                   <Input label="Razão Social" value={config.razaoSocial || ""} onChange={set("razaoSocial")} />
+                </div>
+              </fieldset>
+
+              <fieldset className="border border-slate-200 rounded-lg p-4">
+                <legend className="text-sm font-semibold text-red-600 px-2">Endereço do Emitente</legend>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <Input label="Logradouro" value={config.emitLogradouro || ""} onChange={set("emitLogradouro")} className="md:col-span-2" placeholder="Rua, Avenida..." />
+                  <Input label="Número" value={config.emitNumero || ""} onChange={set("emitNumero")} placeholder="123" />
+                  <Input label="CEP" value={config.emitCEP || ""} onChange={set("emitCEP")} placeholder="00000-000" />
+                  <Input label="Bairro" value={config.emitBairro || ""} onChange={set("emitBairro")} className="md:col-span-2" />
                 </div>
               </fieldset>
 
