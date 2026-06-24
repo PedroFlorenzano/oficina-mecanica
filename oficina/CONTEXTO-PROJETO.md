@@ -1945,3 +1945,93 @@ O app pode ser instalado no celular do mecânico/atendente via "Adicionar à tel
 | **E2E (Playwright)** | **13 testes multi-tenant** |
 
 *Última atualização: 19/06/2026 — Impressão da Pista, Relatório de peças, PWA.*
+
+---
+
+## NF-e Real — Adapter SEFAZ-SP (implementado em 23/06/2026)
+
+### O que foi construído
+
+Adapter real de comunicação com a SEFAZ-SP para emissão de NF-e modelo 55 em ambiente de homologação. Validado com certificado digital A1 real (e-CNPJ). Comunicação SOAP + mutual TLS funcional. Assinatura XMLDSig validada pela SEFAZ.
+
+### Certificado de teste
+
+- **Titular:** Pedro Henrique Damaso Florenzano Goncalves LTDA
+- **CNPJ:** 51.598.719/0001-07
+- **Tipo:** e-CNPJ A1 (Certisign)
+- **Válido até:** 21/07/2026
+- **Nota:** Este CNPJ é prestador de serviço (sem IE), portanto não pode emitir NF-e modelo 55 em produção. Para a oficina Paiffer (que tem IE), funciona.
+
+### Arquitetura
+
+```
+src/infrastructure/fiscal/
+├── IFiscalAdapter.ts           # Interface (já existia)
+├── FakeFiscalAdapter.ts        # Simulado (já existia)
+├── CertificateManager.ts       # Carrega PFX, extrai chave+cert com node-forge
+├── XmlSigner.ts                # Assina XML com xml-crypto (C14N correto)
+├── NFeXmlBuilder.ts            # Monta XML NF-e layout 4.0 (Simples Nacional)
+├── SefazNFeAdapter.ts          # Envia SOAP para SEFAZ-SP (homologação/produção)
+├── sefazRejeicoes.ts           # ~50 códigos de rejeição → mensagens pt-BR
+└── createFiscalAdapter.ts      # Factory: seleciona adapter por environment
+```
+
+### Libs adicionadas
+
+| Lib | Versão | Propósito |
+|-----|--------|-----------|
+| `node-forge` | 1.3.1 | Ler PFX, extrair chave privada e certificado |
+| `@types/node-forge` | 1.3.11 | Tipagem |
+| `fast-xml-parser` | 4.5.1 | Parsear response SOAP da SEFAZ |
+| `xml-crypto` | 6.0.0 | Assinatura XMLDSig com C14N correto |
+
+### Validação contra SEFAZ-SP homologação
+
+| Layer | Status | Evidência |
+|-------|--------|-----------|
+| Conexão HTTPS + mutual TLS | ✅ | HTTP 200, certificado client aceito |
+| Envelope SOAP | ✅ | cStat 104 (lote processado) |
+| Assinatura XMLDSig (C14N) | ✅ | Erro 297 resolvido com xml-crypto |
+| Schema XML NF-e 4.0 | ✅ | Schema aceito quando IE informada |
+| Autorização (cStat 100) | ⚠️ | Bloqueado por falta de IE no CNPJ de teste |
+
+### Pontos técnicos importantes
+
+1. **C14N:** O `xml-crypto` resolve a canonicalização corretamente (propagação de namespaces). Implementação manual falha.
+2. **dhEmi:** Deve ser horário local com offset (`-03:00`), não UTC convertido.
+3. **IE:** Obrigatória para NF-e modelo 55. Prestadores de serviço sem IE não podem emitir NF-e.
+4. **mTLS:** Requer `rejectUnauthorized: false` pois a cadeia ICP-Brasil não está no trust store do Node.js.
+5. **PFX legacy:** `node-forge` lê PFX legado sem `--openssl-legacy-provider`. Mas `tls.createSecureContext` nativo precisa da flag.
+6. **Rate limit:** SEFAZ-SP retorna cStat 656 após muitas requisições. Reset em ~1h.
+
+### API Routes adicionadas/modificadas
+
+| Rota | Ação |
+|------|------|
+| `POST /api/fiscal/certificate` | Upload e validação de certificado PFX |
+| `POST /api/orders/[id]/invoice` | Agora usa `createFiscalAdapter()` (real ou fake) |
+| `PATCH /api/fiscal/invoices/[id]` | Idem para retry |
+
+### UI
+
+- Página `/dashboard/fiscal`: seção de upload de certificado A1 com feedback (CNPJ extraído, validade, erros)
+
+### FiscalConfig — campos usados pelo adapter real
+
+```prisma
+certificateBase64   String?   // PFX em base64
+certificatePassword String?   // Senha do PFX
+environment         String    // "homologation" | "production" → usa SefazNFeAdapter
+```
+
+### Próximo passo: NFS-e Sorocaba
+
+A oficina Paiffer e futuros clientes emitem **NFS-e** (serviços) pela Prefeitura de Sorocaba (sistema DSF, padrão ABRASF). Dados conhecidos da NFS-e da Paiffer:
+- Série: U
+- CNAE: 620400000
+- Código serviço: 01.06 (Assessoria e consultoria em informática)
+- Regime: Simples Nacional (Optante)
+- Responsável ISSQN: Prestador
+- Exigibilidade: Exigível
+
+*Última atualização: 23/06/2026 — NF-e adapter real implementado e validado contra SEFAZ-SP homologação.*

@@ -5,7 +5,7 @@ import { RetryInvoice } from "@/application/use-cases/fiscal/RetryInvoice";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 import { FiscalProcessor } from "@/infrastructure/fiscal/FiscalProcessor";
-import { FakeFiscalAdapter } from "@/infrastructure/fiscal/FakeFiscalAdapter";
+import { createFiscalAdapter } from "@/infrastructure/fiscal/createFiscalAdapter";
 
 export async function PATCH(
   request: NextRequest,
@@ -30,7 +30,9 @@ export async function PATCH(
       await uc.execute(id, tenantId);
 
       // Processar imediatamente (substitui BullMQ)
-      const processor = new FiscalProcessor(container.fiscalRepository, new FakeFiscalAdapter());
+      const config = await container.fiscalRepository.getConfig(tenantId);
+      const adapter = config ? createFiscalAdapter(config) : new (await import("@/infrastructure/fiscal/FakeFiscalAdapter")).FakeFiscalAdapter();
+      const processor = new FiscalProcessor(container.fiscalRepository, adapter);
       await processor.process(id, tenantId);
 
       const result = await container.fiscalRepository.findInvoiceById(id, tenantId);

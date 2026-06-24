@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { PageHeader, Card, Input, Select, Button } from "@/components/ui";
+import { Upload, ShieldCheck, AlertTriangle } from "lucide-react";
 
 interface FiscalConfig {
   enabled: boolean;
@@ -13,6 +14,7 @@ interface FiscalConfig {
   cityCode: string;
   nfeSeries: number;
   nfseSeries: number;
+  certificateBase64?: string | null;
 }
 
 export default function FiscalConfigPage() {
@@ -20,6 +22,12 @@ export default function FiscalConfigPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  // Certificado
+  const [certPassword, setCertPassword] = useState("");
+  const [certUploading, setCertUploading] = useState(false);
+  const [certMessage, setCertMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/fiscal/config").then(r => r.json()).then(d => { if (d.cnpj !== undefined) setConfig(d); }).finally(() => setLoading(false));
@@ -34,12 +42,82 @@ export default function FiscalConfigPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
+  const handleCertUpload = async () => {
+    const file = fileRef.current?.files?.[0];
+    if (!file || !certPassword) {
+      setCertMessage({ type: "error", text: "Selecione o arquivo .pfx e informe a senha" });
+      return;
+    }
+
+    setCertUploading(true);
+    setCertMessage(null);
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+      const res = await fetch("/api/fiscal/certificate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pfxBase64: base64, password: certPassword }),
+      });
+      const data = await res.json();
+      setCertUploading(false);
+
+      if (res.ok) {
+        setCertMessage({ type: "success", text: `✓ Certificado salvo — CNPJ ${data.cnpj}, válido até ${new Date(data.notAfter).toLocaleDateString("pt-BR")}` });
+        setCertPassword("");
+        if (fileRef.current) fileRef.current.value = "";
+        setConfig(prev => ({ ...prev, certificateBase64: "loaded" }));
+      } else {
+        setCertMessage({ type: "error", text: data.error || "Erro ao enviar certificado" });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   if (loading) return <p className="p-6 text-slate-500">Carregando...</p>;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Configuração Fiscal" description="NF-e e NFS-e — dados do emitente e certificado digital" />
+
+      {/* Certificado Digital */}
       <Card className="p-6 max-w-2xl">
+        <h3 className="text-lg font-semibold text-slate-900 mb-4 flex items-center gap-2">
+          <ShieldCheck className="w-5 h-5 text-blue-600" />
+          Certificado Digital A1
+        </h3>
+
+        {config.certificateBase64 && (
+          <div className="mb-4 flex items-center gap-2 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+            <ShieldCheck className="w-4 h-4" />
+            Certificado configurado
+          </div>
+        )}
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Arquivo .pfx</label>
+            <input ref={fileRef} type="file" accept=".pfx,.p12" className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+          </div>
+          <Input label="Senha do certificado" type="password" value={certPassword} onChange={e => setCertPassword(e.target.value)} placeholder="Senha do arquivo .pfx" />
+          <div className="flex items-center gap-3">
+            <Button type="button" onClick={handleCertUpload} loading={certUploading}>
+              <Upload className="w-4 h-4 mr-1" /> Enviar Certificado
+            </Button>
+          </div>
+          {certMessage && (
+            <div className={`flex items-center gap-2 text-sm rounded-lg px-3 py-2 ${certMessage.type === "success" ? "text-green-700 bg-green-50 border border-green-200" : "text-red-700 bg-red-50 border border-red-200"}`}>
+              {certMessage.type === "error" && <AlertTriangle className="w-4 h-4" />}
+              {certMessage.text}
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Dados do Emitente */}
+      <Card className="p-6 max-w-2xl">
+        <h3 className="text-lg font-semibold text-slate-900 mb-4">Dados do Emitente</h3>
         <form onSubmit={handleSave} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="CNPJ" value={config.cnpj || ""} onChange={e => setConfig({ ...config, cnpj: e.target.value })} placeholder="00.000.000/0000-00" />

@@ -5,7 +5,7 @@ import { GetInvoicesByOrder } from "@/application/use-cases/fiscal/GetInvoicesBy
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 import { FiscalProcessor } from "@/infrastructure/fiscal/FiscalProcessor";
-import { FakeFiscalAdapter } from "@/infrastructure/fiscal/FakeFiscalAdapter";
+import { createFiscalAdapter } from "@/infrastructure/fiscal/createFiscalAdapter";
 
 export async function GET(
   _request: NextRequest,
@@ -41,7 +41,9 @@ export async function POST(
     const invoice = await uc.execute(id, body.type, tenantId);
 
     // Processar imediatamente (substitui BullMQ)
-    const processor = new FiscalProcessor(container.fiscalRepository, new FakeFiscalAdapter());
+    const config = await container.fiscalRepository.getConfig(tenantId);
+    const adapter = config ? createFiscalAdapter(config) : new (await import("@/infrastructure/fiscal/FakeFiscalAdapter")).FakeFiscalAdapter();
+    const processor = new FiscalProcessor(container.fiscalRepository, adapter);
     await processor.process(invoice.id, tenantId);
 
     // Retornar invoice atualizada

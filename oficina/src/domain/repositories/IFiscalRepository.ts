@@ -3,6 +3,8 @@ export interface FiscalConfigData {
   tenantId: string;
   enabled: boolean;
   environment: string;
+  certificateBase64: string | null;
+  certificatePassword: string | null;
   cnpj: string | null;
   inscricaoEstadual: string | null;
   inscricaoMunicipal: string | null;
