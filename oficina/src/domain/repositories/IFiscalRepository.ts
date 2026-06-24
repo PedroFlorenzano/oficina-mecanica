@@ -10,10 +10,22 @@ export interface FiscalConfigData {
   inscricaoMunicipal: string | null;
   razaoSocial: string | null;
   nfeSeries: number;
-  nfseSeries: number;
+  nfseSeries: string;
   nextNfeNumber: number;
   nextNfseNumber: number;
   cityCode: string | null;
+  nfeCfop: string | null;
+  cnae: string | null;
+  codigoServico: string | null;
+  codigoServicoMunicipal: string | null;
+  descricaoServico: string | null;
+  aliquotaISS: number | null;
+  regimeEspecial: string | null;
+  regimeApuracao: string | null;
+  naturezaOperacao: string | null;
+  tipoRPS: string | null;
+  wsUsuario: string | null;
+  wsSenha: string | null;
 }
 
 export interface CreateInvoiceData {

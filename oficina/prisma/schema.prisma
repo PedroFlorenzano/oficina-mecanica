@@ -431,25 +431,40 @@ enum FiscalInvoiceStatus {
 }
 
 model FiscalConfig {
-  id                String   @id @default(cuid())
-  tenantId          String   @unique
-  enabled           Boolean  @default(false)
-  environment       String   @default("homologation") // homologation | production
-  certificateBase64 String?  // PFX certificate (encrypted in prod)
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  enabled             Boolean  @default(false)
+  environment         String   @default("homologation") // homologation | production
+  certificateBase64   String?  // PFX certificate (encrypted in prod)
   certificatePassword String?
-  cnpj              String?
-  inscricaoEstadual String?
-  inscricaoMunicipal String?
-  razaoSocial       String?
-  nfeSeries         Int      @default(1)
-  nfseSeries        Int      @default(1)
-  nextNfeNumber     Int      @default(1)
-  nextNfseNumber    Int      @default(1)
-  cityCode          String?  // IBGE city code
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  cnpj                String?
+  inscricaoEstadual   String?
+  inscricaoMunicipal  String?
+  razaoSocial         String?
+  nfeSeries           Int      @default(1)
+  nfseSeries          String   @default("U")
+  nextNfeNumber       Int      @default(1)
+  nextNfseNumber      Int      @default(1)
+  cityCode            String?  // IBGE city code
+  // NF-e
+  nfeCfop             String?  @default("5405")
+  // NFS-e
+  cnae                String?  // ex: "452000100"
+  codigoServico       String?  @default("1401") // LC116 item
+  codigoServicoMunicipal String? @default("1401")
+  descricaoServico    String?  // ex: "manutenção e reparação automotiva..."
+  aliquotaISS         Float?   @default(2.01)
+  regimeEspecial      String?  @default("1") // 1-Microempresa, 2-Estimativa, 3-Soc.Profissionais, 4-Cooperativa, 6-MEI
+  regimeApuracao      String?  @default("2") // 1-Normal, 2-Simples Nacional
+  naturezaOperacao    String?  @default("1") // 1-Tributação no município
+  tipoRPS             String?  @default("1") // 1-RPS
+  // WebService NFS-e
+  wsUsuario           String?
+  wsSenha             String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
 }
 
 model FiscalInvoice {

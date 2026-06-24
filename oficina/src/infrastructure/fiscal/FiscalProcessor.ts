@@ -24,7 +24,7 @@ export class FiscalProcessor {
     await this.fiscalRepo.updateInvoiceStatus(invoiceId, { status: "PROCESSING" });
 
     const number = await this.fiscalRepo.incrementNextNumber(tenantId, invoice.type as "NFE" | "NFSE");
-    const series = invoice.type === "NFE" ? config.nfeSeries : config.nfseSeries;
+    const series = invoice.type === "NFE" ? config.nfeSeries : parseInt(config.nfseSeries) || 1;
 
     const input: FiscalAdapterInput = {
       type: invoice.type as "NFE" | "NFSE",

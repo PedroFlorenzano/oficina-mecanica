@@ -1,0 +1,15 @@
+-- AlterTable
+ALTER TABLE "FiscalConfig" ADD COLUMN     "aliquotaISS" DOUBLE PRECISION DEFAULT 2.01,
+ADD COLUMN     "cnae" TEXT,
+ADD COLUMN     "codigoServico" TEXT DEFAULT '1401',
+ADD COLUMN     "codigoServicoMunicipal" TEXT DEFAULT '1401',
+ADD COLUMN     "descricaoServico" TEXT,
+ADD COLUMN     "naturezaOperacao" TEXT DEFAULT '1',
+ADD COLUMN     "nfeCfop" TEXT DEFAULT '5405',
+ADD COLUMN     "regimeApuracao" TEXT DEFAULT '2',
+ADD COLUMN     "regimeEspecial" TEXT DEFAULT '1',
+ADD COLUMN     "tipoRPS" TEXT DEFAULT '1',
+ADD COLUMN     "wsSenha" TEXT,
+ADD COLUMN     "wsUsuario" TEXT,
+ALTER COLUMN "nfseSeries" SET DEFAULT 'U',
+ALTER COLUMN "nfseSeries" SET DATA TYPE TEXT;
