@@ -135,4 +135,4 @@ npm run build      # Build de produção
 
 ## Licença
 
-Proprietary — Paiffer Tecnologia
+Proprietary — DF Developer
