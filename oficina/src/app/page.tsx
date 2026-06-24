@@ -3,6 +3,33 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 
+const features = [
+  { title: "Ordens de Serviço", desc: "Reclamações do cliente, serviços, peças, PDF do orçamento e aprovação digital via WhatsApp." },
+  { title: "Controle de Estoque", desc: "Custo médio ponderado, alertas de mínimo, fornecedor e histórico imutável de movimentações." },
+  { title: "WhatsApp Integrado", desc: "Envio de orçamento, aprovação digital pelo cliente, lembretes preventivos e pós-venda." },
+  { title: "Pista (Kanban)", desc: "Acompanhe as OS em tempo real com drag-and-drop por status e mecânico responsável." },
+  { title: "Comissões", desc: "Cálculo automático por mecânico, aprovação pelo admin, histórico e relatórios detalhados." },
+  { title: "NF-e / NFS-e", desc: "Emissão direta pela SEFAZ e prefeitura. DANFE e XML gerados com um clique." },
+  { title: "Cronômetro de Serviço", desc: "Tempo real por mecânico em cada serviço. Controle de produtividade e eficiência." },
+  { title: "Agendamento Online", desc: "Link público para o cliente agendar horário. Configurável por dia da semana." },
+  { title: "Relatórios Financeiros", desc: "Faturamento, ticket médio, peças mais usadas, produtividade. Tudo em gráficos claros." },
+];
+
+const steps = [
+  { num: "1", title: "Cadastre sua oficina", desc: "Em 2 minutos. Sem cartão de crédito, sem burocracia." },
+  { num: "2", title: "Configure seus serviços", desc: "Importe do sistema anterior ou cadastre do zero. Peças, preços, mecânicos." },
+  { num: "3", title: "Comece a usar", desc: "Abra a primeira OS e veja tudo funcionando. Suporte via WhatsApp se precisar de ajuda." },
+];
+
+const faqs = [
+  { q: "Preciso instalar algo no computador?", a: "Não. O Operare funciona 100% no navegador. Acesse de qualquer dispositivo — computador, tablet ou celular." },
+  { q: "Posso importar dados do meu sistema atual?", a: "Sim. Fazemos a migração gratuita de sistemas como Syscar, Odin, Ultracar e planilhas Excel." },
+  { q: "E se eu não gostar?", a: "Você tem 15 dias grátis para testar tudo. Se não for para você, é só não renovar. Sem multa, sem fidelidade." },
+  { q: "Como funciona o suporte?", a: "Suporte direto via WhatsApp com o desenvolvedor. Sem fila, sem robô. Resposta em minutos." },
+  { q: "O sistema emite nota fiscal?", a: "Sim. NF-e (produtos) via SEFAZ e NFS-e (serviços) via prefeitura. Tudo integrado à OS." },
+  { q: "Quantos usuários posso ter?", a: "Ilimitados. Cada mecânico, recepcionista e gerente tem seu próprio login com permissões configuráveis." },
+];
+
 export default async function LandingPage() {
   const session = await getServerSession(authOptions);
   if (session) redirect("/dashboard");
@@ -10,7 +37,7 @@ export default async function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
       {/* Header */}
-      <header className="border-b border-slate-100">
+      <header className="border-b border-slate-100 sticky top-0 bg-white/95 backdrop-blur-sm z-50">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -22,9 +49,9 @@ export default async function LandingPage() {
             <span className="text-xl font-bold text-slate-900">Operare</span>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-slate-600 hover:text-slate-900 font-medium">
-              Entrar
-            </Link>
+            <Link href="#como-funciona" className="hidden sm:inline text-sm text-slate-600 hover:text-slate-900 font-medium">Como funciona</Link>
+            <Link href="#funcionalidades" className="hidden sm:inline text-sm text-slate-600 hover:text-slate-900 font-medium">Funcionalidades</Link>
+            <Link href="/login" className="text-sm text-slate-600 hover:text-slate-900 font-medium">Entrar</Link>
             <Link href="/register" className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 font-medium">
               Começar Grátis
             </Link>
@@ -34,54 +61,90 @@ export default async function LandingPage() {
 
       {/* Hero */}
       <section className="max-w-6xl mx-auto px-4 py-20 text-center">
-        <h1 className="text-4xl sm:text-5xl font-bold text-slate-900 leading-tight max-w-3xl mx-auto">
-          Gestão completa para sua oficina mecânica
+        <div className="inline-block bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-1 rounded-full mb-6">
+          ✨ 15 dias grátis — sem cartão de crédito
+        </div>
+        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-slate-900 leading-tight max-w-4xl mx-auto">
+          Sua oficina organizada como nunca foi
         </h1>
-        <p className="mt-6 text-lg text-slate-600 max-w-2xl mx-auto">
-          Ordens de serviço, estoque, financeiro, WhatsApp, NF-e e muito mais.
-          Tudo em um único sistema pensado para oficinas brasileiras.
+        <p className="mt-6 text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto">
+          Da recepção à entrega: OS, estoque, financeiro, NF-e, WhatsApp e comissões.
+          Tudo num sistema feito por quem entende oficina brasileira.
         </p>
-        <div className="mt-8 flex items-center justify-center gap-4">
-          <Link href="/register" className="bg-blue-600 text-white px-6 py-3 rounded-lg text-base font-semibold hover:bg-blue-700 shadow-sm">
-            Testar 15 dias grátis
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link href="/register" className="w-full sm:w-auto bg-blue-600 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-blue-700 shadow-sm">
+            Testar grátis por 15 dias
           </Link>
-          <Link href="/planos" className="border border-slate-300 text-slate-700 px-6 py-3 rounded-lg text-base font-medium hover:bg-slate-50">
-            Ver Planos
+          <Link href="#como-funciona" className="w-full sm:w-auto border border-slate-300 text-slate-700 px-8 py-3.5 rounded-lg text-base font-medium hover:bg-slate-50">
+            Como funciona →
           </Link>
         </div>
-        <p className="mt-4 text-sm text-slate-400">Sem cartão de crédito. Cancele quando quiser.</p>
+        <p className="mt-4 text-sm text-slate-400">Migração gratuita do seu sistema atual</p>
       </section>
 
-      {/* Features */}
-      <section className="bg-slate-50 py-20">
+      {/* Social proof */}
+      <section className="border-y border-slate-100 py-8">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <p className="text-sm text-slate-500 mb-4">Feito para oficinas como a sua</p>
+          <div className="flex flex-wrap justify-center gap-8 items-center text-slate-400">
+            <span className="text-lg font-semibold text-slate-700">Bosch Car Service</span>
+            <span className="text-sm text-slate-400">•</span>
+            <span className="text-lg font-semibold text-slate-700">Oficinas multimarcas</span>
+            <span className="text-sm text-slate-400">•</span>
+            <span className="text-lg font-semibold text-slate-700">Centros automotivos</span>
+          </div>
+        </div>
+      </section>
+
+      {/* Como funciona */}
+      <section id="como-funciona" className="py-20">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-2xl font-bold text-slate-900 text-center mb-12">Tudo que sua oficina precisa</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { title: "Ordens de Serviço", desc: "Reclamações do cliente, serviços, peças. PDF do orçamento e aprovação via WhatsApp." },
-              { title: "Controle de Estoque", desc: "Custo médio ponderado, alertas de mínimo, fornecedor, histórico imutável." },
-              { title: "WhatsApp Integrado", desc: "Envio de orçamento, aprovação digital pelo cliente e lembretes preventivos automáticos." },
-              { title: "Pista (Kanban)", desc: "Acompanhe as OS em tempo real com drag-and-drop por status e mecânico." },
-              { title: "Comissões", desc: "Cálculo automático por mecânico, aprovação pelo admin, histórico completo." },
-              { title: "NF-e / NFS-e", desc: "Emissão de nota fiscal integrada à OS. DANFE em PDF com um clique." },
-              { title: "Cronômetro de Serviço", desc: "Tempo real por mecânico em cada serviço. Controle de produtividade." },
-              { title: "Agendamento Online", desc: "Link público para o cliente agendar. Configurável por dia e horário." },
-              { title: "Multi-Oficina", desc: "Dados 100% isolados entre oficinas. Cada uma com seus usuários e dados." },
-            ].map((f) => (
-              <div key={f.title} className="bg-white rounded-xl p-6 border border-slate-200">
-                <h3 className="font-semibold text-slate-900 mb-2">{f.title}</h3>
-                <p className="text-sm text-slate-600">{f.desc}</p>
+          <h2 className="text-3xl font-bold text-slate-900 text-center mb-4">Comece em 3 passos</h2>
+          <p className="text-center text-slate-600 mb-12">Sem instalação, sem contrato, sem dor de cabeça.</p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {steps.map((s) => (
+              <div key={s.num} className="text-center">
+                <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-4">{s.num}</div>
+                <h3 className="font-semibold text-slate-900 text-lg mb-2">{s.title}</h3>
+                <p className="text-slate-600 text-sm">{s.desc}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Pricing preview */}
+      {/* Features */}
+      <section id="funcionalidades" className="bg-slate-50 py-20">
+        <div className="max-w-6xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-slate-900 text-center mb-4">Tudo que sua oficina precisa</h2>
+          <p className="text-center text-slate-600 mb-12">Um sistema completo, sem precisar de vários programas diferentes.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {features.map((f) => (
+              <div key={f.title} className="bg-white rounded-xl p-6 border border-slate-200 hover:shadow-md transition-shadow">
+                <h3 className="font-semibold text-slate-900 mb-2">{f.title}</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Depoimento */}
       <section className="py-20">
         <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-2xl font-bold text-slate-900 mb-4">Simples e transparente</h2>
-          <p className="text-slate-600 mb-10">Um plano completo com tudo incluso. Sem surpresas.</p>
+          <blockquote className="text-xl sm:text-2xl text-slate-700 italic leading-relaxed">
+            &ldquo;Saímos do Syscar para o Operare e em uma semana já estava tudo funcionando.
+            A emissão de nota que demorava 10 minutos agora é um clique.&rdquo;
+          </blockquote>
+          <p className="mt-4 text-sm text-slate-500 font-medium">— Oficina piloto, Sorocaba/SP</p>
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section className="bg-slate-50 py-20">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-slate-900 mb-4">Simples e transparente</h2>
+          <p className="text-slate-600 mb-10">Um plano completo com tudo incluso. Sem surpresas na fatura.</p>
 
           <div className="bg-white border-2 border-blue-600 rounded-2xl p-8 shadow-sm">
             <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">Plano Profissional</p>
@@ -89,7 +152,7 @@ export default async function LandingPage() {
               <span className="text-5xl font-bold text-slate-900">R$ 1.500</span>
               <span className="text-slate-500">/mês</span>
             </div>
-            <p className="mt-2 text-sm text-slate-500">Todos os módulos inclusos • Suporte prioritário</p>
+            <p className="mt-2 text-sm text-slate-500">Todos os módulos • Usuários ilimitados • Suporte direto</p>
 
             <ul className="mt-8 space-y-3 text-left max-w-sm mx-auto">
               {[
@@ -100,8 +163,9 @@ export default async function LandingPage() {
                 "Cronômetro e comissões",
                 "Agendamento online",
                 "Relatórios financeiros + PDF",
-                "Usuários ilimitados",
+                "Usuários e mecânicos ilimitados",
                 "Suporte via WhatsApp",
+                "Migração gratuita do sistema anterior",
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2 text-sm text-slate-700">
                   <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -112,18 +176,47 @@ export default async function LandingPage() {
               ))}
             </ul>
 
-            <Link href="/register" className="mt-8 block w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700">
+            <Link href="/register" className="mt-8 block w-full bg-blue-600 text-white py-3.5 rounded-lg font-semibold hover:bg-blue-700 text-base">
               Começar 15 dias grátis
             </Link>
-            <p className="mt-3 text-xs text-slate-400">Sem cartão de crédito para o teste</p>
+            <p className="mt-3 text-xs text-slate-400">Sem cartão de crédito • Cancele quando quiser</p>
           </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section className="py-20">
+        <div className="max-w-3xl mx-auto px-4">
+          <h2 className="text-3xl font-bold text-slate-900 text-center mb-12">Perguntas frequentes</h2>
+          <div className="space-y-6">
+            {faqs.map((faq) => (
+              <div key={faq.q} className="border-b border-slate-100 pb-6">
+                <h3 className="font-semibold text-slate-900 mb-2">{faq.q}</h3>
+                <p className="text-sm text-slate-600 leading-relaxed">{faq.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Final */}
+      <section className="bg-blue-600 py-16">
+        <div className="max-w-3xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-white mb-4">Pronto para organizar sua oficina?</h2>
+          <p className="text-blue-100 mb-8">Comece agora e veja resultados na primeira semana. Sem risco.</p>
+          <Link href="/register" className="inline-block bg-white text-blue-600 px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-blue-50">
+            Começar 15 dias grátis
+          </Link>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="border-t border-slate-200 py-8">
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-slate-500">© 2026 Operare. Todos os direitos reservados.</p>
+          <div>
+            <p className="text-sm text-slate-500">© 2026 Operare. Todos os direitos reservados.</p>
+            <p className="text-xs text-slate-400 mt-1">Paiffer Tecnologia — Sorocaba/SP</p>
+          </div>
           <div className="flex items-center gap-4 text-sm text-slate-500">
             <Link href="/login" className="hover:text-slate-700">Entrar</Link>
             <Link href="/register" className="hover:text-slate-700">Cadastrar</Link>

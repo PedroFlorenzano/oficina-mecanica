@@ -57,6 +57,7 @@ export default function OrdersPage() {
   const [clientId, setClientId] = useState("");
   const [mechanics, setMechanics] = useState<{ id: string; name: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetch("/api/users").then(r => r.json()).then(setMechanics).catch(() => {});
@@ -124,17 +125,27 @@ export default function OrdersPage() {
 
 
   const exportCSV = () => {
-    const header = "Nº;Cliente;Placa;Veículo;Status;Total;Data\n";
-    const rows = filtered.map((o) =>
-      `${o.number};${o.client.name};${o.vehicle.plate};${o.vehicle.model};${statusLabels[o.status]?.label || o.status};${o.totalAmount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })};${new Date(o.createdAt).toLocaleDateString("pt-BR")}`
-    ).join("\n");
-    const blob = new Blob(["\uFEFF" + header + rows], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ordens-servico-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const params = new URLSearchParams();
+    if (selectedIds.size > 0) {
+      selectedIds.forEach(id => params.append("ids", id));
+    } else {
+      if (startDate) params.set("startDate", startDate);
+      if (endDate) params.set("endDate", endDate);
+    }
+    window.open(`/api/orders/export?${params.toString()}`, "_blank");
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === sorted.length) setSelectedIds(new Set());
+    else setSelectedIds(new Set(sorted.map(o => o.id)));
   };
 
   return (
@@ -150,7 +161,7 @@ export default function OrdersPage() {
             className="flex items-center gap-2 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 transition-colors text-sm font-medium"
           >
             <Download size={16} />
-            Exportar CSV
+            {selectedIds.size > 0 ? `Exportar (${selectedIds.size})` : "Exportar CSV"}
           </button>
           {canCreate && (
           <Link
@@ -237,6 +248,9 @@ export default function OrdersPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
+                <th className="px-4 py-3 w-10">
+                  <input type="checkbox" checked={selectedIds.size === sorted.length && sorted.length > 0} onChange={toggleAll} className="rounded border-slate-300" />
+                </th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("number")}>Nº<SortIcon field="number" sortField={sortField} sortDir={sortDir} /></th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600 cursor-pointer select-none" onClick={() => toggleSort("client.name")}>Cliente<SortIcon field="client.name" sortField={sortField} sortDir={sortDir} /></th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Veículo</th>
@@ -250,6 +264,9 @@ export default function OrdersPage() {
                 const status = statusLabels[order.status] || { label: order.status, color: "bg-slate-100" };
                 return (
                   <tr key={order.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => router.push(`/dashboard/orders/${order.id}`)}>
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selectedIds.has(order.id)} onChange={() => toggleSelect(order.id)} className="rounded border-slate-300" />
+                    </td>
                     <td className="px-4 py-3 font-mono font-medium text-slate-800">#{order.number}</td>
                     <td className="px-4 py-3 text-slate-700">{order.client.name}</td>
                     <td className="px-4 py-3 text-slate-600">{order.vehicle.plate} - {order.vehicle.model}</td>

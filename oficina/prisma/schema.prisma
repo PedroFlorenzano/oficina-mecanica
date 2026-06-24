@@ -122,6 +122,7 @@ model ServiceCatalog {
   defaultPrice  Float
   pricingType   String   @default("VALUE") // "VALUE" or "TIME"
   commissionRate Float?  // % comissão específica do serviço (null = usa taxa do mecânico)
+  warrantyDays  Int?     // dias de garantia (null = sem garantia)
   active        Boolean  @default(true)
   tenantId      String
   createdAt     DateTime @default(now())

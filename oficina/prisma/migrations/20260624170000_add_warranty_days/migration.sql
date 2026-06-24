@@ -1,0 +1,1 @@
+ALTER TABLE "ServiceCatalog" ADD COLUMN "warrantyDays" INTEGER;

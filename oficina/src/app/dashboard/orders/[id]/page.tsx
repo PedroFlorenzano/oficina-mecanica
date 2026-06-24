@@ -87,6 +87,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   // Mapa de mecânicos (id → nome)
   const [mechanicMap, setMechanicMap] = useState<Record<string, string>>({});
 
+  // Alertas de garantia
+  const [warrantyAlerts, setWarrantyAlerts] = useState<{ serviceDescription: string; previousOrderNumber: number; daysRemaining: number }[]>([]);
+
   const fetchOrder = () => {
     fetch(`/api/orders/${id}`)
       .then((r) => { if (!r.ok) throw new Error("Falha"); return r.json(); })
@@ -104,6 +107,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       setMechanicMap(map);
     }).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!id) return;
+    fetch(`/api/orders/${id}/warranty`).then(r => r.ok ? r.json() : []).then(setWarrantyAlerts).catch(() => {});
+  }, [id]);
   const changeStatus = async (newStatus: string) => {
     setUpdating(true);
     await fetch(`/api/orders/${id}`, {
@@ -177,6 +185,17 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   return (
     <div className="max-w-5xl">
+      {/* Alerta de garantia */}
+      {warrantyAlerts.length > 0 && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="font-semibold text-amber-800 mb-1">⚠️ Serviços em garantia neste veículo</p>
+          {warrantyAlerts.map((a, i) => (
+            <p key={i} className="text-sm text-amber-700">
+              <strong>{a.serviceDescription}</strong> — OS #{a.previousOrderNumber} ({a.daysRemaining} dias restantes)
+            </p>
+          ))}
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
