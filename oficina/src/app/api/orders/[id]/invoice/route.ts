@@ -42,7 +42,8 @@ export async function POST(
 
     // Processar imediatamente (substitui BullMQ)
     const config = await container.fiscalRepository.getConfig(tenantId);
-    const adapter = config ? createFiscalAdapter(config) : new (await import("@/infrastructure/fiscal/FakeFiscalAdapter")).FakeFiscalAdapter();
+    const invoiceType = (invoice.type || body.type || "NFSE") as "NFE" | "NFSE";
+    const adapter = config ? createFiscalAdapter(config, invoiceType) : new (await import("@/infrastructure/fiscal/FakeFiscalAdapter")).FakeFiscalAdapter();
     const processor = new FiscalProcessor(container.fiscalRepository, adapter);
     await processor.process(invoice.id, tenantId);
 

@@ -31,7 +31,9 @@ export async function PATCH(
 
       // Processar imediatamente (substitui BullMQ)
       const config = await container.fiscalRepository.getConfig(tenantId);
-      const adapter = config ? createFiscalAdapter(config) : new (await import("@/infrastructure/fiscal/FakeFiscalAdapter")).FakeFiscalAdapter();
+      const invoiceData = await container.fiscalRepository.findInvoiceById(id, tenantId);
+      const invoiceType = (invoiceData?.type || "NFSE") as "NFE" | "NFSE";
+      const adapter = config ? createFiscalAdapter(config, invoiceType) : new (await import("@/infrastructure/fiscal/FakeFiscalAdapter")).FakeFiscalAdapter();
       const processor = new FiscalProcessor(container.fiscalRepository, adapter);
       await processor.process(id, tenantId);
 
