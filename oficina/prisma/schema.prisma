@@ -469,6 +469,7 @@ model FiscalConfig {
   regimeApuracao      String?  @default("2") // 1-Normal, 2-Simples Nacional
   naturezaOperacao    String?  @default("1") // 1-Tributação no município
   tipoRPS             String?  @default("RPS") // RPS, RPS-M, RPS-C
+  modeloNacional      Boolean  @default(false) // false=DSF, true=SEFIN Nacional
   // WebService NFS-e
   wsUsuario           String?
   wsSenha             String?

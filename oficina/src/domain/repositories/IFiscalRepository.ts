@@ -34,6 +34,7 @@ export interface FiscalConfigData {
   regimeApuracao: string | null;
   naturezaOperacao: string | null;
   tipoRPS: string | null;
+  modeloNacional: boolean;
   wsUsuario: string | null;
   wsSenha: string | null;
 }

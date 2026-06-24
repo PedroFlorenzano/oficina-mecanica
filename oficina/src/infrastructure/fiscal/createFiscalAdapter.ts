@@ -35,7 +35,15 @@ export function createFiscalAdapter(config: FiscalConfigData, type?: "NFE" | "NF
   }
 
   // NFS-e — verifica se o município está no catálogo DSF
-  if (type === "NFSE" && config.cityCode && DSF_MUNICIPIOS[config.cityCode]) {
+  if (type === "NFSE") {
+    if (config.modeloNacional) {
+      // TODO: Implementar adapter SEFIN Nacional quando disponível
+      // Por enquanto, usa FakeFiscalAdapter com aviso
+      return new FakeFiscalAdapter();
+    }
+    if (!config.cityCode || !DSF_MUNICIPIOS[config.cityCode]) {
+      return new FakeFiscalAdapter();
+    }
     const municipio = DSF_MUNICIPIOS[config.cityCode];
     const nfseConfig: SorocabaNFSeConfig = {
       pfxBase64: config.certificateBase64!,

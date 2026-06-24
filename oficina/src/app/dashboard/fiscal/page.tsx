@@ -36,6 +36,7 @@ interface FiscalConfig {
   regimeApuracao: string;
   naturezaOperacao: string;
   tipoRPS: string;
+  modeloNacional: boolean;
   wsUsuario: string;
   wsSenha: string;
   certificateBase64?: string | null;
@@ -56,7 +57,7 @@ const DEFAULTS: FiscalConfig = {
   nfeCfop: "5405", nfeIndPag: "0", nfeTpag: "99", nfeFinNFe: "1", nfeIndFinal: "1", nfeIndPres: "1", nfeTpEmis: "1",
   emitLogradouro: "", emitNumero: "", emitBairro: "", emitCEP: "", cnae: "", codigoServico: "1401", codigoServicoMunicipal: "1401",
   descricaoServico: "", aliquotaISS: 2.01, regimeEspecial: "1", regimeApuracao: "2",
-  naturezaOperacao: "1", tipoRPS: "RPS", wsUsuario: "", wsSenha: "",
+  naturezaOperacao: "1", tipoRPS: "RPS", modeloNacional: false, wsUsuario: "", wsSenha: "",
 };
 
 function InutilizacaoForm({ serie }: { serie: number }) {
@@ -315,6 +316,13 @@ export default function FiscalConfigPage() {
                   ]} />
                   <Input label="Usuário WebService" value={config.wsUsuario || ""} onChange={set("wsUsuario")} placeholder="(opcional)" />
                   <Input label="Senha WebService" type="password" value={config.wsSenha || ""} onChange={set("wsSenha")} placeholder="(opcional)" />
+                </div>
+                <div className="mt-4 pt-3 border-t border-slate-100">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={config.modeloNacional} onChange={e => setConfig({ ...config, modeloNacional: e.target.checked })} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+                    <span className="text-sm font-medium text-slate-700">Modelo Nacional (SEFIN)</span>
+                  </label>
+                  <p className="text-xs text-slate-500 mt-1 ml-6">Marque se a prefeitura migrou para o padrão SEFIN Nacional. Desmarque para o padrão DSF (Sorocaba, Campinas, etc.).</p>
                 </div>
               </fieldset>
             </div>
