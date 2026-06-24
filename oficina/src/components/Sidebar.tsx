@@ -52,8 +52,9 @@ interface NavItemProps {
 
 function NavItem({ href, label, icon: Icon, alertCount = 0, sub }: NavItemProps) {
   const pathname = usePathname();
-  const active =
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
+  const active = sub
+    ? pathname === href
+    : pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
 
   return (
     <Link
