@@ -2177,3 +2177,118 @@ Referência: sistema Odin (odin.syscar.com.br) da Orion Cloud, usado pela oficin
 - Vinculação direta OS ↔ Nota Fiscal (rastreabilidade completa)
 
 *Última atualização: 23/06/2026 — Comparação com Odin/Syscar documentada.*
+
+---
+
+## Sessão 23/06/2026 — Módulo Fiscal Real (resumo completo)
+
+### O que foi implementado nesta sessão
+
+#### 1. NF-e Real (SEFAZ-SP)
+- `CertificateManager.ts` — carrega PFX via node-forge, expõe chave/cert
+- `XmlSigner.ts` — assinatura XMLDSig com `xml-crypto` (C14N correto)
+- `NFeXmlBuilder.ts` — XML NF-e layout 4.0 (Simples Nacional, CSOSN 102)
+- `SefazNFeAdapter.ts` — envio SOAP + mTLS para SEFAZ-SP (homologação/produção)
+- `sefazRejeicoes.ts` — ~50 códigos de rejeição → mensagens pt-BR
+- Validado contra SEFAZ-SP homologação: assinatura OK, SOAP OK, schema OK
+
+#### 2. NFS-e DSF (Sorocaba e outros municípios)
+- `SorocabaNFSeAdapter.ts` — adapter genérico padrão DSF
+  - Hash SHA-1 no campo `<Assinatura>` do RPS
+  - Assinatura XMLDSig RSA-SHA1 no `<Lote>`
+  - Envio SOAP para webservice do município via mTLS
+  - Suporta qualquer município DSF via catálogo (Sorocaba, Campinas, Campo Grande, Uberlândia)
+- Dados reais do Odin/Syscar usados como referência (não em testes)
+
+#### 3. Tela de Configuração Fiscal (/dashboard/fiscal)
+- 4 abas: Certificado Digital, NFS-e, NF-e, Controle de Emissão
+- Certificado: upload PFX + validação + feedback visual
+- NFS-e: CNPJ, IM, CNAE, regime, alíquota, código serviço, natureza operação, tipo RPS, credenciais WS
+- NF-e: CNPJ, IE, endereço emitente (logradouro, número, bairro, CEP), CFOP, ambiente
+- Controle: série NF-e (numérica), série NFS-e (string "U"), próxima numeração, toggle habilitação
+
+#### 4. Factory `createFiscalAdapter`
+- `type=NFSE` + `cityCode` no catálogo DSF → `SorocabaNFSeAdapter`
+- `type=NFE` + certificado → `SefazNFeAdapter`
+- Sem certificado → `FakeFiscalAdapter`
+- Catálogo de municípios DSF (extensível com 1 linha por município)
+- Nenhum dado hardcoded de cliente específico
+
+#### 5. Fluxo end-to-end
+```
+OS Finalizada → IssueFiscalInvoice → createFiscalAdapter(config, type)
+  → FiscalProcessor.process() → adapter.authorize(input)
+    → Monta XML → Assina → Envia → Parseia resposta
+      → updateInvoiceStatus(AUTHORIZED | ERROR)
+```
+
+#### 6. Dados do tomador/destinatário
+- `FiscalProcessor` busca `client.address`, `client.email`, `client.phone` da OS
+- Passa ao adapter via `tomadorEndereco`, `tomadorEmail`, `tomadorTelefone`
+- NFS-e: preenche `<LogradouroTomador>` e `<EmailTomador>` no RPS
+- NF-e: dados do dest já vinham da OS (nome + documento)
+
+### Schema FiscalConfig (campos atuais)
+
+```prisma
+enabled, environment, certificateBase64, certificatePassword,
+cnpj, inscricaoEstadual, inscricaoMunicipal, razaoSocial,
+nfeSeries (Int), nfseSeries (String "U"), nextNfeNumber, nextNfseNumber,
+cityCode, nfeCfop, emitLogradouro, emitNumero, emitBairro, emitCEP,
+cnae, codigoServico, codigoServicoMunicipal, descricaoServico,
+aliquotaISS, regimeEspecial, regimeApuracao, naturezaOperacao,
+tipoRPS, wsUsuario, wsSenha
+```
+
+### Libs adicionadas
+
+| Lib | Versão | Propósito |
+|-----|--------|-----------|
+| `node-forge` | 1.3.1 | Ler PFX, extrair chave/cert |
+| `@types/node-forge` | 1.3.11 | Tipagem |
+| `fast-xml-parser` | 4.5.1 | Parsear response SOAP/JSON |
+| `xml-crypto` | 6.0.0 | Assinatura XMLDSig (C14N, SHA-1, SHA-256) |
+
+### Status de validação
+
+| Componente | Teste | Resultado |
+|---|---|---|
+| NF-e SEFAZ-SP (homologação) | Real | ✅ Assinatura aceita, SOAP OK, schema OK. Bloqueio: IE |
+| NFS-e SEFIN Nacional | Real | ✅ HTTPS+mTLS OK, assinatura SHA-256 OK. Bloqueio: cTribNac format |
+| NFS-e DSF Sorocaba | Não testado | Requer certificado cadastrado na prefeitura |
+| TypeScript | `tsc --noEmit` | ✅ 0 erros |
+| Testes unitários | `npm test` | ✅ 218 passando |
+| Build produção | `npm run build` | ✅ OK |
+
+### Para o primeiro cliente (Paiffer) funcionar
+
+1. Upload do certificado A1 da Paiffer no Operare (/dashboard/fiscal)
+2. Preencher dados: CNPJ, IM 429689, CNAE 452000100
+3. Série U, código 1401, alíquota 2.01%, cidade 3552205
+4. Endereço do emitente
+5. Mudar ambiente para "Produção"
+6. Emitir NFS-e a partir de uma OS
+
+### Arquivos do módulo fiscal
+
+```
+src/infrastructure/fiscal/
+├── IFiscalAdapter.ts          # Interface (authorize + cancel)
+├── FakeFiscalAdapter.ts       # Simulado (dev/testes)
+├── CertificateManager.ts      # Carrega PFX → chave + cert
+├── XmlSigner.ts               # XMLDSig com xml-crypto
+├── NFeXmlBuilder.ts           # XML NF-e 4.0
+├── SefazNFeAdapter.ts         # SEFAZ-SP (NF-e modelo 55)
+├── SorocabaNFSeAdapter.ts     # DSF genérico (NFS-e)
+├── createFiscalAdapter.ts     # Factory + catálogo municípios DSF
+├── sefazRejeicoes.ts          # Códigos rejeição → pt-BR
+└── FiscalProcessor.ts         # Orquestrador (retry, status)
+
+src/app/dashboard/fiscal/page.tsx  # Tela config (4 abas)
+src/app/api/fiscal/
+├── config/route.ts            # GET/PUT configuração
+├── certificate/route.ts       # POST upload PFX
+└── invoices/[id]/route.ts     # PATCH retry/cancel
+```
+
+*Última atualização: 23/06/2026 — Módulo fiscal real completo (NF-e + NFS-e DSF + config UI). Build OK, 218 testes, 0 erros.*
