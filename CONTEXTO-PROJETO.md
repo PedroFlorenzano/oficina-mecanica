@@ -1756,26 +1756,51 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 
 ## Backlog — Próximas Implementações
 
-| # | Item | Descrição | Prioridade |
-|---|------|-----------|-----------|
-| 1 | ~~Impressão da Pista (Kanban)~~ | ✅ Implementado (19/06/2026) | — |
-| 2 | Alerta de garantia | Marcar serviços com garantia (90 dias) e avisar se cliente voltar com mesmo problema | Média |
-| 3 | ~~CI/CD com GitHub Actions~~ | ✅ Implementado (17/06/2026) | — |
-| 4 | Integração gateway pagamento | Stripe ou Asaas para cobrar assinaturas (infra billing pronta) | Alta |
-| 5 | Landing page completa | Conteúdo de vendas, screenshots, depoimentos, CTA | Média |
-| 6 | ~~Testes E2E~~ | ✅ Implementado (17/06/2026) — Playwright, multi-tenant | — |
-| 7 | ~~Migrar middleware para proxy~~ | ❌ Não necessário (Next.js 16 mantém middleware.ts) | — |
-| 8 | ~~Relatório de peças mais usadas~~ | ✅ Implementado (19/06/2026) | — |
-| 9 | Exportar OS em lote (CSV/Excel) | Selecionar várias OS e exportar dados para planilha | Baixa |
-| 10 | ~~App mobile (PWA)~~ | ✅ Implementado (19/06/2026) — manifest + service worker | — |
-| 11 | ~~Path-based multi-tenant~~ | ✅ Implementado (24/06/2026) — slug no Tenant + rota /[slug] | — |
-| 12 | ~~Billing/Assinatura UI~~ | ✅ Implementado (24/06/2026) — /dashboard/billing R$1.500 | — |
-| 13 | ~~Canal de suporte~~ | ✅ Implementado (24/06/2026) — botão flutuante WhatsApp + email | — |
-| 14 | ~~Banner trial expirando~~ | ✅ Implementado (24/06/2026) — amarelo/vermelho ≤5 dias | — |
-| 15 | Deploy produção | Vercel/VPS + domínio operare.tech + SSL | Alta |
-| 16 | Backup diário | PostgreSQL → S3 (cron + pg_dump) | Alta |
-| 17 | Monitoramento | Sentry (erros) + UptimeRobot (uptime) | Média |
-| 18 | Contrato / LGPD | Termos de uso, política de privacidade | Média |
+### Concluídos
+
+| # | Item | Data |
+|---|------|------|
+| 1 | Impressão da Pista (Kanban) | 19/06/2026 |
+| 3 | CI/CD com GitHub Actions | 17/06/2026 |
+| 6 | Testes E2E (Playwright, multi-tenant) | 17/06/2026 |
+| 8 | Relatório de peças mais usadas | 19/06/2026 |
+| 10 | App mobile (PWA) | 19/06/2026 |
+| 11 | Path-based multi-tenant (slug + /[slug]) | 24/06/2026 |
+| 12 | Billing/Assinatura UI (R$1.500) | 24/06/2026 |
+| 13 | Canal de suporte (WhatsApp + email) | 24/06/2026 |
+| 14 | Banner trial expirando | 24/06/2026 |
+
+### Bloquantes para produção (Alta)
+
+| # | Item | Esforço | Observação |
+|---|------|---------|-----------|
+| 1 | Deploy produção | 2–4h | Vercel ou VPS + domínio operare.tech + SSL. PostgreSQL managed (Neon/Supabase/RDS). CI/CD já existe. |
+| 2 | Gateway de pagamento | 4–8h | Asaas (boleto/Pix/cartão, API BR) ou Stripe. Webhook existente, ativar botão "Assinar" na billing page. |
+| 3 | Backup diário | 1–2h | pg_dump → S3 via cron. Se DB managed, já incluso. |
+
+### Importantes mas não bloquantes (Média)
+
+| # | Item | Esforço | Observação |
+|---|------|---------|-----------|
+| 4 | Monitoramento | 1h | Sentry free tier + UptimeRobot free. |
+| 5 | Contrato / LGPD | 2–3h | Termos de uso + política de privacidade (template adaptado). Necessário antes de cobrar. |
+| 6 | Landing page completa | 4–6h | Estrutura pronta. Falta conteúdo real: screenshots, depoimentos, copy de vendas. |
+| 7 | Alerta de garantia | 2–3h | Campo garantiaDias no serviço, check ao abrir OS do mesmo veículo. |
+
+### Nice-to-have (Baixa)
+
+| # | Item | Esforço | Observação |
+|---|------|---------|-----------|
+| 8 | Exportar OS em lote CSV | 1–2h | Selecionar várias OS e exportar dados para planilha. |
+| 9 | NFC-e modelo 65 | 8–16h | Cupom fiscal. Sem demanda imediata. |
+
+### Sequência recomendada para go-live
+
+1. **Deploy** → colocar no ar (pode cobrar manual via Pix no 1º mês)
+2. **Monitoramento** → Sentry + Uptime antes de cliente real
+3. **Contrato/LGPD** → proteção jurídica mínima
+4. **Gateway pagamento** → automatizar cobrança (pode esperar ~30 dias)
+5. **Backup** → se DB managed já vem incluso; se VPS, configurar cron
 
 ---
 
