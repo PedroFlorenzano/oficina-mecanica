@@ -215,7 +215,7 @@ export default async function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div>
             <p className="text-sm text-slate-500">© 2026 Operare. Todos os direitos reservados.</p>
-            <p className="text-xs text-slate-400 mt-1">Paiffer Tecnologia — Sorocaba/SP</p>
+            <p className="text-xs text-slate-400 mt-1">DF Developer — Sorocaba/SP</p>
           </div>
           <div className="flex items-center gap-4 text-sm text-slate-500">
             <Link href="/login" className="hover:text-slate-700">Entrar</Link>
