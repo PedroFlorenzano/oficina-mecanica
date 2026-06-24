@@ -17,6 +17,12 @@ interface FiscalConfig {
   nextNfeNumber: number;
   nextNfseNumber: number;
   nfeCfop: string;
+  nfeIndPag: string;
+  nfeTpag: string;
+  nfeFinNFe: string;
+  nfeIndFinal: string;
+  nfeIndPres: string;
+  nfeTpEmis: string;
   emitLogradouro: string;
   emitNumero: string;
   emitBairro: string;
@@ -47,10 +53,57 @@ type TabId = typeof TABS[number]["id"];
 const DEFAULTS: FiscalConfig = {
   enabled: false, environment: "production", cnpj: "", inscricaoEstadual: "", inscricaoMunicipal: "",
   razaoSocial: "", cityCode: "3552205", nfeSeries: 1, nfseSeries: "U", nextNfeNumber: 1, nextNfseNumber: 1,
-  nfeCfop: "5405", emitLogradouro: "", emitNumero: "", emitBairro: "", emitCEP: "", cnae: "", codigoServico: "1401", codigoServicoMunicipal: "1401",
+  nfeCfop: "5405", nfeIndPag: "0", nfeTpag: "99", nfeFinNFe: "1", nfeIndFinal: "1", nfeIndPres: "1", nfeTpEmis: "1",
+  emitLogradouro: "", emitNumero: "", emitBairro: "", emitCEP: "", cnae: "", codigoServico: "1401", codigoServicoMunicipal: "1401",
   descricaoServico: "", aliquotaISS: 2.01, regimeEspecial: "1", regimeApuracao: "2",
   naturezaOperacao: "1", tipoRPS: "RPS", wsUsuario: "", wsSenha: "",
 };
+
+function InutilizacaoForm({ serie }: { serie: number }) {
+  const [ano, setAno] = useState(new Date().getFullYear());
+  const [numInicio, setNumInicio] = useState("");
+  const [numFim, setNumFim] = useState("");
+  const [justificativa, setJustificativa] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<string | null>(null);
+
+  const v = (setter: (s: string) => void) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setter(e.target.value);
+
+  const handleInutilizar = async () => {
+    if (!numInicio || !numFim || justificativa.length < 15) return;
+    setLoading(true); setResult(null);
+    try {
+      const res = await fetch("/api/fiscal/inutilizar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ano, serie, numInicio: Number(numInicio), numFim: Number(numFim), justificativa }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setResult(`❌ ${data.error || "Erro"}`); return; }
+      setResult(`✅ Inutilizado com sucesso. Protocolo: ${data.protocolNumber}`);
+      setNumInicio(""); setNumFim(""); setJustificativa("");
+    } catch { setResult("❌ Erro de conexão"); }
+    finally { setLoading(false); }
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Input label="Ano" type="number" value={ano} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setAno(Number(e.target.value))} />
+        <Input label="Série" value={String(serie)} onChange={() => {}} hint="(da config)" />
+        <Input label="Nº Início" type="number" value={numInicio} onChange={v(setNumInicio)} placeholder="1" />
+        <Input label="Nº Fim" type="number" value={numFim} onChange={v(setNumFim)} placeholder="10" />
+      </div>
+      <Input label="Justificativa" value={justificativa} onChange={v(setJustificativa)} placeholder="Mínimo 15 caracteres" hint={`${justificativa.length}/15`} />
+      <div className="flex items-center gap-3">
+        <Button type="button" variant="danger" onClick={handleInutilizar} loading={loading} disabled={!numInicio || !numFim || justificativa.length < 15}>
+          Inutilizar Faixa
+        </Button>
+        {result && <span className="text-sm">{result}</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function FiscalConfigPage() {
   const [config, setConfig] = useState<FiscalConfig>(DEFAULTS);
@@ -286,12 +339,59 @@ export default function FiscalConfigPage() {
               </fieldset>
 
               <fieldset className="border border-slate-200 rounded-lg p-4">
-                <legend className="text-sm font-semibold text-red-600 px-2">CFOP</legend>
+                <legend className="text-sm font-semibold text-red-600 px-2">CFOP e Ambiente</legend>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Input label="CFOP padrão" value={config.nfeCfop || ""} onChange={set("nfeCfop")} placeholder="5405" hint="Código Fiscal de Operação" />
                   <Select label="Ambiente" value={config.environment} onChange={set("environment")} options={[
                     { value: "production", label: "Produção" },
                     { value: "homologation", label: "Homologação (sem validade fiscal)" },
+                  ]} />
+                </div>
+              </fieldset>
+
+              <fieldset className="border border-slate-200 rounded-lg p-4">
+                <legend className="text-sm font-semibold text-red-600 px-2">Dados de Emissão</legend>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Select label="Forma de Pagamento" value={config.nfeIndPag || "0"} onChange={set("nfeIndPag")} options={[
+                    { value: "0", label: "0 - À Vista" },
+                    { value: "1", label: "1 - A Prazo" },
+                  ]} />
+                  <Select label="Meio de Pagamento" value={config.nfeTpag || "99"} onChange={set("nfeTpag")} options={[
+                    { value: "01", label: "01 - Dinheiro" },
+                    { value: "02", label: "02 - Cheque" },
+                    { value: "03", label: "03 - Cartão Crédito" },
+                    { value: "04", label: "04 - Cartão Débito" },
+                    { value: "05", label: "05 - Crédito Loja" },
+                    { value: "10", label: "10 - Vale Alimentação" },
+                    { value: "12", label: "12 - Crédito em Loja" },
+                    { value: "13", label: "13 - Vale Combustível" },
+                    { value: "15", label: "15 - Boleto Bancário" },
+                    { value: "16", label: "16 - Depósito Bancário" },
+                    { value: "17", label: "17 - PIX" },
+                    { value: "99", label: "99 - Outros" },
+                  ]} />
+                  <Select label="Consumidor Final" value={config.nfeIndFinal || "1"} onChange={set("nfeIndFinal")} options={[
+                    { value: "0", label: "0 - Normal (revenda)" },
+                    { value: "1", label: "1 - Consumidor Final" },
+                  ]} />
+                  <Select label="Finalidade NF-e" value={config.nfeFinNFe || "1"} onChange={set("nfeFinNFe")} options={[
+                    { value: "1", label: "1 - Normal" },
+                    { value: "2", label: "2 - Complementar" },
+                    { value: "3", label: "3 - Ajuste" },
+                    { value: "4", label: "4 - Devolução" },
+                  ]} />
+                  <Select label="Presença do Comprador" value={config.nfeIndPres || "1"} onChange={set("nfeIndPres")} options={[
+                    { value: "1", label: "1 - Presencial" },
+                    { value: "2", label: "2 - Internet" },
+                    { value: "3", label: "3 - Telemarketing" },
+                    { value: "4", label: "4 - Entrega a domicílio" },
+                    { value: "9", label: "9 - Outros" },
+                  ]} />
+                  <Select label="Tipo de Emissão" value={config.nfeTpEmis || "1"} onChange={set("nfeTpEmis")} options={[
+                    { value: "1", label: "1 - Normal" },
+                    { value: "6", label: "6 - SVC-AN" },
+                    { value: "7", label: "7 - SVC-RS" },
+                    { value: "9", label: "9 - Offline" },
                   ]} />
                 </div>
               </fieldset>
@@ -330,6 +430,12 @@ export default function FiscalConfigPage() {
               </label>
               <p className="text-xs text-slate-500 mt-1 ml-6">Quando habilitado, o sistema emite a nota fiscal automaticamente ao finalizar uma OS.</p>
             </div>
+
+            <fieldset className="border border-slate-200 rounded-lg p-4 mt-6">
+              <legend className="text-sm font-semibold text-red-600 px-2">Inutilização de NF-e</legend>
+              <p className="text-xs text-slate-500 mb-3">Inutilize números que não serão utilizados (quebra de sequência).</p>
+              <InutilizacaoForm serie={config.nfeSeries} />
+            </fieldset>
           </Card>
         )}
 

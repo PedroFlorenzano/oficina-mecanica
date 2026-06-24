@@ -1,0 +1,8 @@
+-- AlterTable
+ALTER TABLE "FiscalConfig" ADD COLUMN     "nfeFinNFe" TEXT DEFAULT '1',
+ADD COLUMN     "nfeIndFinal" TEXT DEFAULT '1',
+ADD COLUMN     "nfeIndPag" TEXT DEFAULT '0',
+ADD COLUMN     "nfeIndPres" TEXT DEFAULT '1',
+ADD COLUMN     "nfeTpEmis" TEXT DEFAULT '1',
+ADD COLUMN     "nfeTpag" TEXT DEFAULT '99',
+ALTER COLUMN "tipoRPS" SET DEFAULT 'RPS';

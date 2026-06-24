@@ -13,6 +13,13 @@ export interface NFeConfig {
     UF: string;
     CEP: string;
   };
+  // Dados de emissão configuráveis (defaults para oficina)
+  finNFe?: string;   // 1=Normal 2=Complementar 3=Ajuste 4=Devolução (default "1")
+  indFinal?: string; // 0=Normal 1=Consumidor Final (default "1")
+  indPres?: string;  // 1=Presencial 2=Internet 3=Telemarketing 9=Outros (default "1")
+  tpEmis?: string;   // 1=Normal 6=SVC-AN 7=SVC-RS 9=Offline (default "1")
+  tPag?: string;     // 01=Dinheiro 02=Cheque 03=CartaoCredito 04=CartaoDebito 05=CreditoLoja 15=Boleto 99=Outros (default "99")
+  indPag?: string;   // 0=À Vista 1=A Prazo (default "0")
 }
 
 /**
@@ -30,7 +37,7 @@ export class NFeXmlBuilder {
     const mod = "55";
     const serie = String(input.series).padStart(3, "0");
     const nNF = String(input.number).padStart(9, "0");
-    const tpEmis = "1"; // normal
+    const tpEmis = this.config.tpEmis || "1";
     const cnpj14 = input.cnpj.replace(/\D/g, "").padStart(14, "0");
 
     // Chave de acesso sem DV
@@ -79,12 +86,12 @@ export class NFeXmlBuilder {
       `<idDest>1</idDest>`,
       `<cMunFG>${this.config.cMunFG}</cMunFG>`,
       `<tpImp>1</tpImp>`,
-      `<tpEmis>1</tpEmis>`,
+      `<tpEmis>${this.config.tpEmis || "1"}</tpEmis>`,
       `<cDV>${cDV}</cDV>`,
       `<tpAmb>${this.config.tpAmb}</tpAmb>`,
-      `<finNFe>1</finNFe>`,
-      `<indFinal>1</indFinal>`,
-      `<indPres>1</indPres>`,
+      `<finNFe>${this.config.finNFe || "1"}</finNFe>`,
+      `<indFinal>${this.config.indFinal || "1"}</indFinal>`,
+      `<indPres>${this.config.indPres || "1"}</indPres>`,
       `<procEmi>0</procEmi>`,
       `<verProc>Operare1.0</verProc>`,
       `</ide>`,
@@ -194,7 +201,7 @@ export class NFeXmlBuilder {
   }
 
   private buildPag(vNF: number): string {
-    return `<pag><detPag><tPag>01</tPag><vPag>${vNF.toFixed(2)}</vPag></detPag></pag>`;
+    return `<pag><detPag><indPag>${this.config.indPag || "0"}</indPag><tPag>${this.config.tPag || "99"}</tPag><vPag>${vNF.toFixed(2)}</vPag></detPag></pag>`;
   }
 
   private buildInfAdic(): string {

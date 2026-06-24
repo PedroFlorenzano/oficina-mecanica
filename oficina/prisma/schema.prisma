@@ -448,6 +448,12 @@ model FiscalConfig {
   cityCode            String?  // IBGE city code
   // NF-e
   nfeCfop             String?  @default("5405")
+  nfeIndPag           String?  @default("0")  // 0=À Vista 1=A Prazo
+  nfeTpag             String?  @default("99") // 01=Dinheiro 03=CartaoCredito 04=CartaoDebito 15=Boleto 99=Outros
+  nfeFinNFe           String?  @default("1")  // 1=Normal 2=Complementar 3=Ajuste 4=Devolução
+  nfeIndFinal         String?  @default("1")  // 0=Normal 1=Consumidor Final
+  nfeIndPres          String?  @default("1")  // 1=Presencial 2=Internet 9=Outros
+  nfeTpEmis           String?  @default("1")  // 1=Normal 6=SVC-AN 7=SVC-RS
   // Endereço do emitente (NF-e exige estruturado)
   emitLogradouro      String?
   emitNumero          String?
@@ -462,7 +468,7 @@ model FiscalConfig {
   regimeEspecial      String?  @default("1") // 1-Microempresa, 2-Estimativa, 3-Soc.Profissionais, 4-Cooperativa, 6-MEI
   regimeApuracao      String?  @default("2") // 1-Normal, 2-Simples Nacional
   naturezaOperacao    String?  @default("1") // 1-Tributação no município
-  tipoRPS             String?  @default("1") // 1-RPS
+  tipoRPS             String?  @default("RPS") // RPS, RPS-M, RPS-C
   // WebService NFS-e
   wsUsuario           String?
   wsSenha             String?

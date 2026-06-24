@@ -15,6 +15,12 @@ export interface FiscalConfigData {
   nextNfseNumber: number;
   cityCode: string | null;
   nfeCfop: string | null;
+  nfeIndPag: string | null;
+  nfeTpag: string | null;
+  nfeFinNFe: string | null;
+  nfeIndFinal: string | null;
+  nfeIndPres: string | null;
+  nfeTpEmis: string | null;
   emitLogradouro: string | null;
   emitNumero: string | null;
   emitBairro: string | null;

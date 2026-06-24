@@ -46,6 +46,7 @@ export function createFiscalAdapter(config: FiscalConfigData, type?: "NFE" | "NF
       codigoServico: config.codigoServico || "1401",
       aliquotaISS: config.aliquotaISS || 5,
       serie: config.nfseSeries || "U",
+      tipoRPS: config.tipoRPS || "RPS",
       wsUsuario: config.wsUsuario || undefined,
       wsSenha: config.wsSenha || undefined,
       // Dados do município (do catálogo)
@@ -76,6 +77,12 @@ export function createFiscalAdapter(config: FiscalConfigData, type?: "NFE" | "NF
       UF: UF_FROM_IBGE[cUF] || "SP",
       CEP: config.emitCEP || "",
     },
+    finNFe: config.nfeFinNFe || "1",
+    indFinal: config.nfeIndFinal || "1",
+    indPres: config.nfeIndPres || "1",
+    tpEmis: config.nfeTpEmis || "1",
+    tPag: config.nfeTpag || "99",
+    indPag: config.nfeIndPag || "0",
   };
   return new SefazNFeAdapter(adapterConfig);
 }

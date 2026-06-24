@@ -17,6 +17,7 @@ export interface SorocabaNFSeConfig {
   codigoServico: string;   // ex: "1401" (LC 116 item 14.01)
   aliquotaISS: number;     // ex: 2.01
   serie: string;           // ex: "U"
+  tipoRPS: string;       // ex: "RPS", "RPS-M", "RPS-C"
   wsUsuario?: string;
   wsSenha?: string;
   // Dados do município (catálogo DSF)
@@ -182,7 +183,7 @@ export class SorocabaNFSeAdapter implements IFiscalAdapter {
       `<Assinatura>${hashStr}</Assinatura>`,
       `<InscricaoMunicipalPrestador>${this.config.inscricaoMunicipal}</InscricaoMunicipalPrestador>`,
       `<RazaoSocialPrestador>${this.escapeXml(this.config.razaoSocial)}</RazaoSocialPrestador>`,
-      `<TipoRPS>RPS</TipoRPS>`,
+      `<TipoRPS>${this.config.tipoRPS}</TipoRPS>`,
       `<SerieRPS>${this.config.serie}</SerieRPS>`,
       `<NumeroRPS>${input.number}</NumeroRPS>`,
       `<DataEmissaoRPS>${dtEmissao}</DataEmissaoRPS>`,

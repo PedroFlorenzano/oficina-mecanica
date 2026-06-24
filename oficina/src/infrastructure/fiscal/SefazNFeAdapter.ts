@@ -11,11 +11,13 @@ const SEFAZ_SP = {
     autorizacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
     retAutorizacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nferetautorizacao4.asmx",
     evento: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
+    inutilizacao: "https://homologacao.nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx",
   },
   producao: {
     autorizacao: "https://nfe.fazenda.sp.gov.br/ws/nfeautorizacao4.asmx",
     retAutorizacao: "https://nfe.fazenda.sp.gov.br/ws/nferetautorizacao4.asmx",
     evento: "https://nfe.fazenda.sp.gov.br/ws/nferecepcaoevento4.asmx",
+    inutilizacao: "https://nfe.fazenda.sp.gov.br/ws/nfeinutilizacao4.asmx",
   },
 };
 
@@ -26,6 +28,13 @@ export interface SefazAdapterConfig {
   cUF: string;
   cMunFG: string;
   enderEmit: NFeConfig["enderEmit"];
+  // Dados de emissão configuráveis
+  finNFe?: string;
+  indFinal?: string;
+  indPres?: string;
+  tpEmis?: string;
+  tPag?: string;
+  indPag?: string;
 }
 
 export class SefazNFeAdapter implements IFiscalAdapter {
@@ -49,6 +58,12 @@ export class SefazNFeAdapter implements IFiscalAdapter {
       cUF: this.config.cUF,
       cMunFG: this.config.cMunFG,
       enderEmit: this.config.enderEmit,
+      finNFe: this.config.finNFe,
+      indFinal: this.config.indFinal,
+      indPres: this.config.indPres,
+      tpEmis: this.config.tpEmis,
+      tPag: this.config.tPag,
+      indPag: this.config.indPag,
     };
 
     const builder = new NFeXmlBuilder(nfeConfig);
@@ -175,6 +190,61 @@ export class SefazNFeAdapter implements IFiscalAdapter {
     }
 
     throw new Error(`Erro no cancelamento: ${JSON.stringify(retEvento).substring(0, 300)}`);
+  }
+
+  async inutilizar(ano: number, serie: number, numInicio: number, numFim: number, justificativa: string): Promise<{ protocolNumber: string; xmlContent: string }> {
+    const certData = this.certManager.getCertificateData();
+    const signer = new XmlSigner(certData);
+    const cnpj = (certData.cnpj || "").padStart(14, "0");
+    const cUF = this.config.cUF;
+    const anoStr = String(ano).slice(-2);
+    const serieStr = String(serie).padStart(3, "0");
+    const nIni = String(numInicio).padStart(9, "0");
+    const nFin = String(numFim).padStart(9, "0");
+    const inutId = `ID${cUF}${anoStr}${cnpj}55${serieStr}${nIni}${nFin}`;
+
+    const infInut = [
+      `<infInut Id="${inutId}">`,
+      `<tpAmb>${this.config.tpAmb}</tpAmb>`,
+      `<xServ>INUTILIZAR</xServ>`,
+      `<cUF>${cUF}</cUF>`,
+      `<ano>${anoStr}</ano>`,
+      `<CNPJ>${cnpj}</CNPJ>`,
+      `<mod>55</mod>`,
+      `<serie>${serie}</serie>`,
+      `<nNFIni>${numInicio}</nNFIni>`,
+      `<nNFFin>${numFim}</nNFFin>`,
+      `<xJust>${justificativa}</xJust>`,
+      `</infInut>`,
+    ].join("");
+
+    const inutNFe = `<inutNFe xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">${infInut}</inutNFe>`;
+    const signedXml = signer.signInut(inutNFe, inutId);
+
+    const soapBody = this.buildSoapEnvelope("nfeInutilizacaoNF", signedXml);
+    const endpoints = this.config.tpAmb === 2 ? SEFAZ_SP.homologacao : SEFAZ_SP.producao;
+    const response = await this.sendSoap(endpoints.inutilizacao, soapBody, "nfeInutilizacaoNF");
+
+    const parsed = this.parser.parse(response);
+    const retInutNFe = this.extractFromSoap(parsed, "retInutNFe");
+
+    if (!retInutNFe) {
+      throw new Error(`Resposta inesperada da SEFAZ (inutilização): ${response.substring(0, 500)}`);
+    }
+
+    const infInutResp = retInutNFe.infInut as Record<string, unknown> | undefined;
+    if (infInutResp) {
+      const cStat = String(infInutResp.cStat);
+      if (cStat === "102") {
+        return {
+          protocolNumber: String(infInutResp.nProt || ""),
+          xmlContent: signedXml,
+        };
+      }
+      throw new Error(getSefazRejeicaoMessage(cStat, String(infInutResp.xMotivo)));
+    }
+
+    throw new Error(`Erro na inutilização: ${JSON.stringify(retInutNFe).substring(0, 300)}`);
   }
 
   private buildSoapEnvelope(action: string, content: string): string {
