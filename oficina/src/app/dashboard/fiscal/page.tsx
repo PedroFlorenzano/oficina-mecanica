@@ -118,11 +118,13 @@ export default function FiscalConfigPage() {
   const [certInfo, setCertInfo] = useState<{ cnpj: string; notAfter: string; subject: string } | null>(null);
   const [certMessage, setCertMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [sefazStatus, setSefazStatus] = useState<{ online: boolean | null; motivo: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/fiscal/config").then(r => r.json()).then(d => {
       if (d.cnpj !== undefined) setConfig({ ...DEFAULTS, ...d });
     }).finally(() => setLoading(false));
+    fetch("/api/fiscal/status").then(r => r.json()).then(setSefazStatus).catch(() => {});
   }, []);
 
   const handleSave = async (e: React.FormEvent) => {
@@ -174,7 +176,14 @@ export default function FiscalConfigPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Configuração Fiscal" description="NF-e e NFS-e — certificado, dados fiscais e controle de numeração" />
+      <PageHeader title="Configuração Fiscal" description="NF-e e NFS-e — certificado, dados fiscais e controle de numeração" action={
+        sefazStatus ? (
+          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${sefazStatus.online === true ? "bg-green-100 text-green-700" : sefazStatus.online === false ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-600"}`}>
+            <span className={`w-2 h-2 rounded-full ${sefazStatus.online === true ? "bg-green-500" : sefazStatus.online === false ? "bg-red-500" : "bg-gray-400"}`} />
+            SEFAZ: {sefazStatus.online === true ? "Operacional" : sefazStatus.online === false ? "Indisponível" : "N/A"}
+          </span>
+        ) : undefined
+      } />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-slate-200">

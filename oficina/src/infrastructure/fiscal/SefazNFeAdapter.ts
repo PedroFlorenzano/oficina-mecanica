@@ -193,6 +193,36 @@ export class SefazNFeAdapter implements IFiscalAdapter {
     throw new Error(`Erro no cancelamento: ${JSON.stringify(retEvento).substring(0, 300)}`);
   }
 
+  async consultarStatus(): Promise<{ online: boolean; motivo: string; tempoMedio?: string }> {
+    const certData = this.certManager.getCertificateData();
+    const consStatServ = [
+      `<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">`,
+      `<tpAmb>${this.config.tpAmb}</tpAmb>`,
+      `<cUF>${this.config.cUF}</cUF>`,
+      `<xServ>STATUS</xServ>`,
+      `</consStatServ>`,
+    ].join("");
+
+    const soapBody = this.buildSoapEnvelope("nfeStatusServicoNF", consStatServ);
+    const endpoints = this.config.tpAmb === 2 ? SEFAZ_SP.homologacao : SEFAZ_SP.producao;
+    const statusUrl = endpoints.autorizacao.replace("nfeautorizacao4", "nfestatusservico4");
+
+    try {
+      const response = await this.sendSoap(statusUrl, soapBody, "nfeStatusServicoNF");
+      const parsed = this.parser.parse(response);
+      const retConsStatServ = this.extractFromSoap(parsed, "retConsStatServ");
+      if (!retConsStatServ) return { online: false, motivo: "Resposta inesperada" };
+
+      const cStat = String(retConsStatServ.cStat || "");
+      const xMotivo = String(retConsStatServ.xMotivo || "");
+      const tMed = retConsStatServ.tMed ? String(retConsStatServ.tMed) : undefined;
+
+      return { online: cStat === "107", motivo: xMotivo, tempoMedio: tMed };
+    } catch (err) {
+      return { online: false, motivo: String(err instanceof Error ? err.message : err) };
+    }
+  }
+
   async cartaCorrecao(accessKey: string, correcao: string, nSeqEvento?: number): Promise<{ protocolNumber: string; xmlContent: string }> {
     const certData = this.certManager.getCertificateData();
     const signer = new XmlSigner(certData);
