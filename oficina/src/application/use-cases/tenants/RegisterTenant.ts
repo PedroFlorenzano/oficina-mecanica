@@ -51,9 +51,20 @@ export class RegisterTenant {
     const trialExpires = new Date();
     trialExpires.setDate(trialExpires.getDate() + 15);
 
+    // Generate slug from office name
+    const baseSlug = input.officeName.trim().toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").substring(0, 30);
+    let slug = baseSlug;
+    let suffix = 1;
+    while (await this.db.tenant.findUnique({ where: { slug } })) {
+      slug = `${baseSlug}-${suffix++}`;
+    }
+
     const tenant = await this.db.tenant.create({
       data: {
         name: input.officeName.trim(),
+        slug,
         cnpj: cnpj.toString(),
         phone: input.phone?.trim() || null,
         address: input.address?.trim() || null,

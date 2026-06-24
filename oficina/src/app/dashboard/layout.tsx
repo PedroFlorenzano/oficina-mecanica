@@ -6,6 +6,8 @@ import LogoutButton from "@/components/LogoutButton";
 import RemountOnNavigate from "@/components/RemountOnNavigate";
 import GlobalSearch from "@/components/GlobalSearch";
 import NotificationBell from "@/components/NotificationBell";
+import { SupportButton } from "@/components/SupportButton";
+import { TrialBanner } from "@/components/TrialBanner";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -63,12 +65,14 @@ export default async function DashboardLayout({
         {/* Content */}
         <main className="flex-1 p-6 overflow-auto">
           <div className="max-w-7xl mx-auto">
+            <TrialBanner />
             <RemountOnNavigate>
               {children}
             </RemountOnNavigate>
           </div>
         </main>
       </div>
+      <SupportButton />
     </div>
   );
 }

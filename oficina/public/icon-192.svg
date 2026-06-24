@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
   <rect width="192" height="192" rx="32" fill="#2563eb"/>
-  <text x="96" y="120" font-size="80" font-family="sans-serif" font-weight="bold" fill="white" text-anchor="middle">O</text>
+  <circle cx="96" cy="96" r="52" stroke="#ffffff" stroke-width="12" fill="none"/>
+  <circle cx="96" cy="96" r="20" fill="#ffffff" opacity="0.3"/>
 </svg>

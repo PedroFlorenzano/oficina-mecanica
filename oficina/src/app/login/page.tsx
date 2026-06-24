@@ -2,10 +2,19 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
 import LoginForm from "@/components/LoginForm";
+import { prismaAdmin } from "@/infrastructure/database/prisma";
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ tenant?: string }> }) {
   const session = await getServerSession(authOptions);
   if (session) redirect("/dashboard");
+
+  const params = await searchParams;
+  const tenantSlug = params.tenant;
+  let tenantName: string | null = null;
+  if (tenantSlug) {
+    const t = await prismaAdmin.tenant.findUnique({ where: { slug: tenantSlug }, select: { name: true } });
+    tenantName = t?.name || null;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
@@ -34,7 +43,9 @@ export default async function LoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-bold text-slate-800">Operare</h1>
-          <p className="text-slate-500 text-sm mt-1">Sistema de Gestão para Oficinas</p>
+          <p className="text-slate-500 text-sm mt-1">
+            {tenantName ? tenantName : "Sistema de Gestão para Oficinas"}
+          </p>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
           <LoginForm />

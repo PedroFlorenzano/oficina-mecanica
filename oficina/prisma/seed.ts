@@ -34,10 +34,10 @@ async function main() {
   await prisma.tenant.deleteMany();
 
   // Tenant 1: Paiffer Bosch Car Service (piloto real)
-  const tenant1 = await prisma.tenant.create({ data: { id: "tenant-paiffer", name: "Paiffer Bosch Car Service Peugeot", cnpj: "12345678000199", phone: "(15) 3456-7890", address: "Rua das Oficinas, 100 - Sorocaba/SP" } });
+  const tenant1 = await prisma.tenant.create({ data: { id: "tenant-paiffer", name: "Paiffer Bosch Car Service Peugeot", slug: "paiffer", cnpj: "12345678000199", phone: "(15) 3456-7890", address: "Rua das Oficinas, 100 - Sorocaba/SP" } });
 
   // Tenant 2: Oficina Demo (dados sobrepostos para validar RLS)
-  const tenant2 = await prisma.tenant.create({ data: { id: "tenant-demo", name: "Oficina Demo Ltda", cnpj: "98765432000188", phone: "(11) 9999-8888", address: "Av. Paulista, 1000 - São Paulo/SP" } });
+  const tenant2 = await prisma.tenant.create({ data: { id: "tenant-demo", name: "Oficina Demo Ltda", slug: "demo", cnpj: "98765432000188", phone: "(11) 9999-8888", address: "Av. Paulista, 1000 - São Paulo/SP" } });
 
   // Usuários
   await prisma.user.create({ data: { id: "user-admin-1", email: "admin@paiffer.com", password: passwordHash, name: "Administrador", role: "ADMIN", tenantId: tenant1.id } });
