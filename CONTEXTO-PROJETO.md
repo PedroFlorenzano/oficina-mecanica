@@ -2035,3 +2035,145 @@ A oficina Paiffer e futuros clientes emitem **NFS-e** (serviços) pela Prefeitur
 - Exigibilidade: Exigível
 
 *Última atualização: 23/06/2026 — NF-e adapter real implementado e validado contra SEFAZ-SP homologação.*
+
+
+---
+
+## Comparação: Odin/Syscar vs Operare (análise 23/06/2026)
+
+Referência: sistema Odin (odin.syscar.com.br) da Orion Cloud, usado pela oficina Paiffer atualmente para emitir NF-e e NFS-e. Objetivo: copiar tudo que funciona e MELHORAR.
+
+### Dados reais da Paiffer (referência, NÃO usar em testes):
+- CNPJ: 54.649.475/0001-32 (M.G.A. PAIFFER LTDA)
+- IM: 429689 | CNAE: 452000100
+- Certificado: e-CNPJ A1, válido até 13/04/2027
+- Série NFS-e: U | Última numeração: 252
+- Código Serviço LC116: 1401 | Municipal: 1401
+- Alíquota ISS: 2.01% | Regime: Microempresa Municipal / Simples Nacional
+- WebService: Usuário "mayra", Modelo Nacional: Não (DSF)
+
+### Emissão NF-e (Screenshot 1)
+
+| Campo Syscar | Temos? | Onde |
+|---|---|---|
+| Estado: SP | ✅ | Derivado do cityCode |
+| Ambiente: Produção | ✅ | Tab NF-e → Select Ambiente |
+| Status da Sefaz: Serviço em Operação | ❌ | Não temos verificação de status SEFAZ |
+| Status do Certificado: Válido | ✅ | Tab Certificado → feedback visual |
+| Dias para Expirar: 295 | ✅ | Mostrado após upload |
+| Tipo Operação: Entrada/Saída | ❌ | Não temos (fixamos Saída) |
+| Número/Série/Chave da nota | ✅ | Tab Controle → numeração |
+| Vínculo: Ordem de Serviço + Número | ✅ | Já vinculamos invoice à OS |
+| CFOP + Natureza da Operação | ✅ | Tab NF-e → campo CFOP |
+| Filial: PAIFFER - 54.649.475/0001-32 | ✅ | Tab NF-e → CNPJ |
+| Datas (Criação, Envio, Emissão, Saída) | ✅ | Gerados automaticamente na emissão |
+| Dados de Emissão (Forma Pgto, Meio Pgto, Consumidor Final, Finalidade, Presença, Tipo Emissão) | ❌ | Não configuráveis |
+| Localizar Destinatário | ✅ | Feito automaticamente pela OS (cliente) |
+
+### Emissão NFS-e (Screenshots 2-3)
+
+| Campo Syscar | Temos? | Onde |
+|---|---|---|
+| Prefeitura: SOROCABA | ✅ | cityCode → derivado |
+| Ambiente / Status Certificado / Dias | ✅ | Tab Certificado |
+| Número/Série/Lote | ✅ | Tab Controle |
+| Vínculo: Ordem de Serviço | ✅ | Automático |
+| Natureza da Operação: 1 - Tributação no Município | ✅ | Tab NFS-e → Select |
+| Tipo RPS: 1 - Recibo Provisório de Serviços | ✅ | Tab NFS-e → Select |
+| Filial | ✅ | CNPJ + Razão Social |
+| Datas | ✅ | Automáticas |
+| Destinatário (Nome, CPF/CNPJ, IM, IE, Tel, Email, CEP, Endereço...) | ✅ | Puxado do cadastro do cliente |
+| Campos endereço tomador completos | ⚠️ | Temos no cadastro de clientes, mas o adapter passa vazio |
+| Botão "Salvar NFSe" | ✅ | Temos botão "Emitir NFS-e" na OS |
+
+### Menu Nota Fiscal (Screenshot 4)
+
+| Item Syscar | Temos? | Onde |
+|---|---|---|
+| Consultar NF-e | ✅ | Página de notas fiscais |
+| Consultar NFS-e | ✅ | Mesma página com filtro |
+| Consultar NFC-e (Cupom Fiscal) | ❌ | Não implementado |
+| Emitir NF-e | ✅ | Via OS → Emitir nota |
+| Emitir NFS-e | ✅ | Via OS → Emitir nota |
+| Inutilizar NF-e | ❌ | Não implementado |
+| NF-e p/ Contador | ❌ | Não implementado |
+| NFS-e p/ Contador | ❌ | Não implementado |
+| NFC-e p/ Contador | ❌ | Não implementado |
+| CFOPs | ❌ | Não temos cadastro de CFOPs |
+| Relatórios | ⚠️ | Temos relatórios financeiros, mas não fiscais específicos |
+
+### Certificado Digital (Screenshot 5)
+
+| Campo Syscar | Temos? | Onde |
+|---|---|---|
+| Status do Certificado: Válido | ✅ | Feedback após upload |
+| Certificado Emitido Para | ✅ | Retornado na validação |
+| Data Início / Hora | ⚠️ | Temos notAfter, falta notBefore |
+| Dias para Expiração | ✅ | Calculável do notAfter |
+| Data/Hora Expiração | ✅ | notAfter |
+| País/Órgão/Estado/Cidade | ❌ | Não exibimos esses dados |
+| Secretaria | ❌ | Não exibimos |
+| Tipo: RFB e-CNPJ A1 | ⚠️ | Não exibimos tipo explícito |
+| Órgão Autenticação | ❌ | Não exibimos |
+| E-mail Registrado | ❌ | Não exibimos |
+| Upload PFX + Senha + Enviar | ✅ | Tab Certificado |
+
+### Configurações NFS-e (Screenshots 6-7)
+
+| Campo Syscar | Temos? | Onde |
+|---|---|---|
+| Prefeitura: Sorocaba - SP | ✅ | cityCode |
+| Inscrição Municipal: 429689 | ✅ | campo inscricaoMunicipal |
+| CNAE: 452000100 | ✅ | campo cnae |
+| Regime Especial: 1 - Microempresa Municipal | ✅ | Select regimeEspecial |
+| Regime Apuração: 2 - Simples Nacional | ✅ | Select regimeApuracao |
+| Incentivador Cultural: 2 - Não | ❌ | Não temos |
+| Alíquota ISS: 2.01 | ✅ | campo aliquotaISS |
+| Percentual Total Aproximado Simples Nacional | ❌ | Não temos |
+| Código Contribuinte | ❌ | Não temos |
+| NBS | ❌ | Não temos (campo vazio no Syscar tbm) |
+| Código Serviço LC 116: 1401 | ✅ | campo codigoServico |
+| Código Serviço Próprio Município: 1401 | ✅ | campo codigoServicoMunicipal |
+| Código de Serviço Nacional | ❌ | Não temos (vazio no Syscar) |
+| Descrição do Serviço | ✅ | textarea descricaoServico |
+| CST IBS/CBS | ❌ | Não temos (novo - Reforma Tributária) |
+| Classificação Tributária IBS/CBS | ❌ | Não temos |
+| Código Crédito Presumido IBS/CBS | ❌ | Não temos |
+| Código Indicador Operação IBS/CBS | ❌ | Não temos |
+| Alíquotas IBS/CBS | ❌ | Não temos |
+| Alíquotas IBPT | ❌ | Não temos |
+| Série: U | ✅ | Tab Controle → NFS-e Série |
+| Última Numeração: 252 | ✅ | nextNfseNumber - 1 |
+| Próxima Numeração: 253 | ✅ | campo nextNfseNumber |
+| Modelo Nacional: Não | ⚠️ | Não temos esse toggle (hardcoded DSF) |
+| Usuário WebService: mayra | ✅ | campo wsUsuario |
+| Senha WebService | ✅ | campo wsSenha |
+| Código Contrib. Webservice | ❌ | Não temos |
+
+### Pendências importantes (afetam funcionalidade)
+
+1. ❌ Endereço completo do tomador no adapter NFS-e (dados existem no cadastro de clientes, não são passados ao RPS)
+2. ❌ Inutilização de NF-e
+3. ❌ Toggle "Modelo Nacional: Sim/Não" para cidades que migraram ao padrão nacional
+4. ❌ Código Contribuinte Webservice
+5. ❌ Dados de Emissão NF-e configuráveis (Forma Pgto, Meio Pgto, Consumidor Final, etc.)
+
+### Pendências nice-to-have (melhorias)
+
+6. ❌ Status da SEFAZ em tempo real
+7. ❌ Dados completos do certificado (emissor, país, órgão, email)
+8. ❌ Campos IBS/CBS (Reforma Tributária 2026 — ainda não obrigatório para oficinas)
+9. ❌ NFC-e (cupom fiscal)
+10. ❌ Exportação XML em lote para contador
+11. ❌ Cadastro de CFOPs
+12. ❌ Relatórios fiscais específicos
+
+### Nosso diferencial sobre o Syscar
+
+- Emissão automática ao fechar OS (sem preencher manualmente)
+- Dados do tomador preenchidos automaticamente do cadastro de clientes
+- UI moderna com abas (não página gigante com scroll)
+- Multi-tenant nativo (cada oficina tem sua config isolada)
+- Vinculação direta OS ↔ Nota Fiscal (rastreabilidade completa)
+
+*Última atualização: 23/06/2026 — Comparação com Odin/Syscar documentada.*
