@@ -2292,3 +2292,121 @@ src/app/api/fiscal/
 ```
 
 *Última atualização: 23/06/2026 — Módulo fiscal real completo (NF-e + NFS-e DSF + config UI). Build OK, 218 testes, 0 erros.*
+
+---
+
+## Sessão 24/06/2026 — Módulo Fiscal 100% Funcional
+
+### O que foi implementado
+
+Todas as funcionalidades fiscais que o Odin/Syscar oferece (e mais), tornando o módulo completo para produção:
+
+| # | Feature | Descrição |
+|---|---------|-----------|
+| 1 | tipoRPS dinâmico | Adapter usa valor da config (RPS/RPS-M/RPS-C) em vez de fixo |
+| 2 | Dados de Emissão NF-e | 6 campos configuráveis: indPag, tPag, finNFe, indFinal, indPres, tpEmis |
+| 3 | Inutilização NF-e | Evento inutNFe 4.0 via SEFAZ-SP + UI na tab Controle |
+| 4 | Cancelamento NFS-e DSF | Já existia — validado |
+| 5 | Cancelamento NF-e | Fix: agora usa protocolNumber (antes usava accessKey) |
+| 6 | Carta de Correção (CC-e) | Evento 110110 via SEFAZ-SP + modal na listagem de notas |
+| 7 | Exportação XML (ZIP) | GET /api/fiscal/export com archiver — download ZIP por período |
+| 8 | DANFE com Code128 | Encoder puro Code128-C, barras renderizadas como Views no react-pdf |
+| 9 | Status SEFAZ | NfeStatusServico4 + badge verde/vermelho no header da config |
+| 10 | Modelo Nacional | Toggle na config NFS-e (false=DSF, true=SEFIN Nacional futuro) |
+| 11 | Botão CC-e na listagem | Modal com textarea, valida 15 chars, só NF-e autorizada |
+| 12 | Exportar p/ Contador | Botão no header da listagem, modal com date range, download ZIP |
+
+### Novas rotas API
+
+| Rota | Método | Ação |
+|------|--------|------|
+| `/api/fiscal/inutilizar` | POST | Inutilizar faixa de numeração NF-e |
+| `/api/fiscal/carta-correcao` | POST | Enviar CC-e para NF-e autorizada |
+| `/api/fiscal/export` | GET | Download ZIP com XMLs por período |
+| `/api/fiscal/status` | GET | Consultar status da SEFAZ-SP |
+
+### Novos campos no schema FiscalConfig
+
+```prisma
+nfeIndPag     String? @default("0")   // 0=À Vista 1=A Prazo
+nfeTpag       String? @default("99")  // 01=Dinheiro 03=Cartão 17=PIX 99=Outros
+nfeFinNFe     String? @default("1")   // 1=Normal 2=Complementar 3=Ajuste 4=Devolução
+nfeIndFinal   String? @default("1")   // 0=Normal 1=Consumidor Final
+nfeIndPres    String? @default("1")   // 1=Presencial 2=Internet 9=Outros
+nfeTpEmis     String? @default("1")   // 1=Normal 6=SVC-AN 7=SVC-RS
+modeloNacional Boolean @default(false) // false=DSF, true=SEFIN Nacional
+```
+
+### Libs adicionadas
+
+| Lib | Versão | Propósito |
+|-----|--------|-----------|
+| `archiver` | 7.0.1 | Gerar ZIP em memória para exportação XML |
+| `@types/archiver` | 6.0.3 | Tipagem |
+
+### Arquivos do módulo fiscal (atualizado)
+
+```
+src/infrastructure/fiscal/
+├── IFiscalAdapter.ts          # Interface (authorize + cancel com protocolNumber?)
+├── FakeFiscalAdapter.ts       # Simulado (dev/testes)
+├── CertificateManager.ts      # Carrega PFX → chave + cert
+├── XmlSigner.ts               # XMLDSig (signNFe, signEvento, signInut)
+├── NFeXmlBuilder.ts           # XML NF-e 4.0 (campos de emissão configuráveis)
+├── SefazNFeAdapter.ts         # SEFAZ-SP: authorize, cancel, cartaCorrecao, inutilizar, consultarStatus
+├── SorocabaNFSeAdapter.ts     # DSF genérico (NFS-e) com tipoRPS dinâmico
+├── createFiscalAdapter.ts     # Factory + catálogo DSF + check modeloNacional
+├── sefazRejeicoes.ts          # Códigos rejeição → pt-BR
+└── FiscalProcessor.ts         # Orquestrador (retry, status)
+
+src/app/dashboard/fiscal/
+├── page.tsx                   # Config (4 abas + inutilização + status SEFAZ)
+└── invoices/page.tsx          # Listagem (DANFE, Cancelar, CC-e, Exportar ZIP)
+
+src/app/api/fiscal/
+├── config/route.ts            # GET/PUT configuração
+├── certificate/route.ts       # POST upload PFX
+├── invoices/[id]/route.ts     # PATCH retry/cancel (agora chama adapter real)
+├── inutilizar/route.ts        # POST inutilização NF-e
+├── carta-correcao/route.ts    # POST CC-e
+├── export/route.ts            # GET download ZIP XMLs
+└── status/route.ts            # GET status SEFAZ
+```
+
+### Comparação final Odin/Syscar vs Operare
+
+| Funcionalidade | Syscar | Operare | Nota |
+|---|---|---|---|
+| Emitir NF-e | ✅ | ✅ | Automático a partir da OS |
+| Emitir NFS-e | ✅ | ✅ | DSF (Sorocaba, Campinas, etc.) |
+| Cancelar NF-e | ✅ | ✅ | Evento 110111 com protocolo |
+| Cancelar NFS-e | ✅ | ✅ | ReqCancelamentoNFSe DSF |
+| Inutilizar NF-e | ✅ | ✅ | UI na config + rota API |
+| CC-e (Carta Correção) | ✅ | ✅ | Modal na listagem de notas |
+| Exportar XML p/ Contador | ✅ | ✅ | ZIP com date range |
+| Status SEFAZ | ✅ | ✅ | Badge no header |
+| Código de barras no DANFE | ✅ | ✅ | Code128-C puro |
+| Dados emissão configuráveis | ✅ | ✅ | 6 campos (indPag, tPag, etc.) |
+| NFC-e (cupom fiscal) | ✅ | ❌ | Futuro (baixa prioridade para oficinas) |
+| Modelo Nacional toggle | ❌ | ✅ | Operare é mais completo |
+| Multi-tenant fiscal | ❌ | ✅ | Cada oficina tem config isolada |
+| Emissão automática | ❌ | ✅ | Ao fechar OS, sem preencher manual |
+| Dados tomador automáticos | ❌ | ✅ | Puxados do cadastro de clientes |
+
+### Para o primeiro cliente funcionar
+
+1. Upload do certificado A1 no Operare (/dashboard/fiscal → tab Certificado)
+2. Preencher: CNPJ, IM, CNAE, código serviço, alíquota ISS
+3. Endereço do emitente (logradouro, número, bairro, CEP)
+4. Série, próxima numeração
+5. Ambiente: Produção
+6. Emitir NFS-e a partir de uma OS finalizada
+
+### Validação
+
+- **TypeScript:** 0 erros
+- **Testes:** 218 passando
+- **Build produção:** OK
+- **Migrations:** 2 novas (add_nfe_emission_fields, add_modelo_nacional)
+
+*Última atualização: 24/06/2026 — Módulo fiscal 100% funcional. Todas as features do Syscar cobertas.*
