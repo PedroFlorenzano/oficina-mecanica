@@ -19,6 +19,7 @@ import {
   FileText,
   CalendarDays,
   Settings,
+  CreditCard,
 } from "lucide-react";
 
 import {
@@ -168,7 +169,10 @@ export default function Sidebar({ role, customPermissions }: SidebarProps) {
           </p>
           <div className="space-y-1">
             {role === "ADMIN" && (
-              <NavItem href="/dashboard/users" label="Usuários" icon={UserCog} />
+              <>
+                <NavItem href="/dashboard/users" label="Usuários" icon={UserCog} />
+                <NavItem href="/dashboard/billing" label="Assinatura" icon={CreditCard} />
+              </>
             )}
             <NavItem href="/dashboard/profile" label="Meu Perfil" icon={User} />
           </div>

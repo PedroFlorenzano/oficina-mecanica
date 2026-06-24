@@ -11,12 +11,18 @@ interface BillingData {
   billingStatus: string;
 }
 
-const PLANS: Record<string, { label: string; price: string; features: string[] }> = {
-  trial: { label: "Teste Gratuito", price: "R$ 0", features: ["15 dias de acesso", "Todos os módulos", "Suporte por WhatsApp"] },
-  basic: { label: "Básico", price: "R$ 149/mês", features: ["Clientes e veículos", "Ordens de serviço", "Estoque", "1 usuário"] },
-  professional: { label: "Profissional", price: "R$ 299/mês", features: ["Tudo do Básico", "NF-e e NFS-e", "WhatsApp", "Comissões", "5 usuários"] },
-  enterprise: { label: "Enterprise", price: "Sob consulta", features: ["Tudo do Profissional", "Usuários ilimitados", "Suporte prioritário", "Customizações"] },
-};
+const FEATURES = [
+  "Ordens de serviço ilimitadas",
+  "Usuários ilimitados",
+  "Estoque com custo médio",
+  "WhatsApp + aprovação digital",
+  "NF-e e NFS-e integradas",
+  "Cronômetro e comissões",
+  "Agendamento online",
+  "Relatórios + exportação PDF",
+  "Multi-oficina (filiais)",
+  "Suporte prioritário via WhatsApp",
+];
 
 const statusBadge: Record<string, { label: string; variant: "success" | "warning" | "error" | "default" }> = {
   active: { label: "Ativo", variant: "success" },
@@ -36,28 +42,28 @@ export default function BillingPage() {
   if (loading) return <p className="text-slate-500 p-6">Carregando...</p>;
   if (!data) return <p className="text-red-500 p-6">Erro ao carregar dados de billing.</p>;
 
-  const plan = PLANS[data.plan] || PLANS.trial;
   const st = statusBadge[data.billingStatus] || statusBadge.active;
   const expiresAt = data.planExpiresAt ? new Date(data.planExpiresAt) : null;
   const daysLeft = expiresAt ? Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+  const isTrial = data.plan === "trial";
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Assinatura e Billing" description="Gerencie seu plano e pagamentos" />
+      <PageHeader title="Assinatura" description="Gerencie seu plano Operare" />
 
-      {/* Plano Atual */}
+      {/* Status atual */}
       <Card className="p-6">
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h3 className="text-lg font-semibold text-slate-900">{plan.label}</h3>
+              <h3 className="text-lg font-semibold text-slate-900">{isTrial ? "Teste Gratuito" : "Plano Completo"}</h3>
               <Badge variant={st.variant}>{st.label}</Badge>
             </div>
-            <p className="text-2xl font-bold text-blue-600">{plan.price}</p>
+            <p className="text-2xl font-bold text-blue-600">{isTrial ? "R$ 0 (trial)" : "R$ 1.500/mês"}</p>
             {expiresAt && (
               <p className="text-sm text-slate-500 mt-2 flex items-center gap-1.5">
                 <Calendar size={14} />
-                {data.plan === "trial"
+                {isTrial
                   ? `Trial expira em ${daysLeft != null && daysLeft > 0 ? `${daysLeft} dias` : "expirado"} (${expiresAt.toLocaleDateString("pt-BR")})`
                   : `Próxima renovação: ${expiresAt.toLocaleDateString("pt-BR")}`}
               </p>
@@ -65,44 +71,34 @@ export default function BillingPage() {
           </div>
           <CreditCard size={32} className="text-slate-300" />
         </div>
-        <ul className="mt-4 space-y-1.5">
-          {plan.features.map((f, i) => (
-            <li key={i} className="flex items-center gap-2 text-sm text-slate-600">
-              <CheckCircle size={14} className="text-green-500" />
+      </Card>
+
+      {/* Plano */}
+      <Card className={`p-6 ${isTrial ? "border-blue-200 bg-blue-50/30" : ""}`}>
+        <h3 className="text-base font-semibold text-slate-900 mb-1">Plano Operare Completo</h3>
+        <p className="text-2xl font-bold text-slate-900">R$ 1.500<span className="text-sm font-normal text-slate-500">/mês</span></p>
+        <p className="text-sm text-slate-500 mt-1">Tudo incluso, sem limites</p>
+
+        <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-2">
+          {FEATURES.map(f => (
+            <li key={f} className="flex items-center gap-2 text-sm text-slate-700">
+              <CheckCircle size={14} className="text-green-500 shrink-0" />
               {f}
             </li>
           ))}
         </ul>
+
+        {isTrial && (
+          <Button className="mt-6" onClick={() => alert("Integração com gateway de pagamento em breve! Entre em contato pelo suporte.")}>
+            Assinar Plano — R$ 1.500/mês
+          </Button>
+        )}
       </Card>
 
-      {/* Upgrade */}
-      {data.plan === "trial" || data.plan === "basic" ? (
-        <Card className="p-6 border-blue-200 bg-blue-50/50">
-          <h3 className="text-base font-semibold text-slate-900 mb-2">Fazer upgrade</h3>
-          <p className="text-sm text-slate-600 mb-4">Desbloqueie mais funcionalidades com um plano superior.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(PLANS).filter(([k]) => k !== "trial" && k !== data.plan).map(([key, p]) => (
-              <div key={key} className="bg-white rounded-lg border border-slate-200 p-4">
-                <h4 className="font-semibold text-slate-900">{p.label}</h4>
-                <p className="text-lg font-bold text-blue-600 mt-1">{p.price}</p>
-                <ul className="mt-2 space-y-1">
-                  {p.features.slice(0, 3).map((f, i) => (
-                    <li key={i} className="text-xs text-slate-500 flex items-center gap-1"><CheckCircle size={10} className="text-green-500" />{f}</li>
-                  ))}
-                </ul>
-                <Button variant="primary" className="mt-3 w-full" onClick={() => alert("Integração com gateway de pagamento em breve!")}>
-                  Assinar {p.label}
-                </Button>
-              </div>
-            ))}
-          </div>
-        </Card>
-      ) : null}
-
-      {/* Histórico (placeholder) */}
+      {/* Histórico */}
       <Card className="p-6">
         <h3 className="text-base font-semibold text-slate-900 mb-2">Histórico de Pagamentos</h3>
-        <p className="text-sm text-slate-500">Nenhuma fatura disponível. O histórico aparecerá quando a integração com gateway de pagamento estiver ativa.</p>
+        <p className="text-sm text-slate-500">Nenhuma fatura disponível. O histórico aparecerá após a integração com gateway de pagamento.</p>
       </Card>
     </div>
   );
