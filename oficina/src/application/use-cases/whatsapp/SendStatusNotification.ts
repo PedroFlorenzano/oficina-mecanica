@@ -1,5 +1,6 @@
 import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepository";
 import { sendText } from "@/infrastructure/whatsapp/EvolutionApiAdapter";
+import { prisma } from "@/infrastructure/database/prisma";
 
 const STATUS_LABELS: Record<string, string> = {
   OPEN: "Aguardando Início",
@@ -18,9 +19,15 @@ export class SendStatusNotification {
     const order = await this.orderRepo.findById(orderId);
     if (!order?.client?.phone) return;
 
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: order.tenantId },
+      select: { name: true },
+    });
+    const shopName = tenant?.name || "Oficina";
+
     const statusLabel = STATUS_LABELS[newStatus] || newStatus;
     const text =
-      `🔧 *Paiffer Bosch Car Service*\n\n` +
+      `🔧 *${shopName}*\n\n` +
       `Olá, ${order.client.name}!\n` +
       `Sua OS *#${order.number}* (${order.vehicle?.model || ""} - ${order.vehicle?.plate || ""}) ` +
       `teve o status atualizado para:\n\n` +

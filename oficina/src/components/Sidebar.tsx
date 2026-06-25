@@ -85,9 +85,10 @@ function NavItem({ href, label, icon: Icon, alertCount = 0, sub }: NavItemProps)
 interface SidebarProps {
   role?: string;
   customPermissions?: string | null;
+  tenantName?: string;
 }
 
-export default function Sidebar({ role, customPermissions }: SidebarProps) {
+export default function Sidebar({ role, customPermissions, tenantName }: SidebarProps) {
   const [alertCount, setAlertCount] = useState(0);
   const perms = parseCustomPermissions(customPermissions);
 
@@ -182,7 +183,7 @@ export default function Sidebar({ role, customPermissions }: SidebarProps) {
 
       {/* Footer */}
       <div className="px-5 py-4 border-t border-slate-100">
-        <p className="text-xs font-medium text-slate-500 truncate">Paiffer Bosch Car Service</p>
+        <p className="text-xs font-medium text-slate-500 truncate">{tenantName || "Oficina"}</p>
         <p className="text-xs text-slate-400 mt-0.5">Plano Profissional</p>
       </div>
     </aside>

@@ -22,6 +22,7 @@ export class CreateService {
       defaultPrice: Number(input.defaultPrice),
       pricingType: input.pricingType || "VALUE",
       commissionRate: input.commissionRate ? Number(input.commissionRate) : null,
+      warrantyDays: input.warrantyDays ? Number(input.warrantyDays) : null,
       active: input.active != null ? input.active : true,
       tenantId,
     });

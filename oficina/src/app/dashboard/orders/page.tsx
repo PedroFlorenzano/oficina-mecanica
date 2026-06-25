@@ -58,6 +58,7 @@ export default function OrdersPage() {
   const [mechanics, setMechanics] = useState<{ id: string; name: string }[]>([]);
   const [clients, setClients] = useState<{ id: string; name: string }[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState("");
 
   useEffect(() => {
     fetch("/api/users").then(r => r.json()).then(setMechanics).catch(() => {});
@@ -133,6 +134,10 @@ export default function OrdersPage() {
       if (endDate) params.set("endDate", endDate);
     }
     window.open(`/api/orders/export?${params.toString()}`, "_blank");
+    const count = selectedIds.size || "todas as";
+    setToast(`✓ Exportando ${count} OS para CSV`);
+    setSelectedIds(new Set());
+    setTimeout(() => setToast(""), 3000);
   };
 
   const toggleSelect = (id: string) => {
@@ -150,6 +155,11 @@ export default function OrdersPage() {
 
   return (
     <div>
+      {toast && (
+        <div className="fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg border shadow-lg bg-green-50 border-green-200 text-green-800 animate-in slide-in-from-top-2">
+          <span className="text-sm font-medium">{toast}</span>
+        </div>
+      )}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
       )}

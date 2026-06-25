@@ -8,6 +8,7 @@ import GlobalSearch from "@/components/GlobalSearch";
 import NotificationBell from "@/components/NotificationBell";
 import { SupportButton } from "@/components/SupportButton";
 import { TrialBanner } from "@/components/TrialBanner";
+import { prisma } from "@/infrastructure/database/prisma";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -37,9 +38,15 @@ export default async function DashboardLayout({
   const initials = getInitials(name ?? "U");
   const label = roleLabel[role] ?? role;
 
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: session.user.tenantId },
+    select: { name: true },
+  });
+  const tenantName = tenant?.name ?? "Oficina";
+
   return (
     <div className="flex min-h-screen">
-      <Sidebar role={role} customPermissions={customPermissions} />
+      <Sidebar role={role} customPermissions={customPermissions} tenantName={tenantName} />
       <GlobalSearch />
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top bar */}

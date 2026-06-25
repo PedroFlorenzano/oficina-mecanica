@@ -7,6 +7,7 @@ export interface ServiceCatalogData {
   defaultPrice: number;
   pricingType: string;
   commissionRate: number | null;
+  warrantyDays: number | null;
   active: boolean;
   tenantId: string;
 }

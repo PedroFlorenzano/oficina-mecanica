@@ -12,6 +12,7 @@ interface Service {
   defaultPrice: number;
   pricingType?: string;
   commissionRate?: number | null;
+  warrantyDays?: number | null;
   active: boolean;
 }
 
@@ -30,6 +31,7 @@ export default function ServiceForm({ service, onSaved, onCancel }: Props) {
     defaultPrice: service?.defaultPrice?.toString() || "0",
     pricingType: service?.pricingType || "VALUE",
     commissionRate: service?.commissionRate?.toString() || "",
+    warrantyDays: service?.warrantyDays?.toString() || "",
     active: service?.active ?? true,
   });
   const [error, setError] = useState("");
@@ -162,6 +164,21 @@ export default function ServiceForm({ service, onSaved, onCancel }: Props) {
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <p className="text-xs text-slate-400 mt-1">Vazio = usa taxa padrão do mecânico</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Garantia (dias)</label>
+            <input
+              type="number"
+              min="0"
+              value={form.warrantyDays}
+              onChange={(e) => setForm({ ...form, warrantyDays: e.target.value })}
+              placeholder="Ex: 90"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <p className="text-xs text-slate-400 mt-1">Vazio = sem garantia</p>
           </div>
         </div>
 

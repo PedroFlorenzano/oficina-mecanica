@@ -6,5 +6,6 @@ export interface CreateServiceDTO {
   defaultPrice: number;
   pricingType?: string;
   commissionRate?: string | number;
+  warrantyDays?: string | number;
   active?: boolean;
 }

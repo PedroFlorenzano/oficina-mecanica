@@ -18,6 +18,7 @@ export class UpdateService {
       defaultPrice: input.defaultPrice != null ? Number(input.defaultPrice) : 0,
       pricingType: input.pricingType || "VALUE",
       commissionRate: input.commissionRate ? Number(input.commissionRate) : null,
+      warrantyDays: input.warrantyDays ? Number(input.warrantyDays) : null,
       active: input.active != null ? input.active : true,
     });
   }
