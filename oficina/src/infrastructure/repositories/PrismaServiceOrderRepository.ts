@@ -1,5 +1,5 @@
-import { PrismaClient, Prisma, OrderStatus } from "@prisma/client";
-import { IServiceOrderRepository, OrderData, OrderDetail as IOrderDetail, ActiveOrder as IActiveOrder, OrderSummary, CreateOrderData, LegacyCreateOrderData, ComplaintInput } from "@/domain/repositories/IServiceOrderRepository";
+import { PrismaClient, OrderStatus } from "@prisma/client";
+import { IServiceOrderRepository, OrderData, OrderDetail as IOrderDetail, ActiveOrder as IActiveOrder, OrderSummary, CreateOrderData, LegacyCreateOrderData } from "@/domain/repositories/IServiceOrderRepository";
 
 export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   // Defense in depth: RLS também filtra no banco

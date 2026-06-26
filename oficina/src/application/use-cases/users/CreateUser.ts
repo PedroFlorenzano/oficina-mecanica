@@ -11,7 +11,7 @@ export class CreateUser {
   async execute(
     input: CreateUserDTO,
     tenantId: string,
-    requestingUserId: string
+    _requestingUserId: string
   ): Promise<UserData> {
     // Validate name
     if (!input.name || input.name.trim().length < 3) {

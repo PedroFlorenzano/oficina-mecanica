@@ -6,7 +6,7 @@ import { ValidationError } from "@/domain/errors/DomainError";
 export class UpdateClient {
   constructor(private clientRepo: IClientRepository) {}
 
-  async execute(id: string, input: CreateClientDTO, tenantId: string): Promise<ClientData> {
+  async execute(id: string, input: CreateClientDTO, _tenantId: string): Promise<ClientData> {
     if (!input.name || input.name.trim().length < 3) {
       throw new ValidationError("Nome deve ter pelo menos 3 caracteres");
     }

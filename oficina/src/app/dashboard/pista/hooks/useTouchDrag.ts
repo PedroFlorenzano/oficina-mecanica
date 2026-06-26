@@ -36,7 +36,7 @@ export function useTouchDrag({
     return null;
   }, []);
 
-  const createGhost = useCallback((sourceEl: HTMLElement, x: number, y: number) => {
+  const createGhost = useCallback((sourceEl: HTMLElement, _x: number, _y: number) => {
     const rect = sourceEl.getBoundingClientRect();
     const ghost = sourceEl.cloneNode(true) as HTMLElement;
     ghost.style.position = "fixed";

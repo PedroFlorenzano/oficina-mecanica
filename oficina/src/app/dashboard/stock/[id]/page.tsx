@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "next-auth/react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -86,7 +86,6 @@ export default function StockItemDetailPage() {
   const canWrite = hasPermission(role, "stock", "create", perms) || hasPermission(role, "stock", "update", perms);
 
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
 
   const [item, setItem] = useState<StockItem | null>(null);

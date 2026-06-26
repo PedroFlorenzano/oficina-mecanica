@@ -2544,3 +2544,56 @@ tipoRPS         String? @default("RPS")  // (corrigido de "1")
 | 9 | NFC-e modelo 65 (cupom fiscal) | Baixa |
 
 *Última atualização: 24/06/2026 — Path-based multi-tenant, billing R$1.500, suporte, trial banner, fix flash navegação.*
+
+---
+
+## Sessão 25-26/06/2026 — Polimentos + Features funcionais
+
+### Alerta de Garantia
+
+- Campo `warrantyDays Int?` no `ServiceCatalog` (migration `20260624170000_add_warranty_days`)
+- Input "Garantia (dias)" no formulário de cadastro de serviços
+- Use case `CheckWarranty` — busca OS concluídas do veículo e verifica serviços em garantia
+- API `GET /api/orders/[id]/warranty` — retorna alertas ativos
+- UI: banner amarelo no topo da OS "⚠️ Serviços em garantia neste veículo" com serviço, OS de origem e dias restantes
+- 4 testes unitários
+
+### Exportar OS em Lote (CSV)
+
+- API `GET /api/orders/export` — aceita `ids[]` ou `startDate/endDate`, retorna CSV com BOM (Excel BR)
+- Checkboxes na listagem de OS (individual + select all)
+- Botão "Exportar (N)" mostra contagem de selecionados
+- Download via fetch+blob (sem abrir nova aba, sem pisca)
+- Toast verde "Exportando N OS para CSV" + limpa seleção
+- 3 testes unitários
+
+### Landing Page Completa
+
+- Header sticky com navegação (Como funciona, Funcionalidades, Entrar, Começar Grátis)
+- Hero com badge "15 dias grátis", copy focada em oficina brasileira
+- Social proof (Bosch Car Service, multimarcas, centros automotivos)
+- "Comece em 3 passos" (cadastro, config, uso)
+- 9 features em cards com hover
+- Depoimento da oficina piloto
+- Pricing R$ 1.500/mês com 10 features
+- FAQ (6 perguntas frequentes)
+- CTA final em fundo azul
+- Footer com DF Developer
+
+### Sidebar/WhatsApp Dinâmicos
+
+- Sidebar recebe `tenantName` como prop (busca do banco no layout)
+- `SendStatusNotification` busca nome do tenant dinamicamente
+- Removido hardcoded "Paiffer Bosch Car Service" do código funcional
+
+### Lint/CI
+
+- 5 erros corrigidos (Date.now impure, 4x `<a>` → `<Link>`)
+- 14 warnings corrigidos (unused imports/vars)
+- CI: 0 erros, 22 warnings (exhaustive-deps, `<img>`, mocks)
+
+### Contagem de Testes
+
+**Total: 225 testes unitários + 13 testes E2E**
+
+*Última atualização: 26/06/2026 — Alerta de garantia, exportar OS CSV, landing page completa, sidebar/WhatsApp dinâmicos, lint corrigido.*

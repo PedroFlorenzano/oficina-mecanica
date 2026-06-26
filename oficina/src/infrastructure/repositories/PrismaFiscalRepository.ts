@@ -10,6 +10,7 @@ export class PrismaFiscalRepository implements IFiscalRepository {
   }
 
   async upsertConfig(tenantId: string, data: Partial<FiscalConfigData>): Promise<FiscalConfigData> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { tenantId: _, id: __, ...rest } = data;
     return this.db.fiscalConfig.upsert({
       where: { tenantId },

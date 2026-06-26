@@ -12,7 +12,7 @@ export class AdjustInventory {
   async execute(
     itemId: string,
     input: AdjustInventoryDTO,
-    tenantId: string
+    _tenantId: string
   ): Promise<StockItemData> {
     if (input.newQuantity === undefined || input.newQuantity < 0) {
       throw new ValidationError("Quantidade não pode ser negativa");

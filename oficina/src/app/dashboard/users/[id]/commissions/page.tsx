@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { ArrowLeft, DollarSign, User } from "lucide-react";
+import { ArrowLeft, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui";
 

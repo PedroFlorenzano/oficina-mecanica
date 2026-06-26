@@ -12,7 +12,7 @@ export class RegisterStockEntry {
   async execute(
     itemId: string,
     input: RegisterStockEntryDTO,
-    tenantId: string
+    _tenantId: string
   ): Promise<StockItemData> {
     if (!input.quantity || input.quantity <= 0) {
       throw new ValidationError("Quantidade deve ser maior que zero");

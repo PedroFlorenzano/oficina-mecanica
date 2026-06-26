@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import LoginForm from "@/components/LoginForm";
 import { prismaAdmin } from "@/infrastructure/database/prisma";
 
@@ -52,7 +53,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         </div>
         <p className="text-center text-sm text-slate-500 mt-4">
           Ainda não tem conta?{" "}
-          <a href="/register" className="text-blue-600 hover:underline font-medium">Cadastrar oficina</a>
+          <Link href="/register" className="text-blue-600 hover:underline font-medium">Cadastrar oficina</Link>
         </p>
       </div>
     </div>

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createContainer } from "@/infrastructure/container";
-import { CancelFiscalInvoice } from "@/application/use-cases/fiscal/CancelFiscalInvoice";
 import { RetryInvoice } from "@/application/use-cases/fiscal/RetryInvoice";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";

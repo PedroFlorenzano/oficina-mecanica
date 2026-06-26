@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { BarChart3, FileDown, Users, Package } from "lucide-react";
+import { FileDown, Users, Package } from "lucide-react";
 import { PageHeader, Card, Button, Input } from "@/components/ui";
 
 interface ReportData {

@@ -44,6 +44,7 @@ export default function BillingPage() {
 
   const st = statusBadge[data.billingStatus] || statusBadge.active;
   const expiresAt = data.planExpiresAt ? new Date(data.planExpiresAt) : null;
+  // eslint-disable-next-line react-hooks/purity
   const daysLeft = expiresAt ? Math.ceil((expiresAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
   const isTrial = data.plan === "trial";
 

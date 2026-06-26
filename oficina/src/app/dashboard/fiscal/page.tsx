@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { PageHeader, Card, Input, Select, Button } from "@/components/ui";
-import { Upload, ShieldCheck, AlertTriangle, FileText, Building2, Settings } from "lucide-react";
+import { Upload, ShieldCheck, AlertTriangle, FileText, Settings } from "lucide-react";
 
 interface FiscalConfig {
   enabled: boolean;

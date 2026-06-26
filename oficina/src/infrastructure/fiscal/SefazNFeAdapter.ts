@@ -194,7 +194,6 @@ export class SefazNFeAdapter implements IFiscalAdapter {
   }
 
   async consultarStatus(): Promise<{ online: boolean; motivo: string; tempoMedio?: string }> {
-    const certData = this.certManager.getCertificateData();
     const consStatServ = [
       `<consStatServ xmlns="http://www.portalfiscal.inf.br/nfe" versao="4.00">`,
       `<tpAmb>${this.config.tpAmb}</tpAmb>`,

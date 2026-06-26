@@ -60,7 +60,7 @@ const statusConfig: Record<
 
 export default function TimerControl({
   orderServiceId,
-  userId,
+  userId: _userId,
   userRole,
   serviceDescription,
   estimatedMinutes,

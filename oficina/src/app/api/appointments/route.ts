@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { createContainer } from "@/infrastructure/container";
 import { handleError } from "@/lib/api-handler";

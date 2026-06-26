@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Input, Button } from "@/components/ui";
+import Link from "next/link";
 import { User, KeyRound, BookOpen, CreditCard } from "lucide-react";
 
 const roleLabel: Record<string, string> = {
@@ -21,13 +22,13 @@ function validateNewPassword(password: string): string | null {
 
 function BillingCard() {
   return (
-    <a href="/dashboard/billing" className="block bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 hover:border-blue-300 transition-colors">
+    <Link href="/dashboard/billing" className="block bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6 hover:border-blue-300 transition-colors">
       <div className="flex items-center gap-2">
         <CreditCard size={18} className="text-blue-600" />
         <h2 className="text-base font-semibold text-slate-800">Minha Assinatura</h2>
         <span className="ml-auto text-sm text-blue-600 font-medium">Gerenciar →</span>
       </div>
-    </a>
+    </Link>
   );
 }
 

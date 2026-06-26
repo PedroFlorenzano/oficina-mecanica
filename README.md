@@ -26,13 +26,15 @@ Sistema SaaS multi-tenant de gestão para oficinas mecânicas automotivas brasil
 | WhatsApp + Assinatura Digital | ✅ |
 | Etiqueta de Troca de Óleo | ✅ |
 | Relatórios Financeiros | ✅ |
-| NF-e/NFS-e | ✅ (simulado) |
+| NF-e/NFS-e | ✅ (SEFAZ + DSF) |
 | Multi-Tenancy (PostgreSQL + RLS) | ✅ |
 | Fotos na OS (Antes/Depois/Dano) | ✅ |
 | Onboarding Self-Service | ✅ |
 | Agendamento Online | ✅ |
-| Billing/Assinatura | ✅ (infra) |
+| Billing/Assinatura | ✅ (infra + UI) |
 | Landing Page + Planos | ✅ |
+| Alerta de Garantia | ✅ |
+| Exportar OS em Lote (CSV) | ✅ |
 
 ## Setup
 
@@ -91,7 +93,7 @@ API Route → requireAuth() → session.tenantId
 ## Testes
 
 ```bash
-npm test           # 218 testes unitários
+npm test           # 225 testes unitários
 npm run build      # Build de produção
 ```
 
@@ -103,35 +105,36 @@ npm run build      # Build de produção
 
 ## Roadmap para Produção
 
-### 1. NF-e/NFS-e — Adapter Real
-- Certificado digital A1 (upload + assinatura XML)
-- Adapter SEFAZ (webservice SOAP, NF-e 4.0)
-- Adapter Prefeitura (API REST ABRASF, NFS-e)
-- DANFE com código de barras (Code128)
+### 1. NF-e/NFS-e ✅
+- ~~Certificado digital A1 (upload + assinatura XML)~~ ✅
+- ~~Adapter SEFAZ (webservice SOAP, NF-e 4.0)~~ ✅
+- ~~Adapter Prefeitura (DSF Sorocaba, NFS-e)~~ ✅
+- ~~DANFE com código de barras (Code128)~~ ✅
+- ~~Inutilização, CC-e, Cancelamento, Status SEFAZ~~ ✅
 
-### 2. Multi-Tenancy — Próximos Passos
+### 2. Multi-Tenancy ✅
 - ~~Migração SQLite → PostgreSQL~~ ✅
 - ~~Row-Level Security em 22 tabelas~~ ✅
 - ~~Roles separados (operare_app / operare_admin)~~ ✅
 - ~~Seed multi-tenant (2 tenants)~~ ✅
 - ~~Validação end-to-end com Docker~~ ✅
 - ~~Onboarding self-service~~ ✅
-- ~~Billing/Assinatura (infra)~~ ✅
+- ~~Billing/Assinatura (infra + UI)~~ ✅
 - ~~Landing page + planos~~ ✅
+- ~~Path-based multi-tenant (`/paiffer` → login)~~ ✅
 - Integração real com gateway de pagamento (Stripe/Asaas)
-- Path-based multi-tenant (`app.operare.tech/paiffer`)
 
 ### 3. Deploy em Produção
 - Hosting (Vercel / AWS / VPS)
 - Domínio + SSL (`operare.tech`)
-- CI/CD (GitHub Actions)
+- ~~CI/CD (GitHub Actions)~~ ✅
 - Backup diário + monitoramento (Sentry)
 
 ### 4. Comercialização
 - ~~Landing page + deck comercial~~ ✅
 - ~~Planos e preços~~ ✅
+- ~~Canal de suporte~~ ✅
 - Contrato / LGPD
-- Canal de suporte
 
 ## Licença
 
