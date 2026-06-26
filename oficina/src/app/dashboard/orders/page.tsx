@@ -125,7 +125,7 @@ export default function OrdersPage() {
 
 
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const params = new URLSearchParams();
     if (selectedIds.size > 0) {
       selectedIds.forEach(id => params.append("ids", id));
@@ -133,10 +133,19 @@ export default function OrdersPage() {
       if (startDate) params.set("startDate", startDate);
       if (endDate) params.set("endDate", endDate);
     }
-    window.open(`/api/orders/export?${params.toString()}`, "_blank");
     const count = selectedIds.size || "todas as";
-    setToast(`✓ Exportando ${count} OS para CSV`);
     setSelectedIds(new Set());
+    setToast(`✓ Exportando ${count} OS para CSV`);
+
+    const res = await fetch(`/api/orders/export?${params.toString()}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ordens-servico-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+
     setTimeout(() => setToast(""), 3000);
   };
 
