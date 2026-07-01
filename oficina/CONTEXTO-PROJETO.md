@@ -1793,6 +1793,59 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 |---|------|---------|-----------|
 | 8 | Exportar OS em lote CSV | 1–2h | Selecionar várias OS e exportar dados para planilha. |
 | 9 | NFC-e modelo 65 | 8–16h | Cupom fiscal. Sem demanda imediata. |
+| 10 | NFS-e Modelo Nacional (modeloNacional=true) | 16–24h | Adapter API ADN/SEFIN Nacional + DANFSe v2.0 (NT 008). Ver detalhamento abaixo. |
+
+### Feature Futura: NFS-e Modelo Nacional
+
+Ref: NT 008 SE/CGNFS-e (30/06/2026) — Layout DANFSe v2.0 com seção IBS/CBS.
+
+**Contexto:** Quando Sorocaba (ou outro município cliente) migrar do DSF para o sistema nacional (gov.br/nfse), precisamos suportar o `modeloNacional = true`.
+
+**Tasks:**
+
+1. **Adapter NFS-e Nacional** (~8h)
+   - Criar `NacionalNFSeAdapter.ts` implementando `IFiscalAdapter`
+   - Autenticação via certificado digital A1 (já temos CertificateManager)
+   - Endpoints: emitir DPS → receber NFS-e, consultar, cancelar, substituir
+   - XML no formato ADN (schema nacional): `infDPS`, `prest`, `toma`, `serv`, `tribMun`, `tribFed`, `IBSCBS`
+   - Assinar XML com `XmlSigner` (tag `infDPS`)
+
+2. **DANFSe v2.0 PDF** (~6h)
+   - Criar `DanfseDocument.tsx` (react-pdf) seguindo layout NT 008:
+     - Header: logo NFS-e + título "DANFSe v2.0" + município + QR Code
+     - Chave de acesso (50 dígitos), nº NFS-e, competência, emissão
+     - Blocos: Prestador, Tomador, Destinatário, Intermediário
+     - Serviço Prestado (código tributação nacional/municipal, NBS, descrição)
+     - Tributação Municipal (ISSQN): tipo, incidência, regime especial, BC, alíquota, retenção
+     - Tributação Federal (exceto CBS): IRRF, contribuição previdenciária, PIS, COFINS
+     - **Tributação IBS/CBS** (novo): CST, indicador operação, exclusões, BC, alíquotas IBS UF/Mun, CBS
+     - Valor Total: serviço, descontos, retenções, líquido, total IBS/CBS
+     - Informações complementares + Canhoto
+   - QR Code gerado com lib (ex: `qrcode` npm)
+   - Watermark "CANCELADA" / "SUBSTITUÍDA" quando aplicável
+   - Aviso "NFS-e SEM VALIDADE JURÍDICA" em homologação (tpAmb=2)
+
+3. **Campos IBS/CBS no schema** (~2h)
+   - Adicionar campos ao `FiscalConfig` ou à invoice: CST, alíquotas IBS (UF/Mun), alíquota CBS
+   - Ou extrair do XML retornado (preferível — dados vêm da SEFIN)
+
+4. **Integrar no factory** (~1h)
+   - `createFiscalAdapter.ts`: quando `modeloNacional = true`, instanciar `NacionalNFSeAdapter`
+   - Rota de emissão já funciona via `FiscalProcessor` (transparente)
+
+5. **Testes** (~3h)
+   - Mock do webservice nacional
+   - Teste de geração XML ADN
+   - Teste do DANFSe PDF (snapshot ou visual)
+
+**Pré-requisitos:**
+- Município do tenant deve ter migrado para o sistema nacional
+- Certificado digital A1 válido (já suportado)
+- Credenciamento no ambiente de produção restrita do portal nacional
+
+**Quando implementar:**
+- Quando houver demanda de cliente em município já migrado para o nacional
+- Ou quando Sorocaba anunciar migração do DSF
 
 ### Sequência recomendada para go-live
 
