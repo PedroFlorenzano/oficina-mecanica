@@ -30,8 +30,10 @@ jobs:
 
       - run: npm test
 
-      - run: npm run build
+      - run: npx prisma generate && npx next build
         env:
+          DATABASE_URL: postgresql://fake:fake@localhost:5432/fake
+          DIRECT_URL: postgresql://fake:fake@localhost:5432/fake
           NEXTAUTH_SECRET: ci-secret
           NEXTAUTH_URL: http://localhost:3000
 
@@ -43,6 +45,7 @@ jobs:
         working-directory: oficina
     env:
       DATABASE_URL: postgresql://operare:operare@localhost:5432/operare_dev
+      DIRECT_URL: postgresql://operare:operare@localhost:5432/operare_dev
       DATABASE_URL_ADMIN: postgresql://operare:operare@localhost:5432/operare_dev
       NEXTAUTH_SECRET: ci-secret
       NEXTAUTH_URL: http://localhost:3000
