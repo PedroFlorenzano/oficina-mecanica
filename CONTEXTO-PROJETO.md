@@ -1243,16 +1243,94 @@ app.operare.tech/[slug]       → path-based por tenant (ex: app.operare.tech/pa
 | Billing/Assinatura | Controle de plano, inadimplência, bloqueio | ✅ Infra pronta (falta gateway real) |
 | Subdomínio por tenant | path-based (`app.operare.tech/paiffer`) | ⬜ DNS + middleware |
 
-### 3. Deploy em Produção
+### 3. Deploy em Produção — Recomendação: Vercel + Neon
 
-| Item | Descrição | Dependência |
-|------|-----------|-------------|
-| Hosting | Vercel, AWS (ECS/Lambda), ou VPS | Decisão de custo/escala |
-| Domínio + SSL | Configuração DNS, certificado HTTPS | Registro de domínio |
-| Variáveis de ambiente | NEXTAUTH_SECRET, DATABASE_URL, EVOLUTION_API_KEY, etc. | Definição de secrets |
-| CI/CD | Pipeline de deploy automático (GitHub Actions) | Configuração do workflow |
-| Backup | Estratégia de backup do banco (diário, retenção 30d) | Cron + storage (S3) |
-| Monitoramento | Logs, alertas, uptime (Sentry, UptimeRobot) | Conta nos serviços |
+> **Decisão:** Usar Vercel (hosting Next.js) + Neon (PostgreSQL managed) para o MVP.
+> **Domínio:** `operare.tech` (já registrado).
+> **Custo estimado:** Free tier para começar, ~US$20-40/mês com poucos tenants.
+
+#### Por que essa stack:
+
+- **Vercel:** Deploy automático a cada push, SSL grátis, preview por branch, rollback em 30s, zero DevOps
+- **Neon:** PostgreSQL serverless com connection pooling, suporta RLS, backups automáticos, branching de banco
+
+#### Fluxo de deploy no dia-a-dia:
+
+```
+1. Você edita o código normalmente
+2. git commit + git push na main
+3. Vercel detecta o push automaticamente (webhook GitHub)
+4. Vercel roda o build (npm run build) na nuvem (~2 min)
+5. Se build OK → nova versão entra no ar (zero downtime)
+6. Se build FALHAR → versão anterior continua ativa, você vê o erro no dashboard
+```
+
+#### Quando a mudança envolve banco (novo campo, tabela, índice):
+
+```
+1. Editar prisma/schema.prisma localmente
+2. npx prisma migrate dev --name descricao-da-mudanca
+3. Commit a migration + código juntos
+4. Push na main → Vercel roda "prisma migrate deploy" antes do build
+5. Banco atualizado → app nova versão sobe
+```
+
+#### Ambientes automáticos:
+
+| Branch | Resultado |
+|--------|-----------|
+| `main` | Deploy de **produção** (operare.tech) |
+| Qualquer outra | Deploy de **preview** (URL tipo `feat-xyz.vercel.app`) — testar antes de mergear |
+
+#### Rollback de emergência:
+
+No dashboard da Vercel → Deployments → clicar "Redeploy" no commit anterior. Volta em 30 segundos.
+
+#### Variáveis de ambiente necessárias (configurar na Vercel):
+
+| Variável | Valor |
+|----------|-------|
+| `DATABASE_URL` | Connection string do Neon (com pooling: `?sslmode=require&pgbouncer=true`) |
+| `DIRECT_URL` | Connection string direta do Neon (para migrations) |
+| `NEXTAUTH_SECRET` | String aleatória forte (32+ chars) |
+| `NEXTAUTH_URL` | `https://operare.tech` |
+| `SHADOW_DATABASE_URL` | (só em dev, não precisa em prod) |
+
+#### Configuração necessária no projeto (quando formos subir):
+
+1. Criar conta Vercel + conectar repo GitHub
+2. Criar banco no Neon (região São Paulo se disponível, ou us-east-1)
+3. Configurar variáveis de ambiente na Vercel
+4. Ajustar `package.json` build script: `"build": "prisma migrate deploy && prisma generate && next build"`
+5. Configurar domínio `operare.tech` na Vercel (apontar DNS: A record ou CNAME)
+6. Primeiro deploy roda as migrations e cria as tabelas
+7. Onboarding self-service cria o primeiro tenant (Paiffer)
+
+#### Backup e monitoramento:
+
+- **Backup:** Neon faz backup automático (point-in-time recovery incluso)
+- **Monitoramento:** Integrar Sentry (SDK Next.js) para capturar erros em produção
+- **Uptime:** UptimeRobot (free) para alertas se o site cair
+
+#### Migração futura (se necessário):
+
+Se o volume crescer muito ou o custo ficar alto, migrar para:
+- **VPS (Hetzner/DigitalOcean)** — Docker Compose + PostgreSQL dedicado (~R$50-100/mês)
+- **AWS (ECS + RDS)** — para escala enterprise
+
+A migração é simples: muda o `DATABASE_URL`, faz dump/restore do banco, e aponta o DNS.
+
+#### Checklist final antes de subir:
+
+- [ ] Conta Vercel criada e repo conectado
+- [ ] Banco Neon criado com região adequada
+- [ ] Variáveis de ambiente configuradas
+- [ ] DNS de `operare.tech` apontando para Vercel
+- [ ] Build script ajustado com `prisma migrate deploy`
+- [ ] Primeiro deploy OK (migrations + build)
+- [ ] Testar onboarding: criar tenant Paiffer via /register
+- [ ] Sentry configurado para capturar erros
+- [ ] Testar login, criar OS, fluxo completo
 
 ### 4. Comercialização
 
