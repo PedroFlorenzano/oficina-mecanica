@@ -129,17 +129,6 @@ export default async function LandingPage() {
         </div>
       </section>
 
-      {/* Depoimento */}
-      <section className="py-20">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <blockquote className="text-xl sm:text-2xl text-slate-700 italic leading-relaxed">
-            &ldquo;Saímos do Syscar para o Operare e em uma semana já estava tudo funcionando.
-            A emissão de nota que demorava 10 minutos agora é um clique.&rdquo;
-          </blockquote>
-          <p className="mt-4 text-sm text-slate-500 font-medium">— Oficina piloto, Sorocaba/SP</p>
-        </div>
-      </section>
-
       {/* Pricing */}
       <section className="bg-slate-50 py-20">
         <div className="max-w-3xl mx-auto px-4 text-center">
