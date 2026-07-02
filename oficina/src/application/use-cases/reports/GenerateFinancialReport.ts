@@ -78,7 +78,7 @@ export class GenerateFinancialReport {
 
     const byStatus = this.aggregateByStatus(orders);
     const monthly = this.aggregateMonthly(orders);
-    const profitByOrder = await this.calculateProfitByOrder(orderWhere, tenantId);
+    const profitByOrder = await this.calculateProfitByOrder(orderWhere);
 
     return {
       totalOrders,
@@ -123,7 +123,7 @@ export class GenerateFinancialReport {
     return monthly;
   }
 
-  private async calculateProfitByOrder(orderWhere: Prisma.ServiceOrderWhereInput, tenantId: string): Promise<OrderProfitEntry[]> {
+  private async calculateProfitByOrder(orderWhere: Prisma.ServiceOrderWhereInput): Promise<OrderProfitEntry[]> {
     const ordersWithCost = await this.db.serviceOrder.findMany({
       where: { ...orderWhere, status: { in: ["COMPLETED", "DELIVERED"] } },
       select: {

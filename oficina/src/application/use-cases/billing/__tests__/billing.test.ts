@@ -3,12 +3,12 @@ import { ProcessBillingWebhook } from "@/application/use-cases/billing/ProcessBi
 import { ForbiddenError, ValidationError } from "@/domain/errors/DomainError";
 
 // Mock PrismaClient
-const makePrisma = (tenant: any = null) => ({
+const makePrisma = (tenant: Record<string, unknown> | null = null) => ({
   tenant: {
     findUnique: jest.fn().mockResolvedValue(tenant),
     update: jest.fn().mockResolvedValue({}),
   },
-} as any);
+} as unknown as import("@prisma/client").PrismaClient);
 
 describe("CheckSubscription", () => {
   it("deve retornar dados do tenant ativo", async () => {
@@ -143,7 +143,7 @@ describe("ProcessBillingWebhook", () => {
     const useCase = new ProcessBillingWebhook(db);
 
     await expect(
-      useCase.execute({ event: "" as any, tenantId: "" })
+      useCase.execute({ event: "" as unknown as "payment_confirmed", tenantId: "" })
     ).rejects.toThrow(ValidationError);
   });
 
@@ -151,7 +151,7 @@ describe("ProcessBillingWebhook", () => {
     const db = makePrisma();
     const useCase = new ProcessBillingWebhook(db);
 
-    await useCase.execute({ event: "unknown_event" as any, tenantId: "tenant-1" });
+    await useCase.execute({ event: "unknown_event" as unknown as "payment_confirmed", tenantId: "tenant-1" });
 
     expect(db.tenant.update).not.toHaveBeenCalled();
   });

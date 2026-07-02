@@ -1,10 +1,10 @@
 import { RegisterTenant } from "@/application/use-cases/tenants/RegisterTenant";
 import { ValidationError, ConflictError } from "@/domain/errors/DomainError";
 
-const makePrisma = (existingTenant: any = null, existingUser: any = null) => ({
+const makePrisma = (existingTenant: Record<string, unknown> | null = null, existingUser: Record<string, unknown> | null = null) => ({
   tenant: {
     findUnique: jest.fn().mockResolvedValue(existingTenant),
-    create: jest.fn().mockImplementation((args) => Promise.resolve({
+    create: jest.fn().mockImplementation((args: { data: Record<string, unknown> }) => Promise.resolve({
       id: "new-tenant",
       name: args.data.name,
       slug: args.data.slug,
@@ -14,7 +14,7 @@ const makePrisma = (existingTenant: any = null, existingUser: any = null) => ({
   user: {
     findUnique: jest.fn().mockResolvedValue(existingUser),
   },
-} as any);
+} as unknown as import("@prisma/client").PrismaClient);
 
 const validInput = {
   officeName: "Oficina Teste LTDA",

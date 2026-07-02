@@ -2,10 +2,13 @@ import { UploadOrderPhoto } from "@/application/use-cases/photos/UploadOrderPhot
 import { DeleteOrderPhoto } from "@/application/use-cases/photos/DeleteOrderPhoto";
 import { IOrderPhotoRepository, OrderPhoto } from "@/domain/repositories/IOrderPhotoRepository";
 import { ValidationError, NotFoundError } from "@/domain/errors/DomainError";
+import { unlink } from "fs/promises";
 
 jest.mock("fs/promises", () => ({
   unlink: jest.fn().mockResolvedValue(undefined),
 }));
+
+const mockedUnlink = unlink as jest.MockedFunction<typeof unlink>;
 
 const makePhoto = (overrides: Partial<OrderPhoto> = {}): OrderPhoto => ({
   id: "photo-1",
@@ -141,8 +144,7 @@ describe("DeleteOrderPhoto", () => {
   });
 
   it("deve prosseguir com delete no DB mesmo se arquivo não existe no disco", async () => {
-    const { unlink } = require("fs/promises");
-    (unlink as jest.Mock).mockRejectedValueOnce(new Error("ENOENT"));
+    mockedUnlink.mockRejectedValueOnce(new Error("ENOENT"));
 
     const repo = makeRepo();
     const useCase = new DeleteOrderPhoto(repo);

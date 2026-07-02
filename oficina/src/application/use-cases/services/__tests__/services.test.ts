@@ -65,7 +65,7 @@ describe("CreateService", () => {
     const useCase = new CreateService(repo);
 
     await expect(
-      useCase.execute({ description: "Serviço", defaultPrice: null as any }, "tenant-1")
+      useCase.execute({ description: "Serviço", defaultPrice: null as unknown as number }, "tenant-1")
     ).rejects.toThrow(ValidationError);
   });
 

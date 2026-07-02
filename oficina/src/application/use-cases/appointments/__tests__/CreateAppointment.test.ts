@@ -1,5 +1,5 @@
 import { CreateAppointment } from "@/application/use-cases/appointments/CreateAppointment";
-import { IAppointmentRepository, ScheduleConfigData, AppointmentData } from "@/domain/repositories/IAppointmentRepository";
+import { IAppointmentRepository, ScheduleConfigData } from "@/domain/repositories/IAppointmentRepository";
 import { ValidationError, BusinessRuleError } from "@/domain/errors/DomainError";
 
 const makeConfig = (overrides: Partial<ScheduleConfigData> = {}): ScheduleConfigData => ({
