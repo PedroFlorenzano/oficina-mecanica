@@ -14,7 +14,6 @@ export async function GET() {
     const items = await useCase.execute(tenantId);
     return NextResponse.json(items);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

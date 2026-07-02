@@ -58,7 +58,6 @@ export async function GET() {
       recentOrders,
     });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

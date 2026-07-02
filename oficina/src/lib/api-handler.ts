@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { DomainError } from "@/domain/errors/DomainError";
 
-export function handleError(error: unknown): NextResponse {
+export function handleError(error: unknown): NextResponse | Response {
+  // Auth middleware throws Response directly for 401
+  if (error instanceof Response) return error;
+
   if (error instanceof DomainError) {
     const statusMap: Record<string, number> = {
       VALIDATION_ERROR: 400,

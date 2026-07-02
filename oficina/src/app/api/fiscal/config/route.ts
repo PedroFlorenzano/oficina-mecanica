@@ -12,7 +12,6 @@ export async function GET() {
     const config = await container.fiscalRepository.getConfig(tenantId);
     return NextResponse.json(config || { enabled: false });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -27,7 +26,6 @@ export async function PUT(request: NextRequest) {
     const config = await container.fiscalRepository.upsertConfig(tenantId, body);
     return NextResponse.json(config);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

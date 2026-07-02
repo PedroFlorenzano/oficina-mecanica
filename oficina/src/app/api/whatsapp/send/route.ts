@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "Ação inválida" }, { status: 400 });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

@@ -13,7 +13,6 @@ export async function GET() {
     const items = await container.stockItemRepository.findAll(tenantId);
     return NextResponse.json(items);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -29,7 +28,6 @@ export async function POST(request: NextRequest) {
     const item = await useCase.execute(body, tenantId);
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

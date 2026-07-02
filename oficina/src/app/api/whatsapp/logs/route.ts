@@ -16,7 +16,6 @@ export async function GET(request: NextRequest) {
     const result = await uc.execute(session.user.tenantId, orderId);
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

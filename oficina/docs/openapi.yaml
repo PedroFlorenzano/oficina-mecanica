@@ -1,0 +1,957 @@
+openapi: "3.1.0"
+info:
+  title: Operare API
+  description: |
+    API do sistema Operare — gestão para oficinas mecânicas automotivas.
+    Multi-tenant com Row-Level Security. Todas as rotas requerem autenticação via NextAuth JWT (exceto /api/public/*).
+  version: "1.0.0"
+  contact:
+    name: DF Developer
+    email: contato@operare.tech
+
+servers:
+  - url: http://localhost:3000/api
+    description: Desenvolvimento local
+  - url: https://operare.tech/api
+    description: Produção
+
+tags:
+  - name: Auth
+    description: Autenticação e sessão
+  - name: Clients
+    description: Gestão de clientes (PF/PJ)
+  - name: Vehicles
+    description: Veículos vinculados a clientes
+  - name: Orders
+    description: Ordens de Serviço (OS)
+  - name: Services
+    description: Catálogo de serviços
+  - name: Stock
+    description: Controle de estoque
+  - name: Timer
+    description: Cronômetro de serviço
+  - name: Commissions
+    description: Gestão de comissões
+  - name: Reports
+    description: Relatórios financeiros e produtividade
+  - name: Fiscal
+    description: Notas fiscais (NF-e/NFS-e)
+  - name: Appointments
+    description: Agendamento online
+  - name: Billing
+    description: Assinatura e planos
+  - name: Users
+    description: Gestão de usuários
+  - name: Public
+    description: Rotas públicas (sem autenticação)
+
+components:
+  securitySchemes:
+    session:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token JWT via NextAuth (cookie ou header)
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "Dados obrigatórios ausentes"
+        code:
+          type: string
+          enum: [VALIDATION_ERROR, NOT_FOUND, CONFLICT, BUSINESS_RULE_VIOLATION, AUTHENTICATION_ERROR, FORBIDDEN]
+
+    Client:
+      type: object
+      properties:
+        id: { type: string, format: cuid }
+        name: { type: string, example: "João da Silva" }
+        document: { type: string, example: "123.456.789-00" }
+        docType: { type: string, enum: [CPF, CNPJ] }
+        phone: { type: string, nullable: true }
+        email: { type: string, nullable: true }
+        address: { type: string, nullable: true }
+        active: { type: boolean }
+        tenantId: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    Vehicle:
+      type: object
+      properties:
+        id: { type: string, format: cuid }
+        plate: { type: string, example: "ABC1D23" }
+        brand: { type: string, example: "Fiat" }
+        model: { type: string, example: "Uno" }
+        year: { type: integer, example: 2020 }
+        color: { type: string, nullable: true }
+        mileage: { type: integer, example: 45000 }
+        clientId: { type: string }
+        tenantId: { type: string }
+
+    OrderSummary:
+      type: object
+      properties:
+        id: { type: string }
+        number: { type: integer, example: 42 }
+        status: { type: string, enum: [OPEN, IN_PROGRESS, WAITING_PART, WAITING_APPROVAL, COMPLETED, DELIVERED, CANCELLED] }
+        totalAmount: { type: number, format: float, example: 1250.50 }
+        createdAt: { type: string, format: date-time }
+        client: { type: object, properties: { name: { type: string } } }
+        vehicle: { type: object, properties: { plate: { type: string }, model: { type: string } } }
+
+    Complaint:
+      type: object
+      properties:
+        description: { type: string, example: "Barulho na suspensão" }
+        services:
+          type: array
+          items:
+            type: object
+            properties:
+              description: { type: string }
+              price: { type: number }
+              mechanicId: { type: string, nullable: true }
+              serviceId: { type: string, nullable: true }
+        parts:
+          type: array
+          items:
+            type: object
+            properties:
+              description: { type: string }
+              quantity: { type: integer }
+              unitPrice: { type: number }
+              stockItemId: { type: string, nullable: true }
+
+    StockItem:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+        description: { type: string }
+        brand: { type: string, nullable: true }
+        quantity: { type: integer }
+        minQuantity: { type: integer }
+        costPrice: { type: number }
+        sellPrice: { type: number }
+        avgCost: { type: number }
+        active: { type: boolean }
+
+    ServiceCatalog:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string, nullable: true }
+        description: { type: string }
+        category: { type: string, nullable: true }
+        defaultPrice: { type: number }
+        estimatedTime: { type: integer, nullable: true }
+        warrantyDays: { type: integer, nullable: true }
+        active: { type: boolean }
+
+    Appointment:
+      type: object
+      properties:
+        id: { type: string }
+        clientName: { type: string }
+        clientPhone: { type: string }
+        vehicleInfo: { type: string }
+        description: { type: string }
+        date: { type: string, format: date-time }
+        status: { type: string, enum: [PENDING, CONFIRMED, CANCELLED, COMPLETED] }
+
+    PaginatedOrders:
+      type: object
+      properties:
+        data:
+          type: array
+          items: { $ref: "#/components/schemas/OrderSummary" }
+        total: { type: integer }
+        page: { type: integer }
+        pageSize: { type: integer }
+
+security:
+  - session: []
+
+paths:
+  # ─── AUTH ───────────────────────────────────────────────────────
+  /auth/[...nextauth]:
+    post:
+      tags: [Auth]
+      summary: Login (NextAuth credentials)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string, example: "admin@paiffer.com" }
+                password: { type: string, example: "password123" }
+      responses:
+        "200":
+          description: Sessão criada (cookie set-cookie)
+        "401":
+          description: Credenciais inválidas
+
+  # ─── CLIENTS ────────────────────────────────────────────────────
+  /clients:
+    get:
+      tags: [Clients]
+      summary: Listar clientes
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+          description: Busca por nome ou documento
+        - name: includeInactive
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Lista de clientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Client" }
+    post:
+      tags: [Clients]
+      summary: Criar cliente
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, document, docType]
+              properties:
+                name: { type: string }
+                document: { type: string }
+                docType: { type: string, enum: [CPF, CNPJ] }
+                phone: { type: string }
+                email: { type: string }
+                address: { type: string }
+      responses:
+        "201":
+          description: Cliente criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Client" }
+        "400": { description: Validação falhou, content: { application/json: { schema: { $ref: "#/components/schemas/Error" } } } }
+        "409": { description: Documento já cadastrado }
+
+  /clients/{id}:
+    get:
+      tags: [Clients]
+      summary: Detalhar cliente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Client" }
+        "404": { description: Cliente não encontrado }
+    put:
+      tags: [Clients]
+      summary: Atualizar cliente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                email: { type: string }
+                address: { type: string }
+      responses:
+        "200": { description: Cliente atualizado }
+    delete:
+      tags: [Clients]
+      summary: Inativar cliente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Cliente inativado }
+        "404": { description: Cliente não encontrado }
+        "409": { description: Cliente já inativo }
+
+  # ─── VEHICLES ───────────────────────────────────────────────────
+  /vehicles:
+    get:
+      tags: [Vehicles]
+      summary: Listar veículos
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Vehicle" }
+    post:
+      tags: [Vehicles]
+      summary: Criar veículo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plate, brand, model, year, clientId]
+              properties:
+                plate: { type: string }
+                brand: { type: string }
+                model: { type: string }
+                year: { type: integer }
+                color: { type: string }
+                clientId: { type: string }
+      responses:
+        "201": { description: Veículo criado }
+        "409": { description: Placa já cadastrada neste tenant }
+
+  # ─── ORDERS ─────────────────────────────────────────────────────
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Listar ordens de serviço (paginado)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [OPEN, IN_PROGRESS, WAITING_PART, WAITING_APPROVAL, COMPLETED, DELIVERED, CANCELLED] }
+        - name: startDate
+          in: query
+          schema: { type: string, format: date }
+        - name: endDate
+          in: query
+          schema: { type: string, format: date }
+        - name: mechanicId
+          in: query
+          schema: { type: string }
+        - name: clientId
+          in: query
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: pageSize
+          in: query
+          schema: { type: integer, default: 15 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PaginatedOrders" }
+    post:
+      tags: [Orders]
+      summary: Criar ordem de serviço
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientId, vehicleId]
+              properties:
+                clientId: { type: string }
+                vehicleId: { type: string }
+                mileage: { type: integer }
+                notes: { type: string }
+                complaints:
+                  type: array
+                  items: { $ref: "#/components/schemas/Complaint" }
+      responses:
+        "201":
+          description: OS criada (com possíveis stockWarnings)
+        "400": { description: Validação falhou }
+
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      summary: Detalhar OS completa
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: OS detalhada com complaints, serviços, peças e histórico }
+        "404": { description: OS não encontrada }
+    patch:
+      tags: [Orders]
+      summary: Alterar status ou cancelar OS
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  properties:
+                    action: { type: string, const: "cancel" }
+                    reason: { type: string }
+                - type: object
+                  properties:
+                    status: { type: string }
+      responses:
+        "200": { description: Status atualizado }
+    put:
+      tags: [Orders]
+      summary: Editar OS (somente em WAITING_APPROVAL)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                complaints:
+                  type: array
+                  items: { $ref: "#/components/schemas/Complaint" }
+                notes: { type: string }
+      responses:
+        "200": { description: OS atualizada }
+        "400": { description: Validação ou regra de negócio violada }
+
+  /orders/export:
+    get:
+      tags: [Orders]
+      summary: Exportar OSs em CSV
+      parameters:
+        - name: ids
+          in: query
+          schema: { type: array, items: { type: string } }
+        - name: startDate
+          in: query
+          schema: { type: string, format: date }
+        - name: endDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Arquivo CSV
+          content:
+            text/csv: {}
+
+  /orders/{id}/warranty:
+    get:
+      tags: [Orders]
+      summary: Verificar garantia da OS
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Status de garantia dos serviços
+
+  # ─── SERVICES ───────────────────────────────────────────────────
+  /services:
+    get:
+      tags: [Services]
+      summary: Listar catálogo de serviços
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ServiceCatalog" }
+    post:
+      tags: [Services]
+      summary: Criar serviço no catálogo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [description, defaultPrice]
+              properties:
+                description: { type: string }
+                defaultPrice: { type: number }
+                category: { type: string }
+                estimatedTime: { type: integer }
+                warrantyDays: { type: integer }
+                pricingType: { type: string, enum: [VALUE, TIME] }
+      responses:
+        "201": { description: Serviço criado }
+
+  # ─── STOCK ──────────────────────────────────────────────────────
+  /stock:
+    get:
+      tags: [Stock]
+      summary: Listar itens de estoque
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockItem" }
+    post:
+      tags: [Stock]
+      summary: Criar item de estoque
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, description]
+              properties:
+                code: { type: string }
+                description: { type: string }
+                brand: { type: string }
+                unit: { type: string, default: "UN" }
+                minQuantity: { type: integer }
+                costPrice: { type: number }
+                sellPrice: { type: number }
+      responses:
+        "201": { description: Item criado }
+
+  /stock/{id}/entry:
+    post:
+      tags: [Stock]
+      summary: Registrar entrada de estoque
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity, unitCost]
+              properties:
+                quantity: { type: integer, minimum: 1 }
+                unitCost: { type: number }
+                supplier: { type: string }
+                document: { type: string }
+      responses:
+        "200": { description: Entrada registrada }
+
+  /stock/alerts:
+    get:
+      tags: [Stock]
+      summary: Itens com estoque abaixo do mínimo
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockItem" }
+
+  # ─── TIMER ──────────────────────────────────────────────────────
+  /timer-logs:
+    post:
+      tags: [Timer]
+      summary: Iniciar cronômetro
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderServiceId]
+              properties:
+                orderServiceId: { type: string }
+      responses:
+        "201": { description: Timer iniciado }
+
+  /timer-logs/{id}/pause:
+    post:
+      tags: [Timer]
+      summary: Pausar cronômetro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Timer pausado }
+
+  /timer-logs/{id}/resume:
+    post:
+      tags: [Timer]
+      summary: Retomar cronômetro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Timer retomado }
+
+  /timer-logs/{id}/finish:
+    post:
+      tags: [Timer]
+      summary: Finalizar cronômetro
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Timer finalizado }
+
+  # ─── COMMISSIONS ────────────────────────────────────────────────
+  /commissions:
+    get:
+      tags: [Commissions]
+      summary: Listar comissões
+      parameters:
+        - name: mechanicId
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string, enum: [PENDING, APPROVED, PAID, CANCELLED] }
+      responses:
+        "200":
+          description: Lista de comissões
+    post:
+      tags: [Commissions]
+      summary: Gerar comissão para mecânico
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mechanicId, startDate, endDate]
+              properties:
+                mechanicId: { type: string }
+                startDate: { type: string, format: date }
+                endDate: { type: string, format: date }
+      responses:
+        "201": { description: Comissão gerada }
+
+  /commissions/{id}/approve:
+    post:
+      tags: [Commissions]
+      summary: Aprovar comissão
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Comissão aprovada }
+
+  /commissions/{id}/pay:
+    post:
+      tags: [Commissions]
+      summary: Marcar comissão como paga
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Comissão paga }
+
+  # ─── REPORTS ────────────────────────────────────────────────────
+  /reports:
+    get:
+      tags: [Reports]
+      summary: Relatório financeiro (admin)
+      parameters:
+        - name: startDate
+          in: query
+          schema: { type: string, format: date }
+        - name: endDate
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Dados financeiros agregados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalOrders: { type: integer }
+                  totalRevenue: { type: number }
+                  avgTicket: { type: number }
+                  partsCost: { type: number }
+                  grossProfit: { type: number }
+                  cancelledCount: { type: integer }
+                  completedCount: { type: integer }
+                  byStatus: { type: object }
+                  monthly: { type: array, items: { type: object, properties: { month: { type: string }, revenue: { type: number }, count: { type: integer } } } }
+                  profitByOrder: { type: array }
+        "403": { description: Apenas admin }
+
+  /reports/productivity:
+    get:
+      tags: [Reports]
+      summary: Relatório de produtividade dos mecânicos (admin)
+      responses:
+        "200":
+          description: Ranking de mecânicos por eficiência
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ranking:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        serviceCount: { type: integer }
+                        totalSeconds: { type: integer }
+                        avgSeconds: { type: integer }
+                        withinPct: { type: integer }
+
+  # ─── FISCAL ─────────────────────────────────────────────────────
+  /fiscal/invoices:
+    get:
+      tags: [Fiscal]
+      summary: Listar notas fiscais
+      responses:
+        "200": { description: Lista de NF-e/NFS-e }
+
+  /fiscal/invoices/{id}:
+    patch:
+      tags: [Fiscal]
+      summary: Cancelar ou reprocessar nota fiscal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                action: { type: string, enum: [cancel, retry] }
+                reason: { type: string, description: "Motivo (min 15 chars, obrigatório para cancel)" }
+      responses:
+        "200": { description: Ação executada }
+
+  # ─── APPOINTMENTS ───────────────────────────────────────────────
+  /appointments:
+    get:
+      tags: [Appointments]
+      summary: Listar agendamentos
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Appointment" }
+    post:
+      tags: [Appointments]
+      summary: Criar agendamento (admin)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientName, clientPhone, vehicleInfo, description, date]
+              properties:
+                clientName: { type: string }
+                clientPhone: { type: string }
+                vehicleInfo: { type: string }
+                description: { type: string }
+                date: { type: string, format: date-time }
+      responses:
+        "201": { description: Agendamento criado }
+        "400": { description: Validação / horário lotado }
+
+  # ─── BILLING ────────────────────────────────────────────────────
+  /billing:
+    get:
+      tags: [Billing]
+      summary: Consultar status da assinatura
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plan: { type: string, enum: [trial, basic, professional, enterprise] }
+                  planExpiresAt: { type: string, format: date-time, nullable: true }
+                  billingStatus: { type: string, enum: [active, past_due, suspended, cancelled] }
+        "403": { description: Assinatura suspensa ou expirada }
+
+  /billing/webhook:
+    post:
+      tags: [Billing]
+      summary: Webhook de pagamento (gateway → Operare)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [event, tenantId]
+              properties:
+                event: { type: string, enum: [payment_confirmed, payment_overdue, subscription_cancelled, subscription_renewed, subscription_upgraded] }
+                tenantId: { type: string }
+                plan: { type: string }
+                expiresAt: { type: string, format: date-time }
+      responses:
+        "200": { description: Webhook processado }
+        "400": { description: Payload inválido }
+
+  # ─── USERS ──────────────────────────────────────────────────────
+  /users:
+    get:
+      tags: [Users]
+      summary: Listar usuários do tenant
+      responses:
+        "200":
+          description: Lista de usuários
+    post:
+      tags: [Users]
+      summary: Criar usuário (admin)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, role, password]
+              properties:
+                name: { type: string, minLength: 3 }
+                email: { type: string, format: email }
+                role: { type: string, enum: [ADMIN, MECHANIC, ATTENDANT] }
+                password: { type: string, minLength: 8 }
+                commissionRate: { type: number }
+      responses:
+        "201": { description: Usuário criado }
+        "409": { description: E-mail já em uso }
+
+  /users/me/password:
+    put:
+      tags: [Users]
+      summary: Alterar senha do próprio usuário
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 8 }
+      responses:
+        "200": { description: Senha alterada }
+        "400": { description: Senha atual incorreta ou nova senha fraca }
+
+  # ─── PUBLIC ─────────────────────────────────────────────────────
+  /public/register:
+    post:
+      tags: [Public]
+      summary: Cadastro self-service de oficina (onboarding)
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [officeName, cnpj, adminName, adminEmail, adminPassword]
+              properties:
+                officeName: { type: string, minLength: 3 }
+                cnpj: { type: string }
+                adminName: { type: string, minLength: 3 }
+                adminEmail: { type: string, format: email }
+                adminPassword: { type: string, minLength: 8 }
+                phone: { type: string }
+                address: { type: string }
+      responses:
+        "201":
+          description: Tenant criado com trial de 15 dias
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tenantId: { type: string }
+                  tenantName: { type: string }
+                  adminEmail: { type: string }
+        "400": { description: Validação falhou }
+        "409": { description: CNPJ ou email já cadastrado }
+
+  /public/schedule/{tenantId}:
+    get:
+      tags: [Public]
+      summary: Obter horários disponíveis para agendamento público
+      security: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: date
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Slots disponíveis
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    time: { type: string, example: "09:00" }
+                    available: { type: boolean }
+    post:
+      tags: [Public]
+      summary: Agendar horário (público)
+      security: []
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [clientName, clientPhone, vehicleInfo, description, date]
+              properties:
+                clientName: { type: string }
+                clientPhone: { type: string }
+                vehicleInfo: { type: string }
+                description: { type: string }
+                date: { type: string, format: date-time }
+      responses:
+        "201": { description: Agendamento criado }
+        "400": { description: Horário lotado ou dados inválidos }

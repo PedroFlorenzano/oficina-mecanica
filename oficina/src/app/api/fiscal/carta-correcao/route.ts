@@ -42,7 +42,6 @@ export async function POST(request: NextRequest) {
     const result = await adapter.cartaCorrecao(invoice.accessKey, correcao, nSeqEvento || 1);
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

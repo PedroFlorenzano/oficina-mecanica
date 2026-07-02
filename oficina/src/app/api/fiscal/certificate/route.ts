@@ -43,7 +43,6 @@ export async function POST(request: NextRequest) {
       message: "Certificado salvo com sucesso",
     });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

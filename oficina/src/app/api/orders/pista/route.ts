@@ -16,7 +16,6 @@ export async function GET() {
     const orders = await useCase.execute(tenantId);
     return NextResponse.json(orders);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -38,7 +37,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(updated);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

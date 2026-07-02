@@ -82,6 +82,7 @@ model Client {
   orders    ServiceOrder[]
 
   @@unique([document, tenantId])
+  @@index([tenantId, active])
 }
 
 enum DocType {
@@ -160,6 +161,12 @@ model ServiceOrder {
   whatsappMessages WhatsAppMessage[]
   fiscalInvoices   FiscalInvoice[]
   photos      OrderPhoto[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([clientId])
+  @@index([vehicleId])
+  @@unique([number, tenantId])
 }
 
 model Complaint {
@@ -201,6 +208,9 @@ model OrderService {
   complaint   Complaint?      @relation(fields: [complaintId], references: [id])
   timerLogs   TimerLog[]
   commissionItems CommissionItem[]
+
+  @@index([orderId])
+  @@index([mechanicId])
 }
 
 model OrderPart {
@@ -263,6 +273,10 @@ model StockMovement {
 
   stockItem     StockItem    @relation(fields: [stockItemId], references: [id])
   order         ServiceOrder? @relation(fields: [orderId], references: [id])
+
+  @@index([stockItemId, type])
+  @@index([orderId])
+  @@index([createdAt])
 }
 
 enum MovementType {
@@ -299,6 +313,9 @@ model TimerLog {
   orderService   OrderService @relation(fields: [orderServiceId], references: [id])
   user           User         @relation(fields: [userId], references: [id])
   auditLogs      TimerAuditLog[]
+
+  @@index([userId, finishedAt])
+  @@index([orderServiceId])
 }
 
 model TimerAuditLog {
@@ -342,6 +359,9 @@ model Commission {
 
   mechanic        User             @relation(fields: [mechanicId], references: [id])
   items           CommissionItem[]
+
+  @@index([tenantId, mechanicId])
+  @@index([tenantId, status])
 }
 
 model CommissionItem {
@@ -504,6 +524,9 @@ model FiscalInvoice {
 
   order           ServiceOrder        @relation(fields: [orderId], references: [id])
   items           FiscalInvoiceItem[]
+
+  @@index([tenantId, status])
+  @@index([orderId])
 }
 
 model FiscalInvoiceItem {
@@ -582,4 +605,7 @@ model Appointment {
   updatedAt     DateTime          @updatedAt
 
   tenant        Tenant            @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, date])
+  @@index([tenantId, status])
 }

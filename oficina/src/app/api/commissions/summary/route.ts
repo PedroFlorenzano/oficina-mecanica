@@ -17,7 +17,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

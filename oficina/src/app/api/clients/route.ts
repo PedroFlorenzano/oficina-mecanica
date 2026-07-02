@@ -28,7 +28,6 @@ export async function GET(request: NextRequest) {
     );
     return NextResponse.json(clients);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -44,7 +43,6 @@ export async function POST(request: NextRequest) {
     const client = await useCase.execute(body, tenantId);
     return NextResponse.json(client, { status: 201 });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

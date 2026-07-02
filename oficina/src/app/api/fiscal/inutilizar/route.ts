@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     const result = await adapter.inutilizar(ano, serie ?? config.nfeSeries, numInicio, numFim, justificativa);
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

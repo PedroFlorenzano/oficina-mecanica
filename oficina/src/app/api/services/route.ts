@@ -13,7 +13,6 @@ export async function GET() {
     const services = await container.serviceCatalogRepository.findAll(tenantId);
     return NextResponse.json(services);
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -29,7 +28,6 @@ export async function POST(request: NextRequest) {
     const service = await useCase.execute(body, tenantId);
     return NextResponse.json(service, { status: 201 });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

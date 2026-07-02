@@ -17,7 +17,6 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

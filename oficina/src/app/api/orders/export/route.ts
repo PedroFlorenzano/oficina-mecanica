@@ -64,7 +64,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }

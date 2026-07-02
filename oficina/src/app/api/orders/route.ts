@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ data, total, page, pageSize });
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
@@ -96,7 +95,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof Response) return error;
     return handleError(error);
   }
 }
