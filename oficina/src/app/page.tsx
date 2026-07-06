@@ -131,45 +131,116 @@ export default async function LandingPage() {
 
       {/* Pricing */}
       <section className="bg-slate-50 py-20">
-        <div className="max-w-3xl mx-auto px-4 text-center">
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">Simples e transparente</h2>
-          <p className="text-slate-600 mb-10">Um plano completo com tudo incluso. Sem surpresas na fatura.</p>
+        <div className="max-w-6xl mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold text-slate-900 mb-4">Planos para cada fase da sua oficina</h2>
+          <p className="text-slate-600 mb-12">Escolha o plano ideal e cresça sem limites. Sem fidelidade.</p>
 
-          <div className="bg-white border-2 border-blue-600 rounded-2xl p-8 shadow-sm">
-            <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">Plano Profissional</p>
-            <div className="mt-4 flex items-baseline justify-center gap-1">
-              <span className="text-5xl font-bold text-slate-900">R$ 1.500</span>
-              <span className="text-slate-500">/mês</span>
+          <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+            {/* Básico */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-left">
+              <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Básico</p>
+              <div className="mt-3 flex items-baseline gap-1">
+                <span className="text-4xl font-bold text-slate-900">R$ 250</span>
+                <span className="text-slate-500">/mês</span>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Ideal para oficinas pequenas que querem sair do papel</p>
+
+              <ul className="mt-6 space-y-2.5">
+                {[
+                  "Ordens de serviço ilimitadas",
+                  "Cadastro de clientes e veículos",
+                  "Controle de estoque básico",
+                  "Relatórios financeiros",
+                  "Até 3 usuários",
+                  "Suporte via chat",
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-slate-700">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <Link href="/register" className="mt-6 block w-full text-center bg-slate-100 text-slate-700 py-3 rounded-lg font-semibold hover:bg-slate-200 text-sm">
+                Começar grátis
+              </Link>
             </div>
-            <p className="mt-2 text-sm text-slate-500">Todos os módulos • Usuários ilimitados • Suporte direto</p>
 
-            <ul className="mt-8 space-y-3 text-left max-w-sm mx-auto">
-              {[
-                "Ordens de serviço ilimitadas",
-                "Estoque completo com custo médio",
-                "WhatsApp + aprovação digital",
-                "NF-e e NFS-e integradas",
-                "Cronômetro e comissões",
-                "Agendamento online",
-                "Relatórios financeiros + PDF",
-                "Usuários e mecânicos ilimitados",
-                "Suporte via WhatsApp",
-                "Migração gratuita do sistema anterior",
-              ].map((item) => (
-                <li key={item} className="flex items-center gap-2 text-sm text-slate-700">
-                  <svg className="w-5 h-5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
+            {/* Profissional */}
+            <div className="bg-white border-2 border-blue-600 rounded-2xl p-6 shadow-md text-left relative">
+              <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-xs font-bold px-3 py-1 rounded-full">MAIS POPULAR</span>
+              <p className="text-sm font-medium text-blue-600 uppercase tracking-wide">Profissional</p>
+              <div className="mt-3 flex items-baseline gap-1">
+                <span className="text-4xl font-bold text-slate-900">R$ 400</span>
+                <span className="text-slate-500">/mês</span>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Para oficinas que buscam gestão completa e eficiência</p>
 
-            <Link href="/register" className="mt-8 block w-full bg-blue-600 text-white py-3.5 rounded-lg font-semibold hover:bg-blue-700 text-base">
-              Começar 15 dias grátis
-            </Link>
-            <p className="mt-3 text-xs text-slate-400">Sem cartão de crédito • Cancele quando quiser</p>
+              <ul className="mt-6 space-y-2.5">
+                {[
+                  "Tudo do plano Básico",
+                  "NF-e e NFS-e integradas",
+                  "WhatsApp + aprovação digital",
+                  "Cronômetro e comissões",
+                  "Agendamento online",
+                  "Pista (Kanban) de serviços",
+                  "PDF de OS e orçamento",
+                  "Até 10 usuários",
+                  "Suporte prioritário via WhatsApp",
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-slate-700">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <Link href="/register" className="mt-6 block w-full text-center bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 text-sm">
+                Começar 15 dias grátis
+              </Link>
+            </div>
+
+            {/* Enterprise */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm text-left">
+              <p className="text-sm font-medium text-slate-500 uppercase tracking-wide">Enterprise</p>
+              <div className="mt-3 flex items-baseline gap-1">
+                <span className="text-4xl font-bold text-slate-900">R$ 600</span>
+                <span className="text-slate-500">/mês</span>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Para redes e oficinas de alto volume</p>
+
+              <ul className="mt-6 space-y-2.5">
+                {[
+                  "Tudo do plano Profissional",
+                  "Usuários ilimitados",
+                  "Multi-loja (vários CNPJs)",
+                  "Relatórios de produtividade",
+                  "Exportação em lote (CSV)",
+                  "Alerta de garantia",
+                  "Fotos na OS (antes/depois)",
+                  "Migração gratuita do sistema anterior",
+                  "Suporte dedicado",
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-2 text-sm text-slate-700">
+                    <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+
+              <Link href="/register" className="mt-6 block w-full text-center bg-slate-100 text-slate-700 py-3 rounded-lg font-semibold hover:bg-slate-200 text-sm">
+                Falar com comercial
+              </Link>
+            </div>
           </div>
+
+          <p className="mt-8 text-xs text-slate-400">Sem cartão de crédito • Cancele quando quiser • 15 dias grátis em todos os planos</p>
         </div>
       </section>
 
