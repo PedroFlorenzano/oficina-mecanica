@@ -398,6 +398,13 @@ model WhatsAppConfig {
   accessToken     String?  // API access token (encrypted in prod)
   businessName    String?
   enabled         Boolean  @default(false)
+  // Templates de mensagens (variáveis: {cliente}, {veiculo}, {placa}, {os}, {oficina}, {status}, {link})
+  msgStatusUpdate    String?  // Aviso de mudança de status da OS
+  msgDeliveryReady   String?  // Veículo pronto para retirada
+  msgOilReminder     String?  // Lembrete de troca de óleo
+  msgAppointment     String?  // Confirmação/lembrete de agendamento
+  msgBirthday        String?  // Feliz aniversário
+  msgReturnReminder  String?  // Lembrete de retorno preventivo
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
