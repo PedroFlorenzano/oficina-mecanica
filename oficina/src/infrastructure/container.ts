@@ -13,6 +13,7 @@ import { PrismaWhatsAppRepository } from "./repositories/PrismaWhatsAppRepositor
 import { PrismaFiscalRepository } from "./repositories/PrismaFiscalRepository";
 import { PrismaOrderPhotoRepository } from "./repositories/PrismaOrderPhotoRepository";
 import { PrismaAppointmentRepository } from "./repositories/PrismaAppointmentRepository";
+import { PrismaSupplierRepository } from "./repositories/PrismaSupplierRepository";
 
 function buildContainer(db: PrismaClient) {
   return {
@@ -29,6 +30,7 @@ function buildContainer(db: PrismaClient) {
     fiscalRepository: new PrismaFiscalRepository(db),
     orderPhotoRepository: new PrismaOrderPhotoRepository(db),
     appointmentRepository: new PrismaAppointmentRepository(db),
+    supplierRepository: new PrismaSupplierRepository(db),
   };
 }
 

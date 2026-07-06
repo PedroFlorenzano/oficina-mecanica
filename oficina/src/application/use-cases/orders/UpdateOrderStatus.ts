@@ -25,6 +25,15 @@ export class UpdateOrderStatus {
       await this.confirmStockConsumption.execute(id);
     }
 
+    // Ao iniciar execução, recalcular prazo com data atual
+    if (status === "IN_PROGRESS") {
+      try {
+        const { CalculateOrderDeadline } = await import("./CalculateOrderDeadline");
+        const deadlineUseCase = new CalculateOrderDeadline();
+        await deadlineUseCase.execute(id, order.tenantId);
+      } catch { /* não bloquear se falhar */ }
+    }
+
     return updated;
   }
 }

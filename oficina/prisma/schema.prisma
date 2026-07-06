@@ -29,6 +29,7 @@ model Tenant {
   orders    ServiceOrder[]
   items     StockItem[]
   services  ServiceCatalog[]
+  suppliers  Supplier[]
   whatsappConfig WhatsAppConfig?
   fiscalConfig   FiscalConfig?
   scheduleConfig ScheduleConfig?
@@ -141,6 +142,9 @@ model ServiceOrder {
   notes        String?
   cancelReason String?
   totalAmount  Float       @default(0)
+  estimatedDelivery   DateTime?  // MRP: data/hora estimada de entrega
+  estimatedDaysTotal  Int?       // MRP: dias úteis totais calculados
+  estimatedDaysReason String?    // MRP: "services" | "parts" | "both"
   clientId     String
   vehicleId    String
   tenantId     String
@@ -241,6 +245,8 @@ model StockItem {
   quantity     Int      @default(0)
   location     String?
   supplier     String?
+  supplierId   String?    // FK para Supplier (substitui campo supplier texto)
+  leadTimeDays Int?       // Override de prazo de entrega (dias úteis)
   costPrice    Float    @default(0)
   sellPrice    Float    @default(0)
   avgCost      Float    @default(0)
@@ -251,6 +257,7 @@ model StockItem {
   updatedAt    DateTime @updatedAt
 
   tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  supplierRef  Supplier? @relation(fields: [supplierId], references: [id])
   orderParts   OrderPart[]
   movements    StockMovement[]
 
@@ -590,6 +597,8 @@ model ScheduleConfig {
   endTime        String   @default("18:00")
   lunchStart     String?  @default("12:00")
   lunchEnd       String?  @default("13:00")
+  defaultPartLeadDays Int @default(5)  // MRP: fallback para peças sem fornecedor
+  mechanicCount  Int      @default(2)  // MRP: mecânicos simultâneos
   enabled        Boolean  @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -615,4 +624,26 @@ model Appointment {
 
   @@index([tenantId, date])
   @@index([tenantId, status])
+}
+
+model Supplier {
+  id                  String   @id @default(cuid())
+  name                String
+  cnpj                String?
+  phone               String?
+  email               String?
+  website             String?
+  affiliateUrl        String?  // URL base para afiliado
+  affiliateCode       String?  // Código do afiliado
+  defaultLeadTimeDays Int      @default(3) // Prazo padrão de entrega em dias úteis
+  active              Boolean  @default(true)
+  tenantId            String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
+  stockItems          StockItem[]
+
+  @@unique([cnpj, tenantId])
+  @@index([tenantId, active])
 }

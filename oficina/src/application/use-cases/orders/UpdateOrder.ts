@@ -95,6 +95,13 @@ export class UpdateOrder {
       }
     }
 
+    // Recalcular prazo estimado de entrega (MRP)
+    try {
+      const { CalculateOrderDeadline } = await import("./CalculateOrderDeadline");
+      const deadlineUseCase = new CalculateOrderDeadline();
+      await deadlineUseCase.execute(orderId, tenantId);
+    } catch { /* não bloquear se falhar */ }
+
     return { ...updated, stockWarnings: stockWarnings.length > 0 ? stockWarnings : undefined };
   }
 }

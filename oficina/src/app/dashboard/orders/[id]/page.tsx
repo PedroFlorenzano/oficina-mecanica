@@ -8,6 +8,7 @@ import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
 import { OrderPhotos } from "@/components/OrderPhotos";
+import { DeadlineBadge } from "@/components/DeadlineBadge";
 import { formatCurrency } from "@/lib/format";
 
 interface ComplaintData {
@@ -208,6 +209,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </div>
           <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${status.color}`}>{status.label}</span>
         </div>
+        <DeadlineBadge orderId={order.id} orderStatus={order.status} />
         {/* Botões de ação — tamanho e estilo padronizados */}
         <div className="flex flex-wrap gap-2">
           <button onClick={() => window.print()} className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">

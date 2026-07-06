@@ -14,10 +14,18 @@ interface StockItem {
   quantity: number;
   location?: string | null;
   supplier?: string | null;
+  supplierId?: string | null;
+  leadTimeDays?: number | null;
   costPrice: number;
   sellPrice: number;
   profitMargin?: number | null;
   active?: boolean;
+}
+
+interface SupplierOption {
+  id: string;
+  name: string;
+  defaultLeadTimeDays: number;
 }
 
 interface Props {
@@ -55,6 +63,8 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
     unit: item?.unit || "UN",
     location: item?.location || "",
     supplier: item?.supplier || "",
+    supplierId: item?.supplierId || "",
+    leadTimeDays: item?.leadTimeDays?.toString() || "",
     observations: "",
     minQuantity: item?.minQuantity?.toString() || "0",
     quantity: item?.quantity?.toString() || "0",
@@ -65,6 +75,15 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
+
+  // Buscar fornecedores cadastrados
+  useEffect(() => {
+    fetch("/api/suppliers")
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: SupplierOption[]) => setSuppliers(data))
+      .catch(() => {});
+  }, []);
 
   // Auto-calculate sell price from cost + margin
   useEffect(() => {
@@ -185,11 +204,35 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">Fornecedor Padrão</label>
-                  <input type="text" value={form.supplier}
-                    onChange={(e) => setForm({ ...form, supplier: e.target.value })}
-                    placeholder="Ex: Auto Peças Silva, Bosch, etc."
+                  <label className="block text-xs font-medium text-slate-600 mb-1">Fornecedor</label>
+                  <select value={form.supplierId}
+                    onChange={(e) => {
+                      const selected = suppliers.find(s => s.id === e.target.value);
+                      setForm({ ...form, supplierId: e.target.value, supplier: selected?.name || "" });
+                    }}
+                    className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Selecione um fornecedor...</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name} ({s.defaultLeadTimeDays}d)</option>
+                    ))}
+                  </select>
+                  {!form.supplierId && (
+                    <input type="text" value={form.supplier}
+                      onChange={(e) => setForm({ ...form, supplier: e.target.value })}
+                      placeholder="Ou digite manualmente"
+                      className="w-full mt-1 px-3 py-2 border border-slate-200 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-500" />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-600 mb-1">
+                    Prazo de entrega (dias úteis)
+                  </label>
+                  <input type="number" min="0" max="90" value={form.leadTimeDays}
+                    onChange={(e) => setForm({ ...form, leadTimeDays: e.target.value })}
+                    placeholder={form.supplierId ? `Padrão: ${suppliers.find(s => s.id === form.supplierId)?.defaultLeadTimeDays || 3}d` : "Usar padrão"}
                     className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <p className="text-xs text-slate-400 mt-0.5">Deixe vazio para usar o prazo padrão do fornecedor</p>
                 </div>
               </div>
             </div>

@@ -54,6 +54,21 @@ export class RegisterStockEntry {
         avgCost: newAvgCost,
         costPrice: newAvgCost,
       }
-    );
+    ).then(async (result) => {
+      // Recalcular prazo de OSs ativas que usam este item
+      try {
+        const { prisma } = await import("@/infrastructure/database/prisma");
+        const { CalculateOrderDeadline } = await import("../orders/CalculateOrderDeadline");
+        const activeOrders = await prisma.orderPart.findMany({
+          where: { stockItemId: itemId, order: { status: { in: ["OPEN", "IN_PROGRESS", "WAITING_PART"] } } },
+          select: { order: { select: { id: true, tenantId: true } } },
+        });
+        const deadlineUseCase = new CalculateOrderDeadline();
+        for (const op of activeOrders) {
+          await deadlineUseCase.execute(op.order.id, op.order.tenantId).catch(() => {});
+        }
+      } catch { /* não bloquear */ }
+      return result;
+    });
   }
 }

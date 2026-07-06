@@ -20,6 +20,7 @@ import {
   CalendarDays,
   Settings,
   CreditCard,
+  Truck,
 } from "lucide-react";
 
 import {
@@ -40,6 +41,7 @@ const cadastrosNav = [
   { href: "/dashboard/vehicles", label: "Veículos", icon: Car, resource: "vehicles" as Resource },
   { href: "/dashboard/stock", label: "Estoque", icon: Package, resource: "stock" as Resource },
   { href: "/dashboard/services", label: "Catálogo de Serviços", icon: Wrench, resource: "services" as Resource },
+  { href: "/dashboard/fornecedores", label: "Fornecedores", icon: Truck, resource: "stock" as Resource },
 ];
 
 interface NavItemProps {
