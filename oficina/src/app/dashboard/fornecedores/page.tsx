@@ -42,8 +42,19 @@ export default function FornecedoresPage() {
     setShowForm(true);
   };
 
-  const handleEdit = (supplier: Supplier) => {
-    setEditingSupplier(supplier);
+  const handleEdit = async (supplier: Supplier) => {
+    // Buscar dados completos (com searchConfigs)
+    try {
+      const res = await fetch(`/api/suppliers/${supplier.id}`);
+      if (res.ok) {
+        const full = await res.json();
+        setEditingSupplier(full);
+      } else {
+        setEditingSupplier(supplier);
+      }
+    } catch {
+      setEditingSupplier(supplier);
+    }
     setShowForm(true);
   };
 

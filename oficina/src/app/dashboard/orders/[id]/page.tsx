@@ -3,12 +3,13 @@
 import { useState, useEffect, use, Fragment } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil, ClipboardList, Copy } from "lucide-react";
+import { ArrowLeft, Printer, FileDown, XCircle, Droplet, MessageCircle, FileText, Pencil, ClipboardList, Copy, Package } from "lucide-react";
 import Link from "next/link";
 import TimerControl from "@/components/timer/TimerControl";
 import OilLabel from "@/components/OilLabel";
 import { OrderPhotos } from "@/components/OrderPhotos";
 import { DeadlineBadge } from "@/components/DeadlineBadge";
+import { SupplierSearch } from "@/components/SupplierSearch";
 import { formatCurrency } from "@/lib/format";
 
 interface ComplaintData {
@@ -78,6 +79,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const [cancelReason, setCancelReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState("");
+
+  // Estado do modal de busca em fornecedores
+  const [showSupplierSearch, setShowSupplierSearch] = useState(false);
 
   // Estado da etiqueta de óleo
   const [oilLabelData, setOilLabelData] = useState<OilLabelData | null>(null);
@@ -230,6 +234,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </button>
           <button onClick={handleOilLabel} className="inline-flex items-center gap-2 px-4 py-2 border border-amber-300 bg-amber-50 rounded-lg text-sm font-medium hover:bg-amber-100 text-amber-700">
             <Droplet size={16} /> Etiqueta Óleo
+          </button>
+          <button onClick={() => setShowSupplierSearch(true)} className="inline-flex items-center gap-2 px-4 py-2 border border-emerald-300 bg-emerald-50 rounded-lg text-sm font-medium hover:bg-emerald-100 text-emerald-700">
+            <Package size={16} /> Buscar Peças
           </button>
           {order.status === "WAITING_APPROVAL" && (
             <a href={`/api/orders/${order.id}/budget`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-purple-300 bg-purple-50 rounded-lg text-sm font-medium hover:bg-purple-100 text-purple-700">
@@ -610,6 +617,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             <Droplet size={16} className="text-amber-600" /> ETIQUETA DE TROCA DE ÓLEO
           </h2>
           <OilLabel data={oilLabelData} onClose={() => setOilLabelData(null)} />
+        </div>
+      )}
+
+      {/* Modal: Buscar Peças em Fornecedores */}
+      {showSupplierSearch && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold text-slate-800">Buscar Peças em Fornecedores</h2>
+              <button onClick={() => setShowSupplierSearch(false)} className="text-slate-400 hover:text-slate-600">
+                <XCircle size={20} />
+              </button>
+            </div>
+            <div className="p-6">
+              <SupplierSearch orderId={order.id} />
+            </div>
+          </div>
         </div>
       )}
     </div>

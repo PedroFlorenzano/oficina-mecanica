@@ -12,6 +12,7 @@ interface Supplier {
   website: string | null;
   defaultLeadTimeDays: number;
   active: boolean;
+  searchConfigs?: { id: string; searchUrlTemplate: string; active: boolean }[];
 }
 
 interface SupplierFormProps {
@@ -27,6 +28,7 @@ export default function SupplierForm({ supplier, onSaved, onCancel }: SupplierFo
   const [email, setEmail] = useState(supplier?.email || "");
   const [website, setWebsite] = useState(supplier?.website || "");
   const [defaultLeadTimeDays, setDefaultLeadTimeDays] = useState(supplier?.defaultLeadTimeDays ?? 3);
+  const [searchUrl, setSearchUrl] = useState(supplier?.searchConfigs?.[0]?.searchUrlTemplate || "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -42,6 +44,7 @@ export default function SupplierForm({ supplier, onSaved, onCancel }: SupplierFo
       email: email || undefined,
       website: website || undefined,
       defaultLeadTimeDays,
+      searchConfigs: searchUrl.trim() ? [{ searchUrlTemplate: searchUrl.trim(), active: true }] : [],
     };
 
     const url = supplier ? `/api/suppliers/${supplier.id}` : "/api/suppliers";
@@ -155,6 +158,27 @@ export default function SupplierForm({ supplier, onSaved, onCancel }: SupplierFo
           <p className="text-xs text-slate-400 mt-1">
             Usado no cálculo de prazo da OS quando uma peça deste fornecedor não está em estoque
           </p>
+        </div>
+
+        <div className="border-t pt-4">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            URL de busca (Marketplace)
+          </label>
+          <input
+            type="url"
+            value={searchUrl}
+            onChange={(e) => setSearchUrl(e.target.value)}
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="https://loja.com/busca?q={query}&ref={code}"
+          />
+          <p className="text-xs text-slate-400 mt-1">
+            Use <code className="bg-slate-100 px-1 rounded">{"{query}"}</code> para o termo de busca e <code className="bg-slate-100 px-1 rounded">{"{code}"}</code> para o código de afiliado.
+          </p>
+          {searchUrl && (
+            <p className="text-xs text-blue-600 mt-1">
+              Preview: {searchUrl.replace("{query}", "pastilha+freio").replace("{code}", "operare")}
+            </p>
+          )}
         </div>
       </div>
 

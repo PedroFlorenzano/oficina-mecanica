@@ -643,7 +643,37 @@ model Supplier {
 
   tenant              Tenant   @relation(fields: [tenantId], references: [id])
   stockItems          StockItem[]
+  searchConfigs       SupplierSearchConfig[]
+  clicks              SupplierClick[]
 
   @@unique([cnpj, tenantId])
   @@index([tenantId, active])
+}
+
+model SupplierSearchConfig {
+  id                String   @id @default(cuid())
+  supplierId        String
+  searchUrlTemplate String   // ex: "https://pecista.com.br/busca?q={query}&ref={code}"
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  supplier          Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+}
+
+model SupplierClick {
+  id          String   @id @default(cuid())
+  tenantId    String
+  supplierId  String
+  userId      String
+  searchQuery String
+  productUrl  String
+  orderId     String?
+  createdAt   DateTime @default(now())
+
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([supplierId, createdAt])
 }
