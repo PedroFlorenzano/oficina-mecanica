@@ -48,6 +48,146 @@ const TEMPLATE_LABELS: Record<TemplateKey, { label: string; description: string;
   },
 };
 
+function WhatsAppConnection() {
+  const [state, setState] = useState<"loading" | "not_created" | "connecting" | "open" | "close">("loading");
+  const [qrcode, setQrcode] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+
+  const fetchState = async () => {
+    try {
+      const res = await fetch("/api/whatsapp/instance");
+      const data = await res.json();
+      setState(data.state || "not_created");
+      setQrcode(data.qrcode || null);
+    } catch {
+      setState("not_created");
+    }
+  };
+
+  useEffect(() => { fetchState(); }, []);
+
+  // Polling para verificar conexão enquanto mostra QR
+  useEffect(() => {
+    if (state !== "connecting") return;
+    const interval = setInterval(async () => {
+      const res = await fetch("/api/whatsapp/instance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "check" }) });
+      const data = await res.json();
+      if (data.state === "open") {
+        setState("open");
+        setQrcode(null);
+        clearInterval(interval);
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [state]);
+
+  const handleCreate = async () => {
+    setCreating(true);
+    setError("");
+    const res = await fetch("/api/whatsapp/instance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create" }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setState("connecting");
+      setQrcode(data.qrcode || null);
+      if (!data.qrcode) {
+        // Instância já existia, buscar QR
+        const res2 = await fetch("/api/whatsapp/instance", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "connect" }) });
+        const data2 = await res2.json();
+        setQrcode(data2.qrcode || null);
+      }
+    } else {
+      setError(data.error || "Erro ao criar instância");
+    }
+    setCreating(false);
+  };
+
+  const handleReconnect = async () => {
+    setError("");
+    const res = await fetch("/api/whatsapp/instance", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "connect" }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setState("connecting");
+      setQrcode(data.qrcode || null);
+    } else {
+      setError(data.error || "Erro ao reconectar");
+    }
+  };
+
+  if (state === "loading") return <p className="text-sm text-slate-500">Verificando conexão...</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3">
+        <MessageCircle className={state === "open" ? "text-green-600" : "text-slate-400"} size={24} />
+        <div>
+          <p className="font-medium text-slate-800">WhatsApp</p>
+          <p className={`text-sm ${state === "open" ? "text-green-600" : state === "connecting" ? "text-amber-600" : "text-slate-500"}`}>
+            {state === "open" && "✓ Conectado e ativo"}
+            {state === "connecting" && "⏳ Aguardando leitura do QR Code..."}
+            {state === "close" && "✗ Desconectado"}
+            {state === "not_created" && "Não configurado"}
+          </p>
+        </div>
+      </div>
+
+      {error && <p className="text-sm text-red-600 bg-red-50 p-2 rounded">{error}</p>}
+
+      {state === "not_created" && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+          <p className="text-sm text-slate-700 mb-3">
+            Clique abaixo para ativar o WhatsApp. Um QR Code será gerado para você escanear com o celular da oficina.
+          </p>
+          <Button onClick={handleCreate} loading={creating}>
+            Ativar WhatsApp
+          </Button>
+        </div>
+      )}
+
+      {state === "connecting" && qrcode && (
+        <div className="bg-white border border-slate-200 rounded-lg p-4 text-center">
+          <p className="text-sm text-slate-700 mb-3">
+            Abra o WhatsApp no celular → Configurações → Aparelhos Conectados → Conectar Aparelho
+          </p>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrcode} alt="QR Code WhatsApp" className="mx-auto w-64 h-64 border rounded" />
+          <p className="text-xs text-slate-500 mt-3">O QR Code atualiza automaticamente. A página detecta quando conectar.</p>
+        </div>
+      )}
+
+      {state === "connecting" && !qrcode && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-sm text-amber-800">Aguardando QR Code... Recarregue a página se não aparecer em 10 segundos.</p>
+        </div>
+      )}
+
+      {state === "open" && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <p className="text-sm text-green-800">
+            ✓ WhatsApp conectado! As mensagens automáticas (status da OS, lembretes, etc.) serão enviadas por este número.
+          </p>
+          <p className="text-xs text-green-700 mt-2">Grupos são ignorados automaticamente. Ligações são rejeitadas com mensagem.</p>
+        </div>
+      )}
+
+      {state === "close" && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <p className="text-sm text-red-800 mb-3">A conexão foi perdida. Escaneie o QR Code novamente para reconectar.</p>
+          <Button onClick={handleReconnect} variant="outline">Reconectar</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WhatsAppConfigPage() {
   const [tab, setTab] = useState<"config" | "templates">("config");
   const [config, setConfig] = useState({ phoneNumberId: "", accessToken: "", businessName: "", enabled: false });
@@ -127,56 +267,7 @@ export default function WhatsAppConfigPage() {
 
       {tab === "config" && (
         <Card className="p-6 max-w-lg">
-          <form onSubmit={handleSave} className="space-y-4">
-            <div className="flex items-center gap-3 mb-4">
-              <MessageCircle className="text-green-600" size={24} />
-              <div>
-                <p className="font-medium text-slate-800">Status da integração</p>
-                <p className={`text-sm ${config.enabled ? "text-green-600" : "text-slate-500"}`}>
-                  {config.enabled ? "✓ Ativa" : "Desativada"}
-                </p>
-              </div>
-            </div>
-
-            <Input
-              label="Nome do Negócio"
-              value={config.businessName}
-              onChange={(e) => setConfig({ ...config, businessName: e.target.value })}
-              placeholder="Paiffer Bosch Car Service"
-            />
-
-            <Input
-              label="Phone Number ID (WhatsApp Business API)"
-              value={config.phoneNumberId}
-              onChange={(e) => setConfig({ ...config, phoneNumberId: e.target.value })}
-              placeholder="Ex: 1234567890"
-              hint="Obtido no painel Meta Business ou Evolution API"
-            />
-
-            <Input
-              label="Access Token"
-              type="password"
-              value={config.accessToken}
-              onChange={(e) => setConfig({ ...config, accessToken: e.target.value })}
-              placeholder="Token de acesso da API"
-              hint="Token permanente da API"
-            />
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={config.enabled}
-                onChange={(e) => setConfig({ ...config, enabled: e.target.checked })}
-                className="w-4 h-4 rounded border-slate-300"
-              />
-              <span className="text-sm text-slate-700">Habilitar envio de mensagens</span>
-            </label>
-
-            <div className="flex items-center gap-3 pt-2">
-              <Button type="submit" loading={saving}>Salvar</Button>
-              {saved && <span className="text-sm text-green-600">✓ Salvo</span>}
-            </div>
-          </form>
+          <WhatsAppConnection />
         </Card>
       )}
 
