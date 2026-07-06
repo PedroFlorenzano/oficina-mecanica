@@ -152,7 +152,7 @@ export default async function LandingPage() {
                   "Controle de estoque básico",
                   "Relatórios financeiros",
                   "Até 3 usuários",
-                  "Suporte via chat",
+                  "Suporte via e-mail",
                 ].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm text-slate-700">
                     <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">

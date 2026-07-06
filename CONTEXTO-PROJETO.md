@@ -1852,18 +1852,48 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 
 | # | Item | Esforço | Observação |
 |---|------|---------|-----------|
-| 1 | Deploy produção | 2–4h | Vercel ou VPS + domínio operare.tech + SSL. PostgreSQL managed (Neon/Supabase/RDS). CI/CD já existe. |
+| 1 | Deploy produção | ✅ Concluído | Vercel + Neon (sa-east-1). Domínio operare.tech configurado. |
 | 2 | Gateway de pagamento | 4–8h | Asaas (boleto/Pix/cartão, API BR) ou Stripe. Webhook existente, ativar botão "Assinar" na billing page. |
-| 3 | Backup diário | 1–2h | pg_dump → S3 via cron. Se DB managed, já incluso. |
+| 3 | Backup diário | ✅ Incluso | Neon faz backup automático (point-in-time recovery). |
 
 ### Importantes mas não bloquantes (Média)
 
 | # | Item | Esforço | Observação |
 |---|------|---------|-----------|
-| 4 | Monitoramento | 1h | Sentry free tier + UptimeRobot free. |
-| 5 | Contrato / LGPD | 2–3h | Termos de uso + política de privacidade (template adaptado). Necessário antes de cobrar. |
-| 6 | Landing page completa | 4–6h | Estrutura pronta. Falta conteúdo real: screenshots, depoimentos, copy de vendas. |
-| 7 | Alerta de garantia | 2–3h | Campo garantiaDias no serviço, check ao abrir OS do mesmo veículo. |
+| 4 | Feature gating por plano | 4–6h | Implementar middleware/hook que restrinja funcionalidades por plano (basic/professional/enterprise). Planos definidos: Básico R$250, Profissional R$400, Enterprise R$600. Contas existentes (pilotos) mantêm acesso total. |
+| 5 | Monitoramento | 1h | Sentry free tier + UptimeRobot free. |
+| 6 | Contrato / LGPD | 2–3h | Termos de uso + política de privacidade (template adaptado). Necessário antes de cobrar. |
+| 7 | Landing page — conteúdo real | 2–3h | Adicionar screenshots reais, refinar copy. |
+
+### Distribuição de funcionalidades por plano
+
+| Funcionalidade | Básico (R$250) | Profissional (R$400) | Enterprise (R$600) |
+|----------------|:-:|:-:|:-:|
+| Ordens de serviço ilimitadas | ✅ | ✅ | ✅ |
+| Cadastro de clientes e veículos | ✅ | ✅ | ✅ |
+| Controle de estoque (entrada/saída/custo médio) | ✅ | ✅ | ✅ |
+| Relatórios financeiros | ✅ | ✅ | ✅ |
+| PDF de OS e orçamento | ✅ | ✅ | ✅ |
+| Até 3 usuários | ✅ | — | — |
+| Até 10 usuários | — | ✅ | — |
+| Usuários ilimitados | — | — | ✅ |
+| NF-e e NFS-e integradas | ❌ | ✅ | ✅ |
+| WhatsApp + aprovação digital | ❌ | ✅ | ✅ |
+| Cronômetro de serviço | ❌ | ✅ | ✅ |
+| Gestão de comissões | ❌ | ✅ | ✅ |
+| Agendamento online | ❌ | ✅ | ✅ |
+| Pista (Kanban) | ❌ | ✅ | ✅ |
+| Multi-loja (vários CNPJs) | ❌ | ❌ | ✅ |
+| Relatórios de produtividade | ❌ | ❌ | ✅ |
+| Exportação em lote (CSV) | ❌ | ❌ | ✅ |
+| Alerta de garantia | ❌ | ❌ | ✅ |
+| Fotos na OS (antes/depois/dano) | ❌ | ❌ | ✅ |
+| Migração gratuita do sistema anterior | ❌ | ❌ | ✅ |
+| Suporte via e-mail | ✅ | ✅ | ✅ |
+| Suporte prioritário via WhatsApp | ❌ | ✅ | ✅ |
+| Suporte dedicado | ❌ | ❌ | ✅ |
+
+> **Nota:** Atualmente o sistema NÃO restringe funcionalidades por plano. Todas as contas têm acesso total. O feature gating será implementado quando o gateway de pagamento estiver integrado.
 
 ### Nice-to-have (Baixa)
 
