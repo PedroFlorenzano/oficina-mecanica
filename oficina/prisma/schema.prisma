@@ -604,6 +604,20 @@ model ScheduleConfig {
   updatedAt      DateTime @updatedAt
 
   tenant         Tenant   @relation(fields: [tenantId], references: [id])
+  holidays       Holiday[]
+}
+
+model Holiday {
+  id          String   @id @default(cuid())
+  date        DateTime // dia do feriado (sem hora)
+  name        String   // "Natal", "Ano Novo", etc.
+  recurring   Boolean  @default(false) // se true, repete todo ano (ex: Natal = 25/12)
+  configId    String
+  createdAt   DateTime @default(now())
+
+  config      ScheduleConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([configId, date])
 }
 
 model Appointment {

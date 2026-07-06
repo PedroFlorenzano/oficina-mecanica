@@ -1,20 +1,40 @@
 /**
  * Calcula dias úteis baseado no calendário de funcionamento da oficina.
  * Reutiliza os dados do ScheduleConfig (workDays, startTime, endTime, lunchStart, lunchEnd).
+ * Suporta feriados (Holiday[]).
  */
 export class WorkDayCalculator {
   private readonly workDaysSet: Set<number>;
   private readonly workMinutesPerDay: number;
+  private readonly holidayDates: Set<string>; // "YYYY-MM-DD"
+  private readonly recurringHolidays: Set<string>; // "MM-DD"
 
   constructor(
     private readonly workDays: number[], // [1,2,3,4,5,6] = seg a sáb
     private readonly startTime: string, // "08:00"
     private readonly endTime: string, // "18:00"
     private readonly lunchStart?: string | null, // "12:00"
-    private readonly lunchEnd?: string | null // "13:00"
+    private readonly lunchEnd?: string | null, // "13:00"
+    holidays?: { date: Date; recurring: boolean }[]
   ) {
     this.workDaysSet = new Set(workDays);
     this.workMinutesPerDay = this.calculateWorkMinutesPerDay();
+
+    // Processar feriados
+    this.holidayDates = new Set();
+    this.recurringHolidays = new Set();
+    if (holidays) {
+      for (const h of holidays) {
+        const d = new Date(h.date);
+        if (h.recurring) {
+          const mm = String(d.getMonth() + 1).padStart(2, "0");
+          const dd = String(d.getDate()).padStart(2, "0");
+          this.recurringHolidays.add(`${mm}-${dd}`);
+        } else {
+          this.holidayDates.add(d.toISOString().split("T")[0]);
+        }
+      }
+    }
   }
 
   private calculateWorkMinutesPerDay(): number {
@@ -52,10 +72,20 @@ export class WorkDayCalculator {
   }
 
   /**
-   * Retorna se uma data específica é dia útil.
+   * Retorna se uma data específica é dia útil (considera feriados).
    */
   isWorkDate(date: Date): boolean {
-    return this.isWorkDay(date.getDay());
+    if (!this.isWorkDay(date.getDay())) return false;
+
+    // Checar feriado fixo (data exata)
+    const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    if (this.holidayDates.has(dateStr)) return false;
+
+    // Checar feriado recorrente (dia/mês)
+    const mmdd = `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    if (this.recurringHolidays.has(mmdd)) return false;
+
+    return true;
   }
 
   /**
@@ -130,14 +160,15 @@ export class WorkDayCalculator {
     endTime: string;
     lunchStart?: string | null;
     lunchEnd?: string | null;
-  }): WorkDayCalculator {
+  }, holidays?: { date: Date; recurring: boolean }[]): WorkDayCalculator {
     const days: number[] = JSON.parse(config.workDays);
     return new WorkDayCalculator(
       days,
       config.startTime,
       config.endTime,
       config.lunchStart,
-      config.lunchEnd
+      config.lunchEnd,
+      holidays
     );
   }
 }

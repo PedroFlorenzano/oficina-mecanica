@@ -65,9 +65,10 @@ export class CalculateOrderDeadline {
 
     if (!order) throw new NotFoundError("Ordem de serviço não encontrada");
 
-    // 2. Buscar ScheduleConfig do tenant
+    // 2. Buscar ScheduleConfig do tenant (com holidays)
     const scheduleConfig = await prisma.scheduleConfig.findUnique({
       where: { tenantId },
+      include: { holidays: true },
     });
 
     // Default se não configurado
@@ -78,9 +79,15 @@ export class CalculateOrderDeadline {
       lunchStart: "12:00",
       lunchEnd: "13:00",
       defaultPartLeadDays: 5,
+      mechanicCount: 2,
     };
 
-    const calculator = WorkDayCalculator.fromConfig(config);
+    const holidays = (scheduleConfig?.holidays || []).map((h) => ({
+      date: h.date,
+      recurring: h.recurring,
+    }));
+
+    const calculator = WorkDayCalculator.fromConfig(config, holidays);
     const workMinutesPerDay = calculator.getWorkMinutesPerDay();
     const defaultPartLeadDays = (scheduleConfig as { defaultPartLeadDays?: number })?.defaultPartLeadDays ?? 5;
 
@@ -103,9 +110,11 @@ export class CalculateOrderDeadline {
         totalServiceMinutes += svc.service.estimatedTime;
       } else {
         // Sem dados — buscar média histórica
-        const avgTime = svc.service
-          ? await this.getAverageServiceTime(svc.service.description, tenantId)
-          : null;
+        const avgTime = await this.getAverageServiceTime(
+          svc.serviceId ?? null,
+          svc.description,
+          tenantId
+        );
         if (avgTime) {
           totalServiceMinutes += avgTime;
         } else {
@@ -114,7 +123,13 @@ export class CalculateOrderDeadline {
       }
     }
 
-    const serviceDays = calculator.minutesToWorkDays(totalServiceMinutes);
+    // Paralelismo: dividir tempo por número de mecânicos simultâneos
+    const mechanicCount = (scheduleConfig as { mechanicCount?: number })?.mechanicCount ?? 2;
+    const effectiveServiceMinutes = mechanicCount > 1
+      ? Math.ceil(totalServiceMinutes / mechanicCount)
+      : totalServiceMinutes;
+
+    const serviceDays = calculator.minutesToWorkDays(effectiveServiceMinutes);
 
     // 4. Calcular prazo das peças
     let partsDays = 0;
@@ -199,20 +214,46 @@ export class CalculateOrderDeadline {
 
   /**
    * Busca tempo médio histórico para um tipo de serviço naquele tenant.
+   * Prioridade: serviceId (catálogo) > description (texto livre).
+   * Considera apenas OSs finalizadas (COMPLETED/DELIVERED) para dados confiáveis.
    */
   private async getAverageServiceTime(
+    serviceId: string | null,
     serviceDescription: string,
     tenantId: string
   ): Promise<number | null> {
+    // 1. Buscar por serviceId (mais preciso — mesmo serviço do catálogo)
+    if (serviceId) {
+      const result = await prisma.orderService.aggregate({
+        where: {
+          serviceId,
+          timeMinutes: { not: null, gt: 0 },
+          order: { tenantId, status: { in: ["COMPLETED", "DELIVERED"] } },
+        },
+        _avg: { timeMinutes: true },
+        _count: { timeMinutes: true },
+      });
+
+      if (result._count.timeMinutes >= 2) {
+        return Math.round(result._avg.timeMinutes ?? 0);
+      }
+    }
+
+    // 2. Fallback: buscar por descrição similar
     const result = await prisma.orderService.aggregate({
       where: {
-        description: serviceDescription,
+        description: { contains: serviceDescription, mode: "insensitive" },
         timeMinutes: { not: null, gt: 0 },
-        order: { tenantId },
+        order: { tenantId, status: { in: ["COMPLETED", "DELIVERED"] } },
       },
       _avg: { timeMinutes: true },
+      _count: { timeMinutes: true },
     });
 
-    return result._avg.timeMinutes ?? null;
+    if (result._count.timeMinutes >= 2) {
+      return Math.round(result._avg.timeMinutes ?? 0);
+    }
+
+    return null;
   }
 }
