@@ -1902,6 +1902,23 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 | 8 | Exportar OS em lote CSV | 1–2h | Selecionar várias OS e exportar dados para planilha. |
 | 9 | NFC-e modelo 65 | 8–16h | Cupom fiscal. Sem demanda imediata. |
 | 10 | NFS-e Modelo Nacional (modeloNacional=true) | 16–24h | Adapter API ADN/SEFIN Nacional + DANFSe v2.0 (NT 008). Ver detalhamento abaixo. |
+| 11 | API de consulta de placa (auto-preenchimento veículo) | 1h + custo | Contratar API de placa para preencher marca/modelo/ano/cor automaticamente. Infra já pronta (`/api/vehicles/plate`), falta token. Ver opções abaixo. |
+
+### Opções de API de Consulta de Placa
+
+A infraestrutura para busca por placa já está implementada (rota `/api/vehicles/plate`, campo com busca automática no form de veículo). Falta apenas contratar uma API e configurar a variável `PLATE_API_TOKEN` na Vercel.
+
+| Provedor | Preço | Dados retornados | Obs |
+|----------|-------|-----------------|-----|
+| **API Placas** (apiplacas.com.br) | ~R$0,03-0,05/consulta (pacotes de 1.000+) | Marca, modelo, ano, cor, combustível, UF, município, chassi parcial | Mais usada no BR. WD Desenvolvimento. Compra por pacote de consultas. |
+| **CarsXE** (carsxe.com) | US$49/mês (500 consultas) ou US$0,10/consulta | Marca, modelo, ano, cor, VIN decode, valor FIPE | Internacional, suporta BR. Mais caro mas mais completo. |
+| **Consulta Placa FIPE** (github.com/fraurino) | Gratuito (open-source, scraping) | Marca, modelo, ano, valor FIPE | Instável, pode quebrar. Bom pra dev/teste, não pra produção. |
+| **SINESP Cidadão** (via lib) | Gratuito (API pública do governo) | Marca, modelo, ano, cor, município, situação (furto/roubo) | Requer captcha/token, instável, rate-limited. Não recomendado pra SaaS. |
+| **PlacaFipe** (placafipe.com) | ~R$0,02/consulta (pacotes grandes) | Marca, modelo, ano, cor, valor FIPE | Similar ao API Placas. |
+
+**Recomendação:** API Placas (apiplacas.com.br) — melhor custo-benefício para oficinas. Com ~100 consultas/mês por tenant, um pacote de 5.000 consultas (~R$150-200) dura meses. O custo pode ser embutido no plano ou cobrado à parte.
+
+**Para ativar:** Contratar pacote → receber token → adicionar `PLATE_API_TOKEN=xxxx` nas variáveis da Vercel → pronto, funciona automaticamente.
 
 ### Feature Futura: NFS-e Modelo Nacional
 
