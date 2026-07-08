@@ -3,7 +3,7 @@ import { IServiceOrderRepository } from "@/domain/repositories/IServiceOrderRepo
 import { IWhatsAppRepository } from "@/domain/repositories/IWhatsAppRepository";
 import { sendText } from "@/infrastructure/whatsapp/EvolutionApiAdapter";
 
-const CHANGE_INTERVAL = 5000; // km
+const CHANGE_INTERVAL = 10000; // km
 const ALERT_WINDOW = 4000;    // km — alerta a partir daqui
 const SIX_MONTHS_MS = 6 * 30 * 24 * 60 * 60 * 1000;
 

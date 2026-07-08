@@ -11,7 +11,7 @@ export interface OilChangeAlert {
 
 export class CheckOilChangeReminder {
   private static readonly ALERT_WINDOW = 4000;   // km para começar a alertar
-  private static readonly CHANGE_INTERVAL = 5000; // km do intervalo padrão
+  private static readonly CHANGE_INTERVAL = 10000; // km do intervalo padrão
 
   constructor(
     private vehicleRepo: IVehicleRepository,

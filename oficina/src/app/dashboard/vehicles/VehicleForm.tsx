@@ -68,12 +68,15 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [plateLoading, setPlateLoading] = useState(false);
+  const [plateMsg, setPlateMsg] = useState("");
 
   // Client search
   const [clients, setClients] = useState<Client[]>([]);
   const [clientSearch, setClientSearch] = useState(vehicle?.client?.name || "");
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [selectedClientName, setSelectedClientName] = useState(vehicle?.client?.name || "");
+  const [clientHighlight, setClientHighlight] = useState(0);
 
   useEffect(() => {
     if (clientSearch.length >= 2) {
@@ -95,6 +98,70 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
     setSelectedClientName(client.name);
     setClientSearch(client.name);
     setShowClientDropdown(false);
+  };
+
+  // Selecionar cliente com Tab/Enter
+  const handleClientKeyDown = (e: React.KeyboardEvent) => {
+    if (!showClientDropdown || clients.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setClientHighlight((h) => Math.min(h + 1, clients.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setClientHighlight((h) => Math.max(h - 1, 0));
+    } else if (e.key === "Enter" || e.key === "Tab") {
+      if (clients[clientHighlight]) {
+        e.preventDefault();
+        selectClient(clients[clientHighlight]);
+      }
+    } else if (e.key === "Escape") {
+      setShowClientDropdown(false);
+    }
+  };
+
+  // Buscar dados do veículo pela placa
+  const handlePlateSearch = async () => {
+    const raw = form.plate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    if (raw.length < 7) return;
+
+    setPlateLoading(true);
+    setPlateMsg("");
+
+    try {
+      const res = await fetch(`/api/vehicles/plate?plate=${raw}`);
+      if (res.ok) {
+        const data = await res.json();
+        setForm((f) => ({
+          ...f,
+          brand: data.brand || f.brand,
+          model: data.model || f.model,
+          year: data.year?.toString() || f.year,
+          yearModel: data.yearModel?.toString() || f.yearModel,
+          color: data.color || f.color,
+          fuel: data.fuel || f.fuel,
+        }));
+        setPlateMsg("✓ Dados preenchidos automaticamente");
+      } else {
+        setPlateMsg("Placa não encontrada na base pública. Preencha manualmente.");
+      }
+    } catch {
+      setPlateMsg("Erro na consulta. Preencha manualmente.");
+    }
+    setPlateLoading(false);
+  };
+
+  // Auto-buscar ao completar placa válida
+  const handlePlateChange = (value: string) => {
+    const formatted = formatPlate(value);
+    setForm({ ...form, plate: formatted });
+    setPlateMsg("");
+  };
+
+  const handlePlateBlur = () => {
+    if (isValidPlate(form.plate) && !form.brand) {
+      handlePlateSearch();
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -161,23 +228,27 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
               value={clientSearch}
               onChange={(e) => {
                 setClientSearch(e.target.value);
+                setClientHighlight(0);
                 if (e.target.value !== selectedClientName) {
                   setForm({ ...form, clientId: "" });
                 }
               }}
               onFocus={() => clientSearch.length >= 2 && setShowClientDropdown(true)}
-              placeholder="Buscar cliente pelo nome..."
+              onKeyDown={handleClientKeyDown}
+              placeholder="Digite nome ou CPF/CNPJ do cliente e pressione Tab/Enter..."
               className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           {showClientDropdown && clients.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-              {clients.map((c) => (
+              {clients.map((c, i) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => selectClient(c)}
-                  className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm"
+                  className={`w-full text-left px-3 py-2 text-sm ${
+                    i === clientHighlight ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50"
+                  }`}
                 >
                   <span className="font-medium">{c.name}</span>
                   <span className="text-slate-400 ml-2">{c.document}</span>
@@ -193,17 +264,34 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Placa *</label>
-            <input
-              type="text"
-              value={form.plate}
-              onChange={(e) => setForm({ ...form, plate: formatPlate(e.target.value) })}
-              required
-              maxLength={8}
-              placeholder="ABC1D23 ou ABC-1234"
-              className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase ${
-                form.plate.length >= 7 && !isValidPlate(form.plate) ? "border-red-300 bg-red-50" : "border-slate-300"
-              }`}
-            />
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={form.plate}
+                onChange={(e) => handlePlateChange(e.target.value)}
+                onBlur={handlePlateBlur}
+                required
+                maxLength={8}
+                placeholder="ABC1D23 ou ABC-1234"
+                className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase ${
+                  form.plate.length >= 7 && !isValidPlate(form.plate) ? "border-red-300 bg-red-50" : "border-slate-300"
+                }`}
+              />
+              <button
+                type="button"
+                onClick={handlePlateSearch}
+                disabled={plateLoading || !isValidPlate(form.plate)}
+                className="px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 disabled:opacity-50"
+                title="Buscar dados pela placa"
+              >
+                {plateLoading ? <span className="animate-spin">⏳</span> : <Search size={16} />}
+              </button>
+            </div>
+            {plateMsg && (
+              <p className={`text-xs mt-1 ${plateMsg.startsWith("✓") ? "text-green-600" : "text-amber-600"}`}>
+                {plateMsg}
+              </p>
+            )}
             {form.plate && form.plate.replace(/[^A-Z0-9]/gi, "").length === 7 && !isValidPlate(form.plate) && (
               <p className="text-xs text-red-500 mt-1">Formato inválido</p>
             )}
@@ -311,7 +399,7 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
         <div className="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg">
           <div>
             <p className="text-sm font-medium text-amber-800">Lembrete de troca de óleo</p>
-            <p className="text-xs text-amber-600">Alerta quando o veículo se aproximar do intervalo de 5.000 km</p>
+            <p className="text-xs text-amber-600">Alerta quando o veículo se aproximar do intervalo de 10.000 km</p>
           </div>
           <label className="relative inline-flex items-center cursor-pointer">
             <input
