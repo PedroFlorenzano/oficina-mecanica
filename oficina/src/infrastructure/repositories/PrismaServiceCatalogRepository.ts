@@ -11,6 +11,12 @@ export class PrismaServiceCatalogRepository implements IServiceCatalogRepository
     }) as unknown as ServiceCatalogData | null;
   }
 
+  async findByCode(code: string, tenantId: string): Promise<ServiceCatalogData | null> {
+    return this.db.serviceCatalog.findFirst({
+      where: { code, tenantId },
+    }) as unknown as ServiceCatalogData | null;
+  }
+
   async findAll(tenantId: string): Promise<ServiceCatalogData[]> {
     return this.db.serviceCatalog.findMany({
       where: { tenantId },

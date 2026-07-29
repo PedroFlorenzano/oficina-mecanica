@@ -21,6 +21,7 @@ import {
   Settings,
   CreditCard,
   Truck,
+  Upload,
 } from "lucide-react";
 
 import {
@@ -174,6 +175,7 @@ export default function Sidebar({ role, customPermissions, tenantName }: Sidebar
           <div className="space-y-1">
             {role === "ADMIN" && (
               <>
+                <NavItem href="/dashboard/import" label="Importar Dados" icon={Upload} />
                 <NavItem href="/dashboard/users" label="Usuários" icon={UserCog} />
                 <NavItem href="/dashboard/billing" label="Assinatura" icon={CreditCard} />
               </>

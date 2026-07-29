@@ -14,6 +14,7 @@ export interface ServiceCatalogData {
 
 export interface IServiceCatalogRepository {
   findById(id: string): Promise<ServiceCatalogData | null>;
+  findByCode(code: string, tenantId: string): Promise<ServiceCatalogData | null>;
   findAll(tenantId: string): Promise<ServiceCatalogData[]>;
   create(data: Omit<ServiceCatalogData, "id">): Promise<ServiceCatalogData>;
   update(id: string, data: Partial<Omit<ServiceCatalogData, "id">>): Promise<ServiceCatalogData>;

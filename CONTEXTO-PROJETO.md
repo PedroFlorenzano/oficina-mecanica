@@ -2775,3 +2775,284 @@ tipoRPS         String? @default("RPS")  // (corrigido de "1")
 **Total: 225 testes unitários + 13 testes E2E**
 
 *Última atualização: 26/06/2026 — Alerta de garantia, exportar OS CSV, landing page completa, sidebar/WhatsApp dinâmicos, lint corrigido.*
+
+
+---
+
+## Módulo de Importação de Dados — Self-Service (implementado em 29/07/2026)
+
+### O que foi construído
+
+Sistema reutilizável de importação via upload de arquivo (XLS, XLSX, CSV) para migrar dados de qualquer sistema anterior. UI self-service: o admin faz upload, vê preview, confirma, e os dados são importados. Funciona para qualquer cliente migrar do Syscar, Odin, Ultracar ou planilhas.
+
+### Módulos suportados
+
+| Módulo | Entidade | Dedup por | Observação |
+|---|---|---|---|
+| Clientes | `Client` | `document + tenantId` | Filtra fornecedores/transportadoras automaticamente |
+| Veículos | `Vehicle` | `plate + tenantId` | Vincula ao cliente pelo nome (case-insensitive + match parcial) |
+| Estoque | `StockItem` | `code + tenantId` | Importa saldo e custo unitário |
+| Catálogo de Serviços | `ServiceCatalog` | `code + tenantId` | Importa código, descrição e preço |
+| OS Históricas | `ServiceOrder` | nº da OS | Importa como DELIVERED, vincula a cliente/veículo |
+| Notas Fiscais | Referência | — | Importa como consulta histórica (não persiste) |
+| Gestão Financeira | Referência | — | Importa como consulta histórica com resumo |
+| Produtividade | Referência | — | Importa apontamentos com resumo por mecânico |
+
+### Fluxo
+
+```
+/dashboard/import → Seleciona módulo → Upload arquivo
+→ POST /api/import/[module]?mode=preview → Preview com tabela + erros
+→ Confirma → POST /api/import/[module]?mode=import&duplicates=skip|update
+→ Resultado: importados / atualizados / ignorados / erros
+```
+
+### Formatos suportados
+
+- **XLS binário** — XLSX lib lê nativamente
+- **XLSX** — idem
+- **CSV** — delimitador detectado automaticamente (`,` ou `;`)
+- **HTML-as-XLS** — Syscar exporta HTML com extensão `.xls` (detectado automaticamente)
+
+### Arquitetura
+
+```
+src/application/use-cases/import/
+├── parsers/
+│   ├── FileParser.ts          # Detecta formato + extrai tabela (XLS, CSV, HTML-as-XLS)
+│   └── DataMappers.ts         # ClientMapper, VehicleMapper, StockItemMapper, ServiceMapper
+├── ImportClients.ts           # Use case com preview + import + dedup
+├── ImportVehicles.ts          # Vincula veículos a clientes pelo nome
+├── ImportStock.ts             # Importa itens com saldo e custo
+├── ImportServices.ts          # Importa catálogo
+└── index.ts                   # Barrel exports
+
+src/app/api/import/[module]/route.ts  # API POST (preview + import)
+src/app/dashboard/import/page.tsx     # UI self-service (módulos, upload, preview, resultado)
+```
+
+### API Route
+
+| Rota | Método | Ação | Auth |
+|------|--------|------|------|
+| `/api/import/[module]` | POST | Upload + importação | ADMIN |
+
+**Query params:**
+- `mode`: `preview` (apenas parseia) ou `import` (salva no banco)
+- `duplicates`: `skip` (ignora existentes) ou `update` (atualiza)
+
+**Módulos válidos:** `clients`, `vehicles`, `stock`, `services`, `orders`, `invoices`, `financial`, `productivity`
+
+### Tratamento de duplicatas
+
+- **skip** (padrão): se o registro já existe (mesmo documento/placa/código), ignora
+- **update**: atualiza os campos do registro existente
+
+### Validação dos dados reais do Syscar (Paiffer)
+
+| Módulo | Válidos | Erros | Ignorados |
+|---|---|---|---|
+| Clientes | 508 | 19 (docs inválidos) | 79 (fornecedores) |
+| Veículos | 581 | 2 (placa curta) | — |
+| Estoque | 485 | 0 | — |
+| Serviços | 225 | 1 | — |
+| OS Históricas | 1.413 | 2 | — |
+| Notas Fiscais | 270 | 2 | — |
+| Gestão Financeira | 2.743 | 0 | — |
+| Produtividade | 26 | 1 | — |
+| **TOTAL** | **6.251** | **27** | **79** |
+
+### Ordem recomendada de importação
+
+1. **Clientes** (primeiro — veículos e OS dependem deles)
+2. **Veículos** (vinculam ao cliente pelo nome)
+3. **Estoque** (independente)
+4. **Serviços** (independente)
+5. **OS Históricas** (depende de clientes e veículos)
+6. **Notas Fiscais** (referência histórica)
+7. **Gestão Financeira** (referência histórica)
+8. **Produtividade** (referência histórica)
+
+### Testes
+
+- **37 testes unitários** (FileParser + 4 mappers + 4 use cases)
+- TypeScript 0 erros, 364 testes totais passando
+
+### Dependências adicionadas
+
+| Lib | Versão | Propósito |
+|-----|--------|-----------|
+| `xlsx` | 0.18.5 | Ler XLS/XLSX/CSV (devDependency) |
+
+### Evolução Futura: Mapeamento Interativo de Colunas
+
+**Problema:** O sistema atual reconhece colunas por sinônimos hardcoded (ex: "Nome", "NOME", "Razão Social", "Cliente"). Quando um sistema novo usa nomes completamente diferentes (ex: "Part Number", "Denominação"), o mapper não encontra e reporta erro — exigindo intervenção do desenvolvedor para adicionar o sinônimo.
+
+**Solução proposta:** Adicionar um passo intermediário de **mapeamento visual de colunas** entre o upload e a importação.
+
+#### Fluxo proposto
+
+```
+1. Upload do arquivo
+2. Sistema lê os headers do arquivo
+3. NOVO PASSO: Tela de mapeamento — para cada campo obrigatório do Operare,
+   o admin seleciona qual coluna do arquivo corresponde
+4. Preview com os dados já mapeados
+5. Confirmar importação
+```
+
+#### Wireframe da tela de mapeamento
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Mapear Colunas — Clientes                                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  Campo Operare          Coluna do arquivo                   │
+│  ─────────────          ──────────────────                  │
+│  Nome *                 [ Razão Social       ▼ ]            │
+│  CPF/CNPJ *             [ Nr Documento       ▼ ]            │
+│  Telefone               [ Fone Celular       ▼ ]            │
+│  Email                  [ E-mail Contato     ▼ ]            │
+│  Endereço               [ End. Completo      ▼ ]            │
+│                                                             │
+│  * = obrigatório                                            │
+│                                                             │
+│  [ ] Salvar este mapeamento para uso futuro                 │
+│      Nome: [  Ultracar - Clientes  ]                        │
+│                                                             │
+│              [ Cancelar ]    [ Continuar → Preview ]         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Arquitetura técnica
+
+```
+src/application/use-cases/import/
+├── parsers/
+│   ├── FileParser.ts              # Já existe — extrai headers + rows
+│   ├── DataMappers.ts             # Mappers atuais (fallback com sinônimos)
+│   ├── HistoryMappers.ts          # Mappers históricos
+│   └── ColumnMapping.ts           # NOVO — aplica mapeamento customizado
+├── mappings/
+│   └── SavedMappings.ts           # NOVO — CRUD de mapeamentos salvos
+```
+
+**Novo arquivo `ColumnMapping.ts`:**
+```typescript
+export interface ColumnMap {
+  // Campo do Operare → Nome da coluna no arquivo
+  [operareField: string]: string;
+}
+
+/**
+ * Aplica um mapeamento customizado às rows parseadas,
+ * renomeando as colunas do arquivo para os nomes que os mappers esperam.
+ */
+export function applyColumnMapping(rows: ParsedRow[], mapping: ColumnMap): ParsedRow[] {
+  return rows.map(row => {
+    const mapped: ParsedRow = {};
+    for (const [operareField, sourceColumn] of Object.entries(mapping)) {
+      mapped[operareField] = row[sourceColumn] ?? null;
+    }
+    return mapped;
+  });
+}
+```
+
+**Schema para salvar mapeamentos (opcional):**
+```prisma
+model ImportMapping {
+  id          String   @id @default(cuid())
+  name        String                         // "Ultracar - Clientes"
+  module      String                         // "clients", "stock", etc.
+  mapping     String                         // JSON: {"Nome": "Razão Social", "CNPJ": "Nr Doc"}
+  tenantId    String
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  @@unique([name, tenantId])
+}
+```
+
+#### API
+
+| Rota | Método | Ação |
+|------|--------|------|
+| `/api/import/[module]/headers` | POST | Upload → retorna headers do arquivo |
+| `/api/import/[module]/mappings` | GET | Listar mapeamentos salvos do tenant |
+| `/api/import/[module]/mappings` | POST | Salvar novo mapeamento |
+| `/api/import/[module]` | POST | Importar (aceita `mapping` opcional no body) |
+
+#### Fluxo na UI
+
+```
+handleFileSelect(file)
+  → POST /api/import/clients/headers (body: file)
+  → Recebe: { headers: ["Razão Social", "Nr Doc", "Fone Celular", ...] }
+  → Exibe tela de mapeamento
+  → Admin mapeia: { "Nome": "Razão Social", "CNPJ": "Nr Doc", ... }
+  → [Opcionalmente salva o mapeamento]
+  → POST /api/import/clients?mode=preview (body: file + mapping)
+  → Preview normal
+  → POST /api/import/clients?mode=import (body: file + mapping)
+```
+
+#### Auto-detecção inteligente (bonus)
+
+Antes de mostrar a tela de mapeamento, o sistema pode **sugerir** mapeamentos automaticamente:
+
+```typescript
+function suggestMapping(headers: string[], targetFields: FieldDef[]): ColumnMap {
+  const suggestions: ColumnMap = {};
+  for (const field of targetFields) {
+    // 1. Match exato (case-insensitive)
+    const exact = headers.find(h => h.toLowerCase() === field.name.toLowerCase());
+    if (exact) { suggestions[field.name] = exact; continue; }
+
+    // 2. Match por sinônimos conhecidos
+    const synonym = headers.find(h => field.synonyms.includes(h.toLowerCase()));
+    if (synonym) { suggestions[field.name] = synonym; continue; }
+
+    // 3. Match por similaridade (Levenshtein/contains)
+    const partial = headers.find(h =>
+      h.toLowerCase().includes(field.name.toLowerCase()) ||
+      field.name.toLowerCase().includes(h.toLowerCase())
+    );
+    if (partial) { suggestions[field.name] = partial; continue; }
+  }
+  return suggestions;
+}
+```
+
+Os dropdowns já viriam pré-selecionados com as sugestões. O admin só confirma ou corrige.
+
+#### Campos por módulo (para a tela de mapeamento)
+
+| Módulo | Campos obrigatórios | Campos opcionais |
+|---|---|---|
+| Clientes | Nome, CPF/CNPJ | Telefone, Email, Endereço, Tipo, Status |
+| Veículos | Placa, Cliente (nome) | Marca, Modelo, Ano, Chassi |
+| Estoque | Código, Descrição | Referência, Marca, Unidade, NCM, Estoque, Custo |
+| Serviços | Código, Descrição | Custo, Valor |
+| OS | Nº OS, Cliente | Veículo, Data, Total, Forma Pgto, Mecânico |
+
+#### Esforço estimado
+
+| Item | Horas |
+|------|-------|
+| `ColumnMapping.ts` (apply + suggest) | 2h |
+| API `/headers` + `/mappings` | 2h |
+| UI tela de mapeamento (dropdowns + preview) | 4h |
+| Migration + model `ImportMapping` | 1h |
+| Testes unitários | 2h |
+| **Total** | **~11h** |
+
+#### Quando implementar
+
+- Quando o **segundo cliente** contratar e usar um sistema diferente do Syscar
+- Ou quando receber feedback de que os sinônimos atuais não bastam
+
+**Não implementar antes** — o sistema atual com sinônimos já cobre Syscar, Odin e exportações Excel genéricas. O mapeamento interativo é over-engineering até ter demanda real.
+
+*Última atualização: 29/07/2026 — Módulo de importação self-service implementado e validado com dados reais do Syscar (8 módulos, 6.251 registros importáveis).*

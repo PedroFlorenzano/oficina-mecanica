@@ -20,6 +20,7 @@ const makeService = (overrides: Partial<ServiceCatalogData> = {}): ServiceCatalo
 
 const makeRepo = (service: ServiceCatalogData | null = makeService(), orderCount = 0): IServiceCatalogRepository => ({
   findById: jest.fn().mockResolvedValue(service),
+  findByCode: jest.fn().mockResolvedValue(null),
   findAll: jest.fn().mockResolvedValue([]),
   create: jest.fn().mockImplementation((data) => Promise.resolve({ id: "new-svc", ...data })),
   update: jest.fn().mockImplementation((id, data) => Promise.resolve({ ...makeService(), id, ...data })),
