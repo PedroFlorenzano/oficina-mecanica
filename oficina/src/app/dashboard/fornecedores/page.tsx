@@ -35,6 +35,7 @@ export default function FornecedoresPage() {
     }
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchSuppliers(); }, []);
 
   const handleNew = () => {
