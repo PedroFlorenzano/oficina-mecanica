@@ -7,6 +7,8 @@ export interface ImportStockInput {
   filename: string;
   tenantId: string;
   skipDuplicates?: boolean;
+  chunk?: number;
+  chunkSize?: number;
 }
 
 export interface ImportStockOutput {
@@ -22,7 +24,7 @@ export class ImportStock {
   constructor(private stockRepo: IStockItemRepository) {}
 
   async execute(input: ImportStockInput): Promise<ImportStockOutput> {
-    const { buffer, filename, tenantId, skipDuplicates = true } = input;
+    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30 } = input;
 
     // 1. Parse file
     const parsed = FileParser.parse(buffer, filename);
@@ -45,10 +47,17 @@ export class ImportStock {
     let updated = 0;
     const errors = [...mapped.errors];
 
+    // Chunking support
+    let itemsToProcess = mapped.success;
+    if (chunk !== undefined) {
+      const start = chunk * chunkSize;
+      itemsToProcess = mapped.success.slice(start, start + chunkSize);
+    }
+
     // Process in batches of 50
     const BATCH_SIZE = 50;
-    for (let i = 0; i < mapped.success.length; i += BATCH_SIZE) {
-      const batch = mapped.success.slice(i, i + BATCH_SIZE);
+    for (let i = 0; i < itemsToProcess.length; i += BATCH_SIZE) {
+      const batch = itemsToProcess.slice(i, i + BATCH_SIZE);
 
       const results = await Promise.allSettled(
         batch.map(async (dto) => {

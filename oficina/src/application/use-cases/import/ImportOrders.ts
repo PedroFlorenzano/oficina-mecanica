@@ -8,8 +8,10 @@ export interface ImportOrdersInput {
   buffer: Buffer;
   filename: string;
   tenantId: string;
-  userId: string; // admin user who imports
+  userId: string;
   skipDuplicates?: boolean;
+  chunk?: number;
+  chunkSize?: number;
 }
 
 export interface ImportOrdersOutput {
@@ -28,7 +30,7 @@ export class ImportOrders {
   ) {}
 
   async execute(input: ImportOrdersInput): Promise<ImportOrdersOutput> {
-    const { buffer, filename, tenantId, userId, skipDuplicates = true } = input;
+    const { buffer, filename, tenantId, userId, skipDuplicates = true, chunk, chunkSize = 30 } = input;
 
     const parsed = FileParser.parse(buffer, filename);
     if (parsed.rows.length === 0) {
@@ -40,6 +42,14 @@ export class ImportOrders {
     const warnings = [...mapped.warnings];
     let imported = 0;
 
+    // If chunk is specified, only process that slice
+    let itemsToProcess = mapped.success;
+    if (chunk !== undefined) {
+      const start = chunk * chunkSize;
+      const end = start + chunkSize;
+      itemsToProcess = mapped.success.slice(start, end);
+    }
+
     // Build caches
     const allClients = await this.clientRepo.findAll(tenantId);
     const clientNameMap = new Map<string, string>();
@@ -49,8 +59,8 @@ export class ImportOrders {
     const vehiclePlateMap = new Map<string, string>();
     for (const v of allVehicles) vehiclePlateMap.set(v.plate.toUpperCase(), v.id);
 
-    for (let i = 0; i < mapped.success.length; i += 10) {
-      const batch = mapped.success.slice(i, i + 10);
+    for (let i = 0; i < itemsToProcess.length; i += 10) {
+      const batch = itemsToProcess.slice(i, i + 10);
 
       const results = await Promise.allSettled(
         batch.map(async (dto) => {

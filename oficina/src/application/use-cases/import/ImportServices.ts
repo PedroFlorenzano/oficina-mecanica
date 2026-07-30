@@ -7,6 +7,8 @@ export interface ImportServicesInput {
   filename: string;
   tenantId: string;
   skipDuplicates?: boolean;
+  chunk?: number;
+  chunkSize?: number;
 }
 
 export interface ImportServicesOutput {

@@ -14,8 +14,8 @@ import { ImportProductivity } from "@/application/use-cases/import/ImportProduct
 const VALID_MODULES = ["clients", "vehicles", "stock", "services", "orders", "invoices", "financial", "productivity"] as const;
 type ImportModule = (typeof VALID_MODULES)[number];
 
-// Vercel: importação pode demorar com muitos registros
-export const maxDuration = 300; // 5 minutos
+// Vercel Hobby: 10s timeout. Importações grandes usam chunking.
+export const maxDuration = 60; // máximo possível no Hobby
 
 /**
  * POST /api/import/[module]
@@ -24,6 +24,8 @@ export const maxDuration = 300; // 5 minutos
  * Query params:
  * - mode: "import" (default) | "preview"
  * - duplicates: "skip" (default) | "update"
+ * - chunk: número do chunk (0-indexed, para importação em partes)
+ * - chunkSize: registros por chunk (default 30)
  */
 export async function POST(
   request: NextRequest,
@@ -80,6 +82,8 @@ export async function POST(
     const mode = request.nextUrl.searchParams.get("mode") || "import";
     const skipDuplicates =
       request.nextUrl.searchParams.get("duplicates") !== "update";
+    const chunk = parseInt(request.nextUrl.searchParams.get("chunk") || "-1");
+    const chunkSize = parseInt(request.nextUrl.searchParams.get("chunkSize") || "30");
 
     const container = createContainer(tenantId);
 
@@ -102,7 +106,9 @@ export async function POST(
       tenantId,
       skipDuplicates,
       container,
-      session.user.userId
+      session.user.userId,
+      chunk >= 0 ? chunk : undefined,
+      chunkSize
     );
 
     return NextResponse.json(result, { status: 201 });
@@ -168,27 +174,29 @@ async function executeImport(
   tenantId: string,
   skipDuplicates: boolean,
   container: ReturnType<typeof createContainer>,
-  userId?: string
+  userId?: string,
+  chunk?: number,
+  chunkSize: number = 30
 ) {
   switch (module) {
     case "clients": {
       const uc = new ImportClients(container.clientRepository);
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
     }
     case "vehicles": {
       const uc = new ImportVehicles(
         container.vehicleRepository,
         container.clientRepository
       );
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
     }
     case "stock": {
       const uc = new ImportStock(container.stockItemRepository);
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
     }
     case "services": {
       const uc = new ImportServices(container.serviceCatalogRepository);
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
     }
     case "orders": {
       const uc = new ImportOrders(
@@ -196,7 +204,7 @@ async function executeImport(
         container.clientRepository,
         container.vehicleRepository
       );
-      return uc.execute({ buffer, filename, tenantId, userId: userId || "", skipDuplicates });
+      return uc.execute({ buffer, filename, tenantId, userId: userId || "", skipDuplicates, chunk, chunkSize });
     }
     case "invoices": {
       const uc = new ImportInvoices();

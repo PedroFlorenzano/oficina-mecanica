@@ -153,31 +153,68 @@ export default function ImportPage() {
     setError(null);
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      const totalRecords = preview?.data?.length || 0;
+      const CHUNK_SIZE = 30;
+      const needsChunking = totalRecords > CHUNK_SIZE;
+      const totalChunks = needsChunking ? Math.ceil(totalRecords / CHUNK_SIZE) : 1;
 
-      const res = await fetch(
-        `/api/import/${activeModule}?mode=import&duplicates=${duplicateMode}`,
-        { method: "POST", body: formData }
-      );
+      let totalImported = 0;
+      let totalUpdated = 0;
+      let totalSkipped = 0;
+      let allErrors: Array<{ row: number; field?: string; value?: string; message: string }> = [];
+      let allSkippedRows: Array<{ row: number; reason: string }> = [];
+      let allWarnings: string[] = [];
 
-      if (!res.ok) {
-        let errorMsg = "Erro na importação";
-        try {
-          const err = await res.json();
-          errorMsg = err.error || errorMsg;
-        } catch {
-          if (res.status === 504 || res.status === 502) {
-            errorMsg = "A importação demorou demais e o servidor encerrou. Tente importar um arquivo menor ou entre em contato com o suporte.";
-          } else {
-            errorMsg = `Erro do servidor (${res.status}). Tente novamente.`;
-          }
+      for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const params = new URLSearchParams({
+          mode: "import",
+          duplicates: duplicateMode,
+        });
+        if (needsChunking) {
+          params.set("chunk", String(chunkIdx));
+          params.set("chunkSize", String(CHUNK_SIZE));
         }
-        throw new Error(errorMsg);
+
+        const res = await fetch(`/api/import/${activeModule}?${params}`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          let errorMsg = "Erro na importação";
+          try {
+            const err = await res.json();
+            errorMsg = err.error || errorMsg;
+          } catch {
+            if (res.status === 504 || res.status === 502) {
+              errorMsg = `Timeout no chunk ${chunkIdx + 1}/${totalChunks}. ${totalImported} registros já foram importados.`;
+            } else {
+              errorMsg = `Erro do servidor (${res.status}) no chunk ${chunkIdx + 1}/${totalChunks}.`;
+            }
+          }
+          throw new Error(errorMsg);
+        }
+
+        const data = await res.json();
+        totalImported += data.imported || 0;
+        totalUpdated += data.updated || 0;
+        totalSkipped += data.skipped || 0;
+        if (data.errors) allErrors = [...allErrors, ...data.errors];
+        if (data.skippedRows) allSkippedRows = [...allSkippedRows, ...data.skippedRows];
+        if (data.warnings) allWarnings = [...allWarnings, ...data.warnings];
       }
 
-      const data = await res.json();
-      setResult(data);
+      setResult({
+        imported: totalImported,
+        updated: totalUpdated,
+        skipped: totalSkipped,
+        errors: allErrors,
+        skippedRows: allSkippedRows,
+        warnings: allWarnings,
+      });
       setPreview(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro na importação");
