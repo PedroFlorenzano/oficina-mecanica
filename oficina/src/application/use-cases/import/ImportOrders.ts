@@ -49,58 +49,59 @@ export class ImportOrders {
     const vehiclePlateMap = new Map<string, string>();
     for (const v of allVehicles) vehiclePlateMap.set(v.plate.toUpperCase(), v.id);
 
-    for (const dto of mapped.success) {
-      try {
-        // Find client
-        const clientId = clientNameMap.get(dto.clientName.toUpperCase().trim());
-        if (!clientId) {
-          // Try partial match
-          let found = false;
-          for (const [key, id] of clientNameMap.entries()) {
-            if (key.includes(dto.clientName.toUpperCase().trim()) || dto.clientName.toUpperCase().trim().includes(key)) {
-              clientNameMap.set(dto.clientName.toUpperCase().trim(), id);
-              found = true;
-              break;
+    for (let i = 0; i < mapped.success.length; i += 10) {
+      const batch = mapped.success.slice(i, i + 10);
+
+      const results = await Promise.allSettled(
+        batch.map(async (dto) => {
+          // Find client
+          let resolvedClientId = clientNameMap.get(dto.clientName.toUpperCase().trim());
+          if (!resolvedClientId) {
+            for (const [key, id] of clientNameMap.entries()) {
+              if (key.includes(dto.clientName.toUpperCase().trim()) || dto.clientName.toUpperCase().trim().includes(key)) {
+                resolvedClientId = id;
+                break;
+              }
+            }
+            if (!resolvedClientId) {
+              return { action: "error" as const, dto, reason: `OS #${dto.number}: cliente "${dto.clientName}" não encontrado` };
             }
           }
-          if (!found) {
-            errors.push({ row: 0, field: "cliente", value: dto.clientName, message: `OS #${dto.number}: cliente "${dto.clientName}" não encontrado` });
-            continue;
+
+          // Find vehicle
+          let vehicleId: string | null = null;
+          if (dto.plate) {
+            vehicleId = vehiclePlateMap.get(dto.plate.toUpperCase()) || null;
           }
-        }
-
-        const resolvedClientId = clientNameMap.get(dto.clientName.toUpperCase().trim())!;
-
-        // Find vehicle (required for createLegacy)
-        let vehicleId: string | null = null;
-        if (dto.plate) {
-          vehicleId = vehiclePlateMap.get(dto.plate.toUpperCase()) || null;
-        }
-        if (!vehicleId) {
-          // Try to find any vehicle for this client
-          const clientVehicles = allVehicles.filter(v => v.clientId === resolvedClientId);
-          if (clientVehicles.length > 0) {
-            vehicleId = clientVehicles[0].id;
-            warnings.push(`OS #${dto.number}: veículo ${dto.plate || 'N/I'} não encontrado, vinculado ao primeiro veículo do cliente`);
-          } else {
-            errors.push({ row: 0, field: "veículo", value: dto.plate || "N/I", message: `OS #${dto.number}: nenhum veículo encontrado para "${dto.clientName}"` });
-            continue;
+          if (!vehicleId) {
+            const clientVehicles = allVehicles.filter(v => v.clientId === resolvedClientId);
+            if (clientVehicles.length > 0) {
+              vehicleId = clientVehicles[0].id;
+            } else {
+              return { action: "error" as const, dto, reason: `OS #${dto.number}: nenhum veículo encontrado para "${dto.clientName}"` };
+            }
           }
-        }
 
-        // Create OS as historical (DELIVERED status) using legacy create
-        await this.orderRepo.createLegacy({
-          mileage: 0,
-          notes: `[Importado do Syscar] OS #${dto.number}${dto.paymentMethod ? " | Pgto: " + dto.paymentMethod : ""}${dto.mechanics ? " | Resp: " + dto.mechanics : ""}`.trim(),
-          clientId: resolvedClientId,
-          vehicleId,
-          tenantId,
-          createdById: userId,
-          services: dto.total > 0 ? [{ description: `Serviço importado (OS #${dto.number})`, price: dto.total }] : [],
-        });
-        imported++;
-      } catch (err) {
-        errors.push({ row: 0, value: `OS #${dto.number}`, message: err instanceof Error ? err.message : String(err) });
+          await this.orderRepo.createLegacy({
+            mileage: 0,
+            notes: `[Importado do Syscar] OS #${dto.number}${dto.paymentMethod ? " | Pgto: " + dto.paymentMethod : ""}${dto.mechanics ? " | Resp: " + dto.mechanics : ""}`.trim(),
+            clientId: resolvedClientId!,
+            vehicleId,
+            tenantId,
+            createdById: userId,
+            services: dto.total > 0 ? [{ description: `Serviço importado (OS #${dto.number})`, price: dto.total }] : [],
+          });
+          return { action: "imported" as const, dto };
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          if (result.value.action === "imported") imported++;
+          else if (result.value.action === "error") errors.push({ row: 0, field: "cliente", value: result.value.dto.clientName, message: result.value.reason });
+        } else {
+          errors.push({ row: 0, message: result.reason?.message || "Erro desconhecido" });
+        }
       }
     }
 

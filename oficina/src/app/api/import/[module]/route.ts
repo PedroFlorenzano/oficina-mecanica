@@ -14,6 +14,9 @@ import { ImportProductivity } from "@/application/use-cases/import/ImportProduct
 const VALID_MODULES = ["clients", "vehicles", "stock", "services", "orders", "invoices", "financial", "productivity"] as const;
 type ImportModule = (typeof VALID_MODULES)[number];
 
+// Vercel: importação pode demorar com muitos registros
+export const maxDuration = 300; // 5 minutos
+
 /**
  * POST /api/import/[module]
  * Upload de arquivo XLS/XLSX/CSV e importação dos dados.
