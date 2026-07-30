@@ -14,6 +14,7 @@ import { PrismaFiscalRepository } from "./repositories/PrismaFiscalRepository";
 import { PrismaOrderPhotoRepository } from "./repositories/PrismaOrderPhotoRepository";
 import { PrismaAppointmentRepository } from "./repositories/PrismaAppointmentRepository";
 import { PrismaSupplierRepository } from "./repositories/PrismaSupplierRepository";
+import { PrismaFinancialEntryRepository } from "./repositories/PrismaFinancialEntryRepository";
 
 function buildContainer(db: PrismaClient) {
   return {
@@ -31,6 +32,7 @@ function buildContainer(db: PrismaClient) {
     orderPhotoRepository: new PrismaOrderPhotoRepository(db),
     appointmentRepository: new PrismaAppointmentRepository(db),
     supplierRepository: new PrismaSupplierRepository(db),
+    financialEntryRepository: new PrismaFinancialEntryRepository(db),
   };
 }
 

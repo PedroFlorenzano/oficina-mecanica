@@ -34,6 +34,7 @@ model Tenant {
   fiscalConfig   FiscalConfig?
   scheduleConfig ScheduleConfig?
   appointments   Appointment[]
+  financialEntries FinancialEntry[]
 }
 
 model User {
@@ -690,4 +691,64 @@ model SupplierClick {
 
   @@index([tenantId, createdAt])
   @@index([supplierId, createdAt])
+}
+
+// ============================================
+// Módulo Financeiro — Contas a Pagar
+// ============================================
+
+enum FinancialEntryType {
+  PAYABLE    // Conta a pagar (despesa)
+  RECEIVABLE // Conta a receber (extra, fora de OS)
+}
+
+enum FinancialEntryStatus {
+  PENDING   // Aguardando vencimento
+  OVERDUE   // Vencida (calculado: vencimento < hoje && não paga)
+  PAID      // Baixa dada
+}
+
+enum ExpenseCategory {
+  RENT          // Aluguel
+  ENERGY        // Energia / Luz
+  WATER         // Água
+  INTERNET      // Internet / Telefone
+  INSURANCE     // Seguro
+  ACCOUNTING    // Contabilidade
+  SALARY        // Salários
+  PARTS_SUPPLIER // Fornecedor de Peças (boletos)
+  TOOLS         // Ferramentas / Equipamentos
+  MAINTENANCE   // Manutenção do imóvel
+  MARKETING     // Marketing / Propaganda
+  TAX           // Impostos / IPTU / Taxas
+  SOFTWARE      // Sistemas / Licenças
+  FUEL          // Combustível
+  OTHER_FIXED   // Outros fixos
+  OTHER_VARIABLE // Outros variáveis
+}
+
+model FinancialEntry {
+  id            String               @id @default(cuid())
+  description   String
+  type          FinancialEntryType   @default(PAYABLE)
+  category      ExpenseCategory
+  status        FinancialEntryStatus @default(PENDING)
+  amount        Float                // Valor da parcela
+  dueDate       DateTime             // Vencimento
+  paidAt        DateTime?            // Data em que foi pago
+  paidAmount    Float?               // Valor efetivamente pago (pode ter juros/desconto)
+  installment   Int                  @default(1) // Parcela atual (ex: 3)
+  totalInstallments Int              @default(1) // Total de parcelas (ex: 6)
+  supplier      String?              // Nome do fornecedor (texto livre)
+  notes         String?              // Observação
+  tenantId      String
+  createdBy     String?              // userId que lançou
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  tenant        Tenant               @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status, dueDate])
+  @@index([tenantId, category])
+  @@index([tenantId, dueDate])
 }

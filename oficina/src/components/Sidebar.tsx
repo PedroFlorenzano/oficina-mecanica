@@ -22,6 +22,7 @@ import {
   CreditCard,
   Truck,
   Upload,
+  Wallet,
 } from "lucide-react";
 
 import {
@@ -134,6 +135,9 @@ export default function Sidebar({ role, customPermissions, tenantName }: Sidebar
           )}
           {role === "ADMIN" && (
             <NavItem href="/dashboard/reports" label="Relatórios" icon={BarChart3} />
+          )}
+          {role === "ADMIN" && (
+            <NavItem href="/dashboard/financial" label="Financeiro" icon={Wallet} />
           )}
           {role === "ADMIN" && (
             <NavItem href="/dashboard/whatsapp" label="WhatsApp" icon={MessageCircle} />
