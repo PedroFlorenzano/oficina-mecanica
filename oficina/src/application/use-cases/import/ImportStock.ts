@@ -40,59 +40,65 @@ export class ImportStock {
     // 2. Map rows to DTOs
     const mapped = StockItemMapper.map(parsed.rows);
 
-    // 3. Import each valid stock item
+    // 3. Batch import — process in chunks to avoid timeout
     let imported = 0;
     let updated = 0;
     const errors = [...mapped.errors];
 
-    for (const dto of mapped.success) {
-      try {
-        const existing = await this.stockRepo.findByCode(dto.code, tenantId);
+    // Process in batches of 50
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < mapped.success.length; i += BATCH_SIZE) {
+      const batch = mapped.success.slice(i, i + BATCH_SIZE);
 
-        if (existing) {
-          if (skipDuplicates) {
-            mapped.skipped.push({
-              row: 0,
-              reason: `Item "${dto.code}" já existe (${dto.description})`,
-            });
+      const results = await Promise.allSettled(
+        batch.map(async (dto) => {
+          const existing = await this.stockRepo.findByCode(dto.code, tenantId);
+
+          if (existing) {
+            if (skipDuplicates) {
+              return { action: "skipped" as const, dto };
+            } else {
+              await this.stockRepo.update(existing.id, {
+                description: dto.description,
+                brand: dto.brand,
+                unit: dto.unit,
+                quantity: dto.quantity,
+                costPrice: dto.costPrice,
+                avgCost: dto.costPrice,
+              });
+              return { action: "updated" as const, dto };
+            }
           } else {
-            await this.stockRepo.update(existing.id, {
+            await this.stockRepo.create({
+              code: dto.code,
+              barcode: dto.reference,
               description: dto.description,
               brand: dto.brand,
               unit: dto.unit,
+              minQuantity: 0,
               quantity: dto.quantity,
+              location: null,
+              supplier: null,
               costPrice: dto.costPrice,
+              sellPrice: 0,
               avgCost: dto.costPrice,
+              profitMargin: 0,
+              active: true,
+              tenantId,
             });
-            updated++;
+            return { action: "imported" as const, dto };
           }
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          if (result.value.action === "imported") imported++;
+          else if (result.value.action === "updated") updated++;
+          else mapped.skipped.push({ row: 0, reason: `Item "${result.value.dto.code}" já existe` });
         } else {
-          await this.stockRepo.create({
-            code: dto.code,
-            barcode: dto.reference,
-            description: dto.description,
-            brand: dto.brand,
-            unit: dto.unit,
-            minQuantity: 0,
-            quantity: dto.quantity,
-            location: null,
-            supplier: null,
-            costPrice: dto.costPrice,
-            sellPrice: 0,
-            avgCost: dto.costPrice,
-            profitMargin: 0,
-            active: true,
-            tenantId,
-          });
-          imported++;
+          errors.push({ row: 0, message: result.reason?.message || "Erro desconhecido" });
         }
-      } catch (err) {
-        errors.push({
-          row: 0,
-          field: "código",
-          value: dto.code,
-          message: `Erro ao importar item "${dto.code}": ${err instanceof Error ? err.message : String(err)}`,
-        });
       }
     }
 

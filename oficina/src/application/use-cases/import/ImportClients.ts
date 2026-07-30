@@ -40,55 +40,56 @@ export class ImportClients {
     // 2. Map rows to DTOs
     const mapped = ClientMapper.map(parsed.rows);
 
-    // 3. Import each valid client
+    // 3. Batch import clients
     let imported = 0;
     let updated = 0;
     const errors = [...mapped.errors];
 
-    for (const dto of mapped.success) {
-      try {
-        const existing = await this.clientRepo.findByDocument(
-          dto.document,
-          tenantId
-        );
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < mapped.success.length; i += BATCH_SIZE) {
+      const batch = mapped.success.slice(i, i + BATCH_SIZE);
 
-        if (existing) {
-          if (skipDuplicates) {
-            mapped.skipped.push({
-              row: 0,
-              reason: `Cliente "${dto.name}" (${dto.document}) já existe`,
-            });
+      const results = await Promise.allSettled(
+        batch.map(async (dto) => {
+          const existing = await this.clientRepo.findByDocument(dto.document, tenantId);
+
+          if (existing) {
+            if (skipDuplicates) {
+              return { action: "skipped" as const, dto };
+            } else {
+              await this.clientRepo.update(existing.id, {
+                name: dto.name,
+                phone: dto.phone,
+                email: dto.email,
+                address: dto.address,
+                active: dto.active,
+              });
+              return { action: "updated" as const, dto };
+            }
           } else {
-            // Update existing
-            await this.clientRepo.update(existing.id, {
+            await this.clientRepo.create({
               name: dto.name,
+              document: dto.document,
+              docType: dto.docType,
               phone: dto.phone,
               email: dto.email,
               address: dto.address,
               active: dto.active,
+              tenantId,
             });
-            updated++;
+            return { action: "imported" as const, dto };
           }
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          if (result.value.action === "imported") imported++;
+          else if (result.value.action === "updated") updated++;
+          else mapped.skipped.push({ row: 0, reason: `Cliente "${result.value.dto.name}" já existe` });
         } else {
-          await this.clientRepo.create({
-            name: dto.name,
-            document: dto.document,
-            docType: dto.docType,
-            phone: dto.phone,
-            email: dto.email,
-            address: dto.address,
-            active: dto.active,
-            tenantId,
-          });
-          imported++;
+          errors.push({ row: 0, message: result.reason?.message || "Erro desconhecido" });
         }
-      } catch (err) {
-        errors.push({
-          row: 0,
-          field: "documento",
-          value: dto.document,
-          message: `Erro ao importar "${dto.name}": ${err instanceof Error ? err.message : String(err)}`,
-        });
       }
     }
 
