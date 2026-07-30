@@ -140,6 +140,9 @@ export default function Sidebar({ role, customPermissions, tenantName }: Sidebar
             <NavItem href="/dashboard/financial" label="Financeiro" icon={Wallet} />
           )}
           {role === "ADMIN" && (
+            <NavItem href="/dashboard/financial/dre" label="DRE" icon={BarChart3} sub />
+          )}
+          {role === "ADMIN" && (
             <NavItem href="/dashboard/whatsapp" label="WhatsApp" icon={MessageCircle} />
           )}
           {role === "ADMIN" && (

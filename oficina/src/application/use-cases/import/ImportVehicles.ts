@@ -51,85 +51,72 @@ export class ImportVehicles {
       clientCache.set(client.name.toUpperCase().trim(), client.id);
     }
 
-    // 4. Import each valid vehicle
+    // 4. Import in batches
     let imported = 0;
     let updated = 0;
     const errors = [...mapped.errors];
     const warnings = [...mapped.warnings];
 
-    for (const dto of mapped.success) {
-      try {
-        // Find client by name (case-insensitive)
-        const clientId = clientCache.get(dto.clientName.toUpperCase().trim());
-        if (!clientId) {
-          // Try partial match
-          const partialMatch = this.findPartialMatch(
-            dto.clientName,
-            clientCache
-          );
-          if (!partialMatch) {
-            errors.push({
-              row: 0,
-              field: "cliente",
-              value: dto.clientName,
-              message: `Cliente "${dto.clientName}" não encontrado. Importe os clientes primeiro.`,
-            });
-            continue;
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < mapped.success.length; i += BATCH_SIZE) {
+      const batch = mapped.success.slice(i, i + BATCH_SIZE);
+
+      const results = await Promise.allSettled(
+        batch.map(async (dto) => {
+          // Find client by name (case-insensitive)
+          let resolvedClientId = clientCache.get(dto.clientName.toUpperCase().trim());
+          if (!resolvedClientId) {
+            const partialMatch = this.findPartialMatch(dto.clientName, clientCache);
+            if (!partialMatch) {
+              return { action: "error" as const, dto, reason: `Cliente "${dto.clientName}" não encontrado. Importe os clientes primeiro.` };
+            }
+            resolvedClientId = partialMatch.id;
           }
-          warnings.push(
-            `Veículo ${dto.plate}: cliente "${dto.clientName}" vinculado a "${partialMatch.name}" (match parcial)`
-          );
-          dto.clientName = partialMatch.name;
-        }
 
-        const resolvedClientId =
-          clientId || this.findPartialMatch(dto.clientName, clientCache)?.id;
-        if (!resolvedClientId) continue;
+          const existing = await this.vehicleRepo.findByPlate(dto.plate, tenantId);
 
-        const existing = await this.vehicleRepo.findByPlate(
-          dto.plate,
-          tenantId
-        );
-
-        if (existing) {
-          if (skipDuplicates) {
-            mapped.skipped.push({
-              row: 0,
-              reason: `Veículo "${dto.plate}" já existe`,
-            });
+          if (existing) {
+            if (skipDuplicates) {
+              return { action: "skipped" as const, dto };
+            } else {
+              await this.vehicleRepo.update(existing.id, {
+                brand: dto.brand,
+                model: dto.model,
+                year: dto.year,
+                yearModel: dto.yearModel,
+                chassis: dto.chassis,
+              });
+              return { action: "updated" as const, dto };
+            }
           } else {
-            await this.vehicleRepo.update(existing.id, {
+            await this.vehicleRepo.create({
+              plate: dto.plate,
               brand: dto.brand,
               model: dto.model,
               year: dto.year,
               yearModel: dto.yearModel,
+              color: null,
+              fuel: null,
               chassis: dto.chassis,
+              clientId: resolvedClientId,
+              tenantId,
+              mileage: 0,
             });
-            updated++;
+            return { action: "imported" as const, dto };
           }
+        })
+      );
+
+      for (const result of results) {
+        if (result.status === "fulfilled") {
+          const val = result.value;
+          if (val.action === "imported") imported++;
+          else if (val.action === "updated") updated++;
+          else if (val.action === "skipped") mapped.skipped.push({ row: 0, reason: `Veículo "${val.dto.plate}" já existe` });
+          else if (val.action === "error") errors.push({ row: 0, field: "cliente", value: val.dto.clientName, message: val.reason });
         } else {
-          await this.vehicleRepo.create({
-            plate: dto.plate,
-            brand: dto.brand,
-            model: dto.model,
-            year: dto.year,
-            yearModel: dto.yearModel,
-            color: null,
-            fuel: null,
-            chassis: dto.chassis,
-            clientId: resolvedClientId,
-            tenantId,
-            mileage: 0,
-          });
-          imported++;
+          errors.push({ row: 0, message: result.reason?.message || "Erro desconhecido" });
         }
-      } catch (err) {
-        errors.push({
-          row: 0,
-          field: "placa",
-          value: dto.plate,
-          message: `Erro ao importar veículo ${dto.plate}: ${err instanceof Error ? err.message : String(err)}`,
-        });
       }
     }
 

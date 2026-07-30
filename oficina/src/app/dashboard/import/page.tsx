@@ -162,8 +162,18 @@ export default function ImportPage() {
       );
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Erro na importação");
+        let errorMsg = "Erro na importação";
+        try {
+          const err = await res.json();
+          errorMsg = err.error || errorMsg;
+        } catch {
+          if (res.status === 504 || res.status === 502) {
+            errorMsg = "A importação demorou demais e o servidor encerrou. Tente importar um arquivo menor ou entre em contato com o suporte.";
+          } else {
+            errorMsg = `Erro do servidor (${res.status}). Tente novamente.`;
+          }
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await res.json();

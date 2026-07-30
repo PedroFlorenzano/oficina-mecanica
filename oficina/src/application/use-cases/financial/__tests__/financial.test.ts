@@ -73,12 +73,12 @@ function createMockRepo(): jest.Mocked<IFinancialEntryRepository> {
       const idx = entries.findIndex((e) => e.id === id);
       if (idx >= 0) entries.splice(idx, 1);
     }),
-    getSummary: jest.fn(async () => ({
+    getSummary: jest.fn(async (_tenantId: string, _startDate: Date, _endDate: Date) => ({
       totalPayable: 0,
       totalReceivable: 0,
       totalPaid: 0,
       totalOverdue: 0,
-      byCategory: [],
+      byCategory: [] as Array<{ category: string; total: number }>,
     })),
   };
 }

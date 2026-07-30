@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  DollarSign, Plus, Check, Calendar, Trash2, TrendingUp,
-  TrendingDown, AlertTriangle, Filter, BarChart3
+  DollarSign, Plus, Check, Calendar, Trash2,
+  AlertTriangle, Filter
 } from "lucide-react";
 import {
   Button, Badge, Card, CardHeader, CardTitle,
@@ -29,22 +29,6 @@ interface FinancialEntry {
   totalInstallments: number;
   supplier: string | null;
   notes: string | null;
-}
-
-interface DREData {
-  period: { start: string; end: string };
-  revenue: { services: number; parts: number; total: number; orderCount: number };
-  expenses: {
-    fixed: number; variable: number; total: number;
-    byCategory: Array<{ category: string; label: string; total: number }>;
-  };
-  grossProfit: number;
-  netProfit: number;
-  margin: number;
-  monthly: Array<{
-    month: string; revenue: number; fixedExpenses: number;
-    variableExpenses: number; profit: number;
-  }>;
 }
 
 // ============================================
@@ -96,7 +80,6 @@ export default function FinancialPage() {
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [showDRE, setShowDRE] = useState(false);
   const [showProrrogate, setShowProrrogate] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("");
@@ -167,16 +150,11 @@ export default function FinancialPage() {
     <div className="space-y-6">
       <PageHeader
         title="Financeiro"
-        description="Contas a pagar, baixas e DRE"
+        description="Contas a pagar, baixas e controle de vencimento"
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setShowDRE(true)}>
-              <BarChart3 className="w-4 h-4 mr-2" /> DRE
-            </Button>
-            <Button onClick={() => setShowForm(true)}>
-              <Plus className="w-4 h-4 mr-2" /> Novo Lançamento
-            </Button>
-          </div>
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Novo Lançamento
+          </Button>
         }
       />
 
@@ -328,11 +306,6 @@ export default function FinancialPage() {
           onClose={() => setShowProrrogate(null)}
           onProrrogate={handleProrrogate}
         />
-      )}
-
-      {/* DRE Modal */}
-      {showDRE && (
-        <DREModal onClose={() => setShowDRE(false)} />
       )}
     </div>
   );
@@ -496,172 +469,6 @@ function ProrrogateModal({
           <Button onClick={() => onProrrogate(entryId, newDate)} disabled={!newDate}>
             Prorrogar
           </Button>
-        </div>
-      </div>
-    </Modal>
-  );
-}
-
-// ============================================
-// DRE Modal
-// ============================================
-
-function DREModal({ onClose }: { onClose: () => void }) {
-  const [dre, setDre] = useState<DREData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch("/api/financial/dre");
-        if (res.ok) {
-          const data = await res.json();
-          setDre(data);
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, []);
-
-  if (loading) {
-    return (
-      <Modal title="DRE — Demonstrativo de Resultados" onClose={onClose} size="xl" isOpen={true}>
-        <div className="text-center py-8 text-gray-500">Calculando DRE...</div>
-      </Modal>
-    );
-  }
-
-  if (!dre) {
-    return (
-      <Modal title="DRE — Demonstrativo de Resultados" onClose={onClose} size="xl" isOpen={true}>
-        <div className="text-center py-8 text-red-500">Erro ao carregar DRE</div>
-      </Modal>
-    );
-  }
-
-  const maxBarValue = Math.max(
-    ...dre.monthly.map((m) => Math.max(m.revenue, m.fixedExpenses + m.variableExpenses))
-  ) || 1;
-
-  return (
-    <Modal title="DRE — Demonstrativo de Resultados" onClose={onClose} size="xl" isOpen={true}>
-      <div className="space-y-6">
-        {/* Período */}
-        <p className="text-sm text-gray-500">
-          Período: {formatDate(dre.period.start)} a {formatDate(dre.period.end)}
-        </p>
-
-        {/* Resumo */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-green-50 rounded-lg p-3 text-center">
-            <TrendingUp className="w-5 h-5 text-green-600 mx-auto mb-1" />
-            <p className="text-xs text-gray-600">Receita (OS)</p>
-            <p className="font-bold text-green-700">{formatMoney(dre.revenue.total)}</p>
-            <p className="text-xs text-gray-500">{dre.revenue.orderCount} OS entregues</p>
-          </div>
-          <div className="bg-red-50 rounded-lg p-3 text-center">
-            <TrendingDown className="w-5 h-5 text-red-600 mx-auto mb-1" />
-            <p className="text-xs text-gray-600">Despesas</p>
-            <p className="font-bold text-red-700">{formatMoney(dre.expenses.total)}</p>
-            <p className="text-xs text-gray-500">Fixas + Variáveis</p>
-          </div>
-          <div className={`rounded-lg p-3 text-center ${dre.netProfit >= 0 ? "bg-blue-50" : "bg-orange-50"}`}>
-            <DollarSign className={`w-5 h-5 mx-auto mb-1 ${dre.netProfit >= 0 ? "text-blue-600" : "text-orange-600"}`} />
-            <p className="text-xs text-gray-600">Lucro Líquido</p>
-            <p className={`font-bold ${dre.netProfit >= 0 ? "text-blue-700" : "text-orange-700"}`}>
-              {formatMoney(dre.netProfit)}
-            </p>
-          </div>
-          <div className={`rounded-lg p-3 text-center ${dre.margin >= 0 ? "bg-purple-50" : "bg-orange-50"}`}>
-            <BarChart3 className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-            <p className="text-xs text-gray-600">Margem</p>
-            <p className="font-bold text-purple-700">{dre.margin}%</p>
-          </div>
-        </div>
-
-        {/* Detalhamento */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Receitas */}
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-green-700 mb-2">Receitas</h3>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between">
-                <span>Serviços</span>
-                <span>{formatMoney(dre.revenue.services)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Peças</span>
-                <span>{formatMoney(dre.revenue.parts)}</span>
-              </div>
-              <div className="flex justify-between font-bold border-t pt-1">
-                <span>Total</span>
-                <span>{formatMoney(dre.revenue.total)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Despesas por categoria */}
-          <div className="border rounded-lg p-4">
-            <h3 className="font-semibold text-red-700 mb-2">Despesas</h3>
-            <div className="space-y-1 text-sm max-h-40 overflow-y-auto">
-              {dre.expenses.byCategory.map((item) => (
-                <div key={item.category} className="flex justify-between">
-                  <span>{item.label}</span>
-                  <span>{formatMoney(item.total)}</span>
-                </div>
-              ))}
-              {dre.expenses.byCategory.length === 0 && (
-                <p className="text-gray-400">Nenhuma despesa paga no período</p>
-              )}
-              <div className="flex justify-between font-bold border-t pt-1">
-                <span>Fixas: {formatMoney(dre.expenses.fixed)}</span>
-                <span>Variáveis: {formatMoney(dre.expenses.variable)}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Gráfico mensal (barras simples CSS) */}
-        <div className="border rounded-lg p-4">
-          <h3 className="font-semibold mb-3">Evolução Mensal</h3>
-          <div className="space-y-3">
-            {dre.monthly.map((month) => (
-              <div key={month.month} className="space-y-1">
-                <div className="flex justify-between text-xs text-gray-600">
-                  <span>{month.month}</span>
-                  <span className={month.profit >= 0 ? "text-green-600" : "text-red-600"}>
-                    {month.profit >= 0 ? "+" : ""}{formatMoney(month.profit)}
-                  </span>
-                </div>
-                <div className="flex gap-1 h-5">
-                  <div
-                    className="bg-green-400 rounded-sm"
-                    style={{ width: `${(month.revenue / maxBarValue) * 100}%` }}
-                    title={`Receita: ${formatMoney(month.revenue)}`}
-                  />
-                </div>
-                <div className="flex gap-1 h-5">
-                  <div
-                    className="bg-red-300 rounded-sm"
-                    style={{ width: `${(month.fixedExpenses / maxBarValue) * 100}%` }}
-                    title={`Fixas: ${formatMoney(month.fixedExpenses)}`}
-                  />
-                  <div
-                    className="bg-orange-300 rounded-sm"
-                    style={{ width: `${(month.variableExpenses / maxBarValue) * 100}%` }}
-                    title={`Variáveis: ${formatMoney(month.variableExpenses)}`}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="flex gap-4 mt-3 text-xs text-gray-500">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-green-400 rounded-sm inline-block" /> Receita</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-red-300 rounded-sm inline-block" /> Despesas Fixas</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 bg-orange-300 rounded-sm inline-block" /> Despesas Variáveis</span>
-          </div>
         </div>
       </div>
     </Modal>
