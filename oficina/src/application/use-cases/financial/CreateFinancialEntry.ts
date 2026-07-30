@@ -33,7 +33,7 @@ export class CreateFinancialEntry {
       throw new ValidationError("Categoria é obrigatória");
     }
 
-    const totalInstallments = input.totalInstallments || 1;
+    const totalInstallments = input.totalInstallments ?? 1;
     if (totalInstallments < 1 || totalInstallments > 60) {
       throw new ValidationError("Número de parcelas deve ser entre 1 e 60");
     }
