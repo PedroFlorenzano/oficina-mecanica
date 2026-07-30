@@ -329,7 +329,7 @@ export default function ImportPage() {
               <div className="flex flex-col items-center justify-center py-8 gap-3">
                 <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                 <span className="text-gray-600 font-medium">
-                  {preview ? "Importando registros... Isso pode levar até 30 segundos." : "Analisando arquivo..."}
+                  {preview ? "Importando registros... Isso pode levar alguns minutos." : "Analisando arquivo..."}
                 </span>
                 {preview && (
                   <span className="text-xs text-gray-400">Não feche esta página.</span>

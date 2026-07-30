@@ -52,11 +52,12 @@ interface NavItemProps {
   icon: React.ElementType;
   alertCount?: number;
   sub?: boolean;
+  exact?: boolean;
 }
 
-function NavItem({ href, label, icon: Icon, alertCount = 0, sub }: NavItemProps) {
+function NavItem({ href, label, icon: Icon, alertCount = 0, sub, exact }: NavItemProps) {
   const pathname = usePathname();
-  const active = sub
+  const active = sub || exact
     ? pathname === href
     : pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
 
@@ -137,7 +138,7 @@ export default function Sidebar({ role, customPermissions, tenantName }: Sidebar
             <NavItem href="/dashboard/reports" label="Relatórios" icon={BarChart3} />
           )}
           {role === "ADMIN" && (
-            <NavItem href="/dashboard/financial" label="Financeiro" icon={Wallet} />
+            <NavItem href="/dashboard/financial" label="Financeiro" icon={Wallet} exact />
           )}
           {role === "ADMIN" && (
             <NavItem href="/dashboard/financial/dre" label="DRE" icon={BarChart3} sub />
