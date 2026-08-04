@@ -2,16 +2,7 @@ import { FiscalConfigData } from "@/domain/repositories/IFiscalRepository";
 import { IFiscalAdapter } from "./IFiscalAdapter";
 import { FakeFiscalAdapter } from "./FakeFiscalAdapter";
 import { SefazNFeAdapter, SefazAdapterConfig } from "./SefazNFeAdapter";
-import { SorocabaNFSeAdapter, SorocabaNFSeConfig } from "./SorocabaNFSeAdapter";
-
-// Municípios DSF conhecidos (url, siaf, soapns)
-// Fonte: nfephp-org/sped-nfse-dsf
-const DSF_MUNICIPIOS: Record<string, { url: string; siaf: string; soapns: string; nome: string }> = {
-  "3552205": { url: "https://www.issdigitalsod.com.br/WsNFe2/LoteRps.jws", siaf: "7145", soapns: "http://proces.wsnfe2.dsfnet.com.br", nome: "SOROCABA" },
-  "3509502": { url: "https://issdigital.campinas.sp.gov.br/WsNFe2/LoteRps.jws", siaf: "6291", soapns: "http://proces.wsnfe2.dsfnet.com.br", nome: "CAMPINAS" },
-  "5002704": { url: "https://issdigital.pmcg.ms.gov.br/WsNFe2/LoteRps.jws", siaf: "9051", soapns: "http://proces.wsnfe2.dsfnet.com.br", nome: "CAMPO GRANDE" },
-  "3170206": { url: "https://udigital.uberlandia.mg.gov.br/WsNFe2/LoteRps.jws", siaf: "5403", soapns: "http://proces.wsnfe2.dsfnet.com.br", nome: "UBERLANDIA" },
-};
+import { NacionalNfseAdapter, NacionalNfseConfig } from "./NacionalNfseAdapter";
 
 // UF a partir dos 2 primeiros dígitos do código IBGE
 const UF_FROM_IBGE: Record<string, string> = {
@@ -34,37 +25,25 @@ export function createFiscalAdapter(config: FiscalConfigData, type?: "NFE" | "NF
     return new FakeFiscalAdapter();
   }
 
-  // NFS-e — verifica se o município está no catálogo DSF
+  // NFS-e — Padrão Nacional (obrigatório desde 01/01/2026)
   if (type === "NFSE") {
-    if (config.modeloNacional) {
-      // TODO: Implementar adapter SEFIN Nacional quando disponível
-      // Por enquanto, usa FakeFiscalAdapter com aviso
+    if (!config.cityCode) {
       return new FakeFiscalAdapter();
     }
-    if (!config.cityCode || !DSF_MUNICIPIOS[config.cityCode]) {
-      return new FakeFiscalAdapter();
-    }
-    const municipio = DSF_MUNICIPIOS[config.cityCode];
-    const nfseConfig: SorocabaNFSeConfig = {
+    const nfseConfig: NacionalNfseConfig = {
       pfxBase64: config.certificateBase64!,
       pfxPassword: config.certificatePassword!,
       cnpj: (config.cnpj || "").replace(/\D/g, ""),
       inscricaoMunicipal: config.inscricaoMunicipal || "",
       razaoSocial: config.razaoSocial || "",
-      codigoServico: config.codigoServico || "1401",
+      cityCode: config.cityCode,
+      codigoServico: config.codigoServico || "14.01",
       aliquotaISS: config.aliquotaISS || 5,
-      serie: config.nfseSeries || "U",
-      tipoRPS: config.tipoRPS || "RPS",
-      wsUsuario: config.wsUsuario || undefined,
-      wsSenha: config.wsSenha || undefined,
-      // Dados do município (do catálogo)
-      municipioUrl: municipio.url,
-      municipioSiaf: municipio.siaf,
-      municipioSoapns: municipio.soapns,
-      municipioCodigo: config.cityCode,
-      municipioNome: municipio.nome,
+      serie: config.nfseSeries || "1",
+      environment: config.environment as "homologation" | "production",
+      descricaoServico: config.descricaoServico || undefined,
     };
-    return new SorocabaNFSeAdapter(nfseConfig);
+    return new NacionalNfseAdapter(nfseConfig);
   }
 
   // NF-e via SEFAZ
@@ -81,7 +60,7 @@ export function createFiscalAdapter(config: FiscalConfigData, type?: "NFE" | "NF
       nro: config.emitNumero || "S/N",
       xBairro: config.emitBairro || "",
       cMun: config.cityCode || "",
-      xMun: DSF_MUNICIPIOS[config.cityCode || ""]?.nome || "",
+      xMun: "",  // TODO: adicionar campo emitMunicipio na FiscalConfig
       UF: UF_FROM_IBGE[cUF] || "SP",
       CEP: config.emitCEP || "",
     },
