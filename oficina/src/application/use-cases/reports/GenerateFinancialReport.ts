@@ -24,6 +24,14 @@ interface FinancialReportResult {
   avgTicket: number;
   partsCost: number;
   grossProfit: number;
+  // Novos — custos do módulo financeiro
+  fixedCosts: number;
+  variableCosts: number;
+  totalCosts: number; // peças + fixo + variável
+  netProfit: number; // faturamento - totalCosts (lucro real)
+  profitMargin: number; // % margem líquida
+  // Rentabilidade acumulada mensal
+  profitability: { month: string; revenue: number; costs: number; netProfit: number; accumulated: number }[];
   cancelledCount: number;
   completedCount: number;
   byStatus: Record<string, { count: number; total: number }>;
@@ -47,7 +55,7 @@ export class GenerateFinancialReport {
     const orderWhere: Prisma.ServiceOrderWhereInput = { tenantId };
     if (hasDateFilter) orderWhere.createdAt = dateFilter;
 
-    const [orders, completedOrders, cancelledCount, stockMovements] = await Promise.all([
+    const [orders, completedOrders, cancelledCount, stockMovements, paidExpenses] = await Promise.all([
       this.db.serviceOrder.findMany({
         where: orderWhere,
         select: { id: true, status: true, totalAmount: true, createdAt: true },
@@ -66,6 +74,15 @@ export class GenerateFinancialReport {
         },
         select: { type: true, quantity: true, unitCost: true, stockItem: { select: { avgCost: true } } },
       }),
+      // Despesas pagas no período (módulo financeiro)
+      this.db.financialEntry.findMany({
+        where: {
+          tenantId,
+          status: "PAID",
+          ...(hasDateFilter ? { paidAt: dateFilter } : {}),
+        },
+        select: { category: true, paidAmount: true, amount: true, paidAt: true },
+      }),
     ]);
 
     const totalOrders = orders.length;
@@ -75,6 +92,26 @@ export class GenerateFinancialReport {
     const partsCost = stockMovements
       .filter((m) => m.type === "CONSUMPTION")
       .reduce((s, m) => s + m.quantity * (m.unitCost ?? m.stockItem.avgCost), 0);
+
+    // Custos fixos e variáveis (módulo financeiro)
+    const FIXED_CATEGORIES = ["RENT", "ENERGY", "WATER", "INTERNET", "INSURANCE", "ACCOUNTING", "SALARY", "SOFTWARE", "TAX"];
+    let fixedCosts = 0;
+    let variableCosts = 0;
+    for (const exp of paidExpenses) {
+      const amount = exp.paidAmount ?? exp.amount;
+      if (FIXED_CATEGORIES.includes(exp.category)) {
+        fixedCosts += amount;
+      } else {
+        variableCosts += amount;
+      }
+    }
+
+    const totalCosts = partsCost + fixedCosts + variableCosts;
+    const netProfit = totalRevenue - totalCosts;
+    const profitMargin = totalRevenue > 0 ? (netProfit / totalRevenue) * 100 : 0;
+
+    // Rentabilidade acumulada mensal
+    const profitability = await this.calculateProfitability(tenantId, orders);
 
     const byStatus = this.aggregateByStatus(orders);
     const monthly = this.aggregateMonthly(orders);
@@ -86,12 +123,76 @@ export class GenerateFinancialReport {
       avgTicket,
       partsCost,
       grossProfit: totalRevenue - partsCost,
+      fixedCosts,
+      variableCosts,
+      totalCosts,
+      netProfit,
+      profitMargin: Math.round(profitMargin * 100) / 100,
+      profitability,
       cancelledCount,
       completedCount: completedOrders.length,
       byStatus,
       monthly,
       profitByOrder,
     };
+  }
+
+  private async calculateProfitability(
+    tenantId: string,
+    orders: { status: string; totalAmount: number; createdAt: Date }[]
+  ): Promise<{ month: string; revenue: number; costs: number; netProfit: number; accumulated: number }[]> {
+    const FIXED_CATEGORIES = ["RENT", "ENERGY", "WATER", "INTERNET", "INSURANCE", "ACCOUNTING", "SALARY", "SOFTWARE", "TAX"];
+    const result: { month: string; revenue: number; costs: number; netProfit: number; accumulated: number }[] = [];
+    let accumulated = 0;
+
+    const now = new Date();
+    for (let i = 5; i >= 0; i--) {
+      const monthStart = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+
+      // Receita do mês
+      const monthRevenue = orders
+        .filter((o) => {
+          const c = new Date(o.createdAt);
+          return c >= monthStart && c <= monthEnd && (o.status === "COMPLETED" || o.status === "DELIVERED");
+        })
+        .reduce((s, o) => s + o.totalAmount, 0);
+
+      // Despesas do mês (financeiro + peças)
+      const monthExpenses = await this.db.financialEntry.findMany({
+        where: { tenantId, status: "PAID", paidAt: { gte: monthStart, lte: monthEnd } },
+        select: { category: true, paidAmount: true, amount: true },
+      });
+
+      const monthPartsMovements = await this.db.stockMovement.findMany({
+        where: {
+          stockItem: { tenantId },
+          type: "CONSUMPTION",
+          createdAt: { gte: monthStart, lte: monthEnd },
+        },
+        select: { quantity: true, unitCost: true, stockItem: { select: { avgCost: true } } },
+      });
+
+      let monthCosts = monthPartsMovements.reduce(
+        (s, m) => s + m.quantity * (m.unitCost ?? m.stockItem.avgCost), 0
+      );
+      for (const exp of monthExpenses) {
+        monthCosts += exp.paidAmount ?? exp.amount;
+      }
+
+      const monthProfit = monthRevenue - monthCosts;
+      accumulated += monthProfit;
+
+      result.push({
+        month: monthStart.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+        revenue: monthRevenue,
+        costs: monthCosts,
+        netProfit: monthProfit,
+        accumulated,
+      });
+    }
+
+    return result;
   }
 
   private aggregateByStatus(orders: { status: string; totalAmount: number }[]): Record<string, { count: number; total: number }> {

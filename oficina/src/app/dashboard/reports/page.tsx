@@ -11,6 +11,12 @@ interface ReportData {
   avgTicket: number;
   partsCost: number;
   grossProfit: number;
+  fixedCosts: number;
+  variableCosts: number;
+  totalCosts: number;
+  netProfit: number;
+  profitMargin: number;
+  profitability: { month: string; revenue: number; costs: number; netProfit: number; accumulated: number }[];
   cancelledCount: number;
   completedCount: number;
   byStatus: Record<string, { count: number; total: number }>;
@@ -107,16 +113,43 @@ export default function ReportsPage() {
               <p className="text-xl font-bold text-green-600">{fmt(data.totalRevenue)}</p>
             </Card>
             <Card className="p-4">
-              <p className="text-xs text-slate-500">LUCRO BRUTO</p>
-              <p className="text-xl font-bold text-blue-600">{fmt(data.grossProfit)}</p>
+              <p className="text-xs text-slate-500">CUSTO TOTAL</p>
+              <p className="text-xl font-bold text-red-600">{fmt(data.totalCosts)}</p>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Fixo: {fmt(data.fixedCosts)} | Variável: {fmt(data.variableCosts + data.partsCost)}
+              </p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-slate-500">LUCRO REAL</p>
+              <p className={`text-xl font-bold ${data.netProfit >= 0 ? "text-blue-600" : "text-red-600"}`}>{fmt(data.netProfit)}</p>
+              <p className="text-[10px] text-slate-400 mt-1">Margem: {data.profitMargin}%</p>
             </Card>
             <Card className="p-4">
               <p className="text-xs text-slate-500">TICKET MÉDIO</p>
               <p className="text-xl font-bold text-slate-700">{fmt(data.avgTicket)}</p>
             </Card>
+          </div>
+
+          {/* Custos detalhados */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <Card className="p-4">
               <p className="text-xs text-slate-500">CUSTO PEÇAS</p>
-              <p className="text-xl font-bold text-red-600">{fmt(data.partsCost)}</p>
+              <p className="text-lg font-bold text-red-500">{fmt(data.partsCost)}</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-slate-500">CUSTOS FIXOS</p>
+              <p className="text-lg font-bold text-red-400">{fmt(data.fixedCosts)}</p>
+              <p className="text-[10px] text-slate-400">Aluguel, energia, salários...</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-slate-500">CUSTOS VARIÁVEIS</p>
+              <p className="text-lg font-bold text-orange-500">{fmt(data.variableCosts)}</p>
+              <p className="text-[10px] text-slate-400">Fornecedores, ferramentas...</p>
+            </Card>
+            <Card className="p-4">
+              <p className="text-xs text-slate-500">LUCRO BRUTO</p>
+              <p className="text-lg font-bold text-green-500">{fmt(data.grossProfit)}</p>
+              <p className="text-[10px] text-slate-400">Faturamento - Peças</p>
             </Card>
           </div>
 
@@ -135,6 +168,43 @@ export default function ReportsPage() {
               <p className="text-2xl font-bold text-red-600">{data.cancelledCount}</p>
             </Card>
           </div>
+
+          {/* Rentabilidade Acumulada */}
+          {data.profitability && data.profitability.length > 0 && (
+            <Card className="p-5">
+              <h3 className="font-semibold text-slate-800 mb-4">Rentabilidade Acumulada</h3>
+              <div className="space-y-3">
+                {data.profitability.map((m) => {
+                  const maxVal = Math.max(...data.profitability.map(x => Math.abs(x.accumulated)), 1);
+                  const pct = Math.abs(m.accumulated) / maxVal * 100;
+                  return (
+                    <div key={m.month} className="flex items-center gap-3">
+                      <span className="text-xs text-slate-500 w-16">{m.month}</span>
+                      <div className="flex-1 flex flex-col gap-1">
+                        <div className="flex justify-between text-[10px] text-slate-400">
+                          <span>Receita: {fmt(m.revenue)}</span>
+                          <span>Custos: {fmt(m.costs)}</span>
+                          <span className={m.netProfit >= 0 ? "text-green-600" : "text-red-600"}>
+                            Mês: {m.netProfit >= 0 ? "+" : ""}{fmt(m.netProfit)}
+                          </span>
+                        </div>
+                        <div className="bg-slate-100 rounded-full h-5 relative overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${m.accumulated >= 0 ? "bg-green-400" : "bg-red-400"}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                          <span className="absolute inset-0 flex items-center justify-center text-xs font-medium text-slate-700">
+                            {m.accumulated >= 0 ? "+" : ""}{fmt(m.accumulated)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-3">* Acumulado = soma dos lucros reais mês a mês (receita - todos os custos)</p>
+            </Card>
+          )}
 
           {/* Faturamento mensal */}
           <Card className="p-5">
