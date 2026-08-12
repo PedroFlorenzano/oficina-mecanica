@@ -143,7 +143,7 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
         }));
         setPlateMsg("✓ Dados preenchidos automaticamente");
       } else {
-        setPlateMsg("Placa não encontrada na base pública. Preencha manualmente.");
+        setPlateMsg("Placa válida, mas não encontrada na base gratuita. Preencha manualmente.");
       }
     } catch {
       setPlateMsg("Erro na consulta. Preencha manualmente.");

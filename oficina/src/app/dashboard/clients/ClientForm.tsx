@@ -35,6 +35,25 @@ export default function ClientForm({ client, onSaved, onCancel }: Props) {
   const [cepLoading, setCepLoading] = useState(false);
   const [cepMsg, setCepMsg] = useState("");
 
+  // Máscara CPF/CNPJ
+  const formatDocument = (value: string): string => {
+    const digits = value.replace(/\D/g, "");
+    if (digits.length <= 11) {
+      // CPF: 000.000.000-00
+      return digits
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    }
+    // CNPJ: 00.000.000/0000-00
+    return digits
+      .slice(0, 14)
+      .replace(/(\d{2})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1.$2")
+      .replace(/(\d{3})(\d)/, "$1/$2")
+      .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
+  };
+
   // Buscar dados por CPF/CNPJ
   const handleDocumentSearch = async () => {
     const cleaned = form.document.replace(/\D/g, "");
@@ -45,19 +64,20 @@ export default function ClientForm({ client, onSaved, onCancel }: Props) {
 
     try {
       if (cleaned.length === 11) {
-        // CPF — buscar na BrasilAPI
+        // CPF — apenas validação (dados de PF não são públicos por LGPD)
         const res = await fetch(`https://brasilapi.com.br/api/cpf/v1/${cleaned}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.nome) {
-            setForm((f) => ({ ...f, name: data.nome }));
-            setCpfMsg("✓ Nome preenchido automaticamente");
+          if (data.isValid) {
+            setCpfMsg("✓ CPF válido. Preencha o nome manualmente (dados de PF são protegidos pela LGPD).");
+          } else {
+            setCpfMsg("⚠ CPF inválido. Verifique os dígitos.");
           }
         } else {
-          setCpfMsg("CPF não encontrado na base pública");
+          setCpfMsg("⚠ CPF inválido ou não encontrado. Verifique os dígitos.");
         }
       } else if (cleaned.length === 14) {
-        // CNPJ — buscar na BrasilAPI
+        // CNPJ — buscar na BrasilAPI (dados de PJ são públicos)
         const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${cleaned}`);
         if (res.ok) {
           const data = await res.json();
@@ -73,7 +93,7 @@ export default function ClientForm({ client, onSaved, onCancel }: Props) {
           }));
           setCpfMsg("✓ Dados da empresa preenchidos automaticamente");
         } else {
-          setCpfMsg("CNPJ não encontrado");
+          setCpfMsg("CNPJ não encontrado na base pública");
         }
       } else {
         setCpfMsg("Digite um CPF (11 dígitos) ou CNPJ (14 dígitos)");
@@ -177,10 +197,10 @@ export default function ClientForm({ client, onSaved, onCancel }: Props) {
               type="text"
               value={form.document}
               onChange={(e) => {
-                const val = e.target.value;
-                setForm({ ...form, document: val });
+                const formatted = formatDocument(e.target.value);
+                setForm({ ...form, document: formatted });
                 // Auto-trigger quando completar 14 dígitos (CNPJ) ou 11 dígitos (CPF)
-                const cleaned = val.replace(/\D/g, "");
+                const cleaned = formatted.replace(/\D/g, "");
                 if (cleaned.length === 14 || cleaned.length === 11) {
                   setCpfMsg("");
                 }
@@ -192,6 +212,7 @@ export default function ClientForm({ client, onSaved, onCancel }: Props) {
                 }
               }}
               required
+              maxLength={18}
               placeholder="000.000.000-00 ou 00.000.000/0000-00"
               className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
