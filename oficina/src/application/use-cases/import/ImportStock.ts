@@ -9,6 +9,7 @@ export interface ImportStockInput {
   skipDuplicates?: boolean;
   chunk?: number;
   chunkSize?: number;
+  skipRows?: Set<number>;
 }
 
 export interface ImportStockOutput {
@@ -24,7 +25,7 @@ export class ImportStock {
   constructor(private stockRepo: IStockItemRepository) {}
 
   async execute(input: ImportStockInput): Promise<ImportStockOutput> {
-    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30 } = input;
+    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30, skipRows } = input;
 
     // 1. Parse file
     const parsed = FileParser.parse(buffer, filename);
@@ -49,6 +50,9 @@ export class ImportStock {
 
     // Chunking support
     let itemsToProcess = mapped.success;
+    if (skipRows && skipRows.size > 0) {
+      itemsToProcess = itemsToProcess.filter((_, i) => !skipRows.has(i));
+    }
     if (chunk !== undefined) {
       const start = chunk * chunkSize;
       itemsToProcess = mapped.success.slice(start, start + chunkSize);

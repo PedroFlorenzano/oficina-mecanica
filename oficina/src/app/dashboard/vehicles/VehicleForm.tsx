@@ -265,18 +265,27 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">Placa *</label>
             <div className="flex gap-2">
-              <input
-                type="text"
-                value={form.plate}
-                onChange={(e) => handlePlateChange(e.target.value)}
-                onBlur={handlePlateBlur}
-                required
-                maxLength={8}
-                placeholder="ABC1D23 ou ABC-1234"
-                className={`flex-1 px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase ${
-                  form.plate.length >= 7 && !isValidPlate(form.plate) ? "border-red-300 bg-red-50" : "border-slate-300"
-                }`}
-              />
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={form.plate}
+                  onChange={(e) => handlePlateChange(e.target.value)}
+                  onBlur={handlePlateBlur}
+                  required
+                  maxLength={8}
+                  placeholder="ABC1D23 ou ABC-1234"
+                  className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase ${
+                    plateMsg.startsWith("✓") ? "border-green-400 bg-green-50" :
+                    form.plate.length >= 7 && !isValidPlate(form.plate) ? "border-red-300 bg-red-50" :
+                    plateLoading ? "border-blue-300 bg-blue-50" : "border-slate-300"
+                  }`}
+                />
+                {plateLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={handlePlateSearch}
@@ -284,15 +293,18 @@ export default function VehicleForm({ vehicle, onSaved, onCancel }: Props) {
                 className="px-3 py-2 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg hover:bg-blue-100 disabled:opacity-50"
                 title="Buscar dados pela placa"
               >
-                {plateLoading ? <span className="animate-spin">⏳</span> : <Search size={16} />}
+                <Search size={16} />
               </button>
             </div>
-            {plateMsg && (
-              <p className={`text-xs mt-1 ${plateMsg.startsWith("✓") ? "text-green-600" : "text-amber-600"}`}>
+            {plateLoading && (
+              <p className="text-xs mt-1 text-blue-600 animate-pulse">🔍 Consultando placa...</p>
+            )}
+            {!plateLoading && plateMsg && (
+              <p className={`text-xs mt-1 ${plateMsg.startsWith("✓") ? "text-green-600 font-medium" : "text-amber-600"}`}>
                 {plateMsg}
               </p>
             )}
-            {form.plate && form.plate.replace(/[^A-Z0-9]/gi, "").length === 7 && !isValidPlate(form.plate) && (
+            {!plateLoading && form.plate && form.plate.replace(/[^A-Z0-9]/gi, "").length === 7 && !isValidPlate(form.plate) && (
               <p className="text-xs text-red-500 mt-1">Formato inválido</p>
             )}
           </div>

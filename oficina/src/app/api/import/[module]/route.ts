@@ -84,6 +84,10 @@ export async function POST(
       request.nextUrl.searchParams.get("duplicates") !== "update";
     const chunk = parseInt(request.nextUrl.searchParams.get("chunk") || "-1");
     const chunkSize = parseInt(request.nextUrl.searchParams.get("chunkSize") || "30");
+    const skipRowsParam = request.nextUrl.searchParams.get("skipRows") || "";
+    const skipRows = skipRowsParam
+      ? new Set(skipRowsParam.split(",").map(Number).filter((n) => !isNaN(n)))
+      : new Set<number>();
 
     const container = createContainer(tenantId);
 
@@ -108,7 +112,8 @@ export async function POST(
       container,
       session.user.userId,
       chunk >= 0 ? chunk : undefined,
-      chunkSize
+      chunkSize,
+      skipRows
     );
 
     return NextResponse.json(result, { status: 201 });
@@ -176,27 +181,28 @@ async function executeImport(
   container: ReturnType<typeof createContainer>,
   userId?: string,
   chunk?: number,
-  chunkSize: number = 30
+  chunkSize: number = 30,
+  skipRows: Set<number> = new Set()
 ) {
   switch (module) {
     case "clients": {
       const uc = new ImportClients(container.clientRepository);
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize, skipRows });
     }
     case "vehicles": {
       const uc = new ImportVehicles(
         container.vehicleRepository,
         container.clientRepository
       );
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize, skipRows });
     }
     case "stock": {
       const uc = new ImportStock(container.stockItemRepository);
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize, skipRows });
     }
     case "services": {
       const uc = new ImportServices(container.serviceCatalogRepository);
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, chunk, chunkSize, skipRows });
     }
     case "orders": {
       const uc = new ImportOrders(
@@ -204,19 +210,19 @@ async function executeImport(
         container.clientRepository,
         container.vehicleRepository
       );
-      return uc.execute({ buffer, filename, tenantId, userId: userId || "", skipDuplicates, chunk, chunkSize });
+      return uc.execute({ buffer, filename, tenantId, userId: userId || "", skipDuplicates, chunk, chunkSize, skipRows });
     }
     case "invoices": {
       const uc = new ImportInvoices();
-      return uc.execute({ buffer, filename, tenantId, skipDuplicates });
+      return uc.execute({ buffer, filename, tenantId, skipDuplicates, skipRows });
     }
     case "financial": {
       const uc = new ImportFinancial();
-      return uc.execute({ buffer, filename, tenantId });
+      return uc.execute({ buffer, filename, tenantId, skipRows });
     }
     case "productivity": {
       const uc = new ImportProductivity();
-      return uc.execute({ buffer, filename, tenantId });
+      return uc.execute({ buffer, filename, tenantId, skipRows });
     }
   }
 }

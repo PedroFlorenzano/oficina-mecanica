@@ -12,6 +12,7 @@ export interface ImportOrdersInput {
   skipDuplicates?: boolean;
   chunk?: number;
   chunkSize?: number;
+  skipRows?: Set<number>;
 }
 
 export interface ImportOrdersOutput {
@@ -30,7 +31,7 @@ export class ImportOrders {
   ) {}
 
   async execute(input: ImportOrdersInput): Promise<ImportOrdersOutput> {
-    const { buffer, filename, tenantId, userId, skipDuplicates = true, chunk, chunkSize = 30 } = input;
+    const { buffer, filename, tenantId, userId, skipDuplicates = true, chunk, chunkSize = 30, skipRows } = input;
 
     const parsed = FileParser.parse(buffer, filename);
     if (parsed.rows.length === 0) {
@@ -44,6 +45,9 @@ export class ImportOrders {
 
     // If chunk is specified, only process that slice
     let itemsToProcess = mapped.success;
+    if (skipRows && skipRows.size > 0) {
+      itemsToProcess = itemsToProcess.filter((_, i) => !skipRows.has(i));
+    }
     if (chunk !== undefined) {
       const start = chunk * chunkSize;
       const end = start + chunkSize;

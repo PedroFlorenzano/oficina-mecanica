@@ -9,6 +9,7 @@ export interface ImportClientsInput {
   skipDuplicates?: boolean;
   chunk?: number;
   chunkSize?: number;
+  skipRows?: Set<number>;
 }
 
 export interface ImportClientsOutput {
@@ -24,7 +25,7 @@ export class ImportClients {
   constructor(private clientRepo: IClientRepository) {}
 
   async execute(input: ImportClientsInput): Promise<ImportClientsOutput> {
-    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30 } = input;
+    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30, skipRows } = input;
 
     // 1. Parse file
     const parsed = FileParser.parse(buffer, filename);
@@ -47,8 +48,14 @@ export class ImportClients {
     let updated = 0;
     const errors = [...mapped.errors];
 
+    // Filter out user-excluded rows
+    let successItems = mapped.success;
+    if (skipRows && skipRows.size > 0) {
+      successItems = successItems.filter((_, i) => !skipRows.has(i));
+    }
+
     // Chunking: se chunk definido, processa apenas o slice
-    let itemsToProcess = mapped.success;
+    let itemsToProcess = successItems;
     if (chunk !== undefined) {
       const start = chunk * chunkSize;
       itemsToProcess = mapped.success.slice(start, start + chunkSize);

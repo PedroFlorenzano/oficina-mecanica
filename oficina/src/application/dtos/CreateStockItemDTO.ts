@@ -11,4 +11,11 @@ export interface CreateStockItemDTO {
   costPrice?: number;
   sellPrice?: number;
   profitMargin?: number;
+  // Tributários
+  ncm?: string;
+  cfop?: string;
+  cstA?: string;
+  csosn?: string;
+  cstB?: string;
+  productUse?: string;
 }

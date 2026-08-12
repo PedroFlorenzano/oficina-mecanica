@@ -15,6 +15,13 @@ export interface UpdateStockItemDTO {
   sellPrice?: number;
   profitMargin?: number;
   active?: boolean;
+  // Tributários
+  ncm?: string;
+  cfop?: string;
+  cstA?: string;
+  csosn?: string;
+  cstB?: string;
+  productUse?: string;
 }
 
 export class UpdateStockItem {
@@ -39,6 +46,12 @@ export class UpdateStockItem {
       sellPrice: input.sellPrice != null ? Number(input.sellPrice) : 0,
       profitMargin: input.profitMargin != null ? Number(input.profitMargin) : 0,
       active: input.active != null ? input.active : true,
+      ncm: input.ncm || null,
+      cfop: input.cfop || null,
+      cstA: input.cstA || null,
+      csosn: input.csosn || null,
+      cstB: input.cstB || null,
+      productUse: input.productUse || null,
     });
   }
 }

@@ -39,6 +39,12 @@ export class CreateStockItem {
       profitMargin: input.profitMargin ? Number(input.profitMargin) : 0,
       active: true,
       tenantId,
+      ncm: input.ncm || null,
+      cfop: input.cfop || null,
+      cstA: input.cstA || null,
+      csosn: input.csosn || null,
+      cstB: input.cstB || null,
+      productUse: input.productUse || null,
     });
   }
 }

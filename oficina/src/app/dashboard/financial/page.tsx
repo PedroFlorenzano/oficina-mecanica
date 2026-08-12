@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   DollarSign, Plus, Check, Calendar, Trash2,
-  AlertTriangle, Filter
+  AlertTriangle, Filter, Pencil
 } from "lucide-react";
 import {
   Button, Badge, Card, CardHeader, CardTitle,
@@ -80,6 +80,7 @@ export default function FinancialPage() {
   const [entries, setEntries] = useState<FinancialEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<FinancialEntry | null>(null);
   const [showProrrogate, setShowProrrogate] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [filterCategory, setFilterCategory] = useState<string>("");
@@ -273,6 +274,13 @@ export default function FinancialPage() {
                           >
                             <Calendar className="w-4 h-4" />
                           </button>
+                          <button
+                            onClick={() => setEditingEntry(entry)}
+                            className="p-1.5 rounded hover:bg-yellow-50 text-yellow-600"
+                            title="Editar"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
                         </>
                       )}
                       <button
@@ -296,6 +304,15 @@ export default function FinancialPage() {
         <NewEntryModal
           onClose={() => setShowForm(false)}
           onSuccess={() => { setShowForm(false); fetchEntries(); }}
+        />
+      )}
+
+      {/* Edit Modal */}
+      {editingEntry && (
+        <EditEntryModal
+          entry={editingEntry}
+          onClose={() => setEditingEntry(null)}
+          onSuccess={() => { setEditingEntry(null); fetchEntries(); }}
         />
       )}
 
@@ -471,6 +488,112 @@ function ProrrogateModal({
           </Button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+
+// ============================================
+// Edit Entry Modal
+// ============================================
+
+function EditEntryModal({ entry, onClose, onSuccess }: { entry: FinancialEntry; onClose: () => void; onSuccess: () => void }) {
+  const [description, setDescription] = useState(entry.description);
+  const [category, setCategory] = useState(entry.category);
+  const [amount, setAmount] = useState(entry.amount.toString().replace(".", ","));
+  const [dueDate, setDueDate] = useState(entry.dueDate.split("T")[0]);
+  const [supplier, setSupplier] = useState(entry.supplier || "");
+  const [notes, setNotes] = useState(entry.notes || "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`/api/financial/${entry.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          description,
+          category,
+          amount: parseFloat(amount.replace(",", ".")),
+          dueDate,
+          supplier: supplier || null,
+          notes: notes || null,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Erro ao salvar");
+      }
+
+      onSuccess();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title="Editar Lançamento" onClose={onClose} size="md" isOpen={true}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Input
+          label="Descrição *"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          required
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <Select
+            label="Categoria *"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            options={CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
+          />
+          <Input
+            label="Valor (R$) *"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Vencimento *"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            required
+          />
+          <Input
+            label="Fornecedor"
+            value={supplier}
+            onChange={(e) => setSupplier(e.target.value)}
+          />
+        </div>
+
+        <Input
+          label="Observação"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
+          <Button type="submit" disabled={saving}>
+            {saving ? "Salvando..." : "Salvar"}
+          </Button>
+        </div>
+      </form>
     </Modal>
   );
 }

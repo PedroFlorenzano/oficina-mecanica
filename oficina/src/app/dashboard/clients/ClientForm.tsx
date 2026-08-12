@@ -176,7 +176,21 @@ export default function ClientForm({ client, onSaved, onCancel }: Props) {
             <input
               type="text"
               value={form.document}
-              onChange={(e) => setForm({ ...form, document: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value;
+                setForm({ ...form, document: val });
+                // Auto-trigger quando completar 14 dígitos (CNPJ) ou 11 dígitos (CPF)
+                const cleaned = val.replace(/\D/g, "");
+                if (cleaned.length === 14 || cleaned.length === 11) {
+                  setCpfMsg("");
+                }
+              }}
+              onBlur={() => {
+                const cleaned = form.document.replace(/\D/g, "");
+                if ((cleaned.length === 11 || cleaned.length === 14) && !form.name && !client?.id) {
+                  handleDocumentSearch();
+                }
+              }}
               required
               placeholder="000.000.000-00 ou 00.000.000/0000-00"
               className="flex-1 px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

@@ -9,6 +9,7 @@ export interface ImportServicesInput {
   skipDuplicates?: boolean;
   chunk?: number;
   chunkSize?: number;
+  skipRows?: Set<number>;
 }
 
 export interface ImportServicesOutput {
@@ -24,7 +25,7 @@ export class ImportServices {
   constructor(private serviceRepo: IServiceCatalogRepository) {}
 
   async execute(input: ImportServicesInput): Promise<ImportServicesOutput> {
-    const { buffer, filename, tenantId, skipDuplicates = true } = input;
+    const { buffer, filename, tenantId, skipDuplicates = true, skipRows } = input;
 
     // 1. Parse file
     const parsed = FileParser.parse(buffer, filename);
@@ -47,7 +48,11 @@ export class ImportServices {
     let updated = 0;
     const errors = [...mapped.errors];
 
-    for (const dto of mapped.success) {
+    const itemsToImport = skipRows && skipRows.size > 0
+      ? mapped.success.filter((_, i) => !skipRows.has(i))
+      : mapped.success;
+
+    for (const dto of itemsToImport) {
       try {
         const existing = await this.serviceRepo.findByCode(dto.code, tenantId);
 

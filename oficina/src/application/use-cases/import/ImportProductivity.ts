@@ -5,6 +5,7 @@ export interface ImportProductivityInput {
   buffer: Buffer;
   filename: string;
   tenantId: string;
+  skipRows?: Set<number>;
 }
 
 export interface ImportProductivityOutput {

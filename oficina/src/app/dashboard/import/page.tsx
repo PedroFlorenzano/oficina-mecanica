@@ -112,6 +112,7 @@ export default function ImportPage() {
   const [result, setResult] = useState<ImportResult | null>(null);
   const [duplicateMode, setDuplicateMode] = useState<"skip" | "update">("skip");
   const [error, setError] = useState<string | null>(null);
+  const [excludedRows, setExcludedRows] = useState<Set<number>>(new Set());
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -120,6 +121,7 @@ export default function ImportPage() {
     setFile(selectedFile);
     setResult(null);
     setError(null);
+    setExcludedRows(new Set());
     setLoading(true);
 
     try {
@@ -176,6 +178,9 @@ export default function ImportPage() {
         if (needsChunking) {
           params.set("chunk", String(chunkIdx));
           params.set("chunkSize", String(CHUNK_SIZE));
+        }
+        if (excludedRows.size > 0) {
+          params.set("skipRows", Array.from(excludedRows).join(","));
         }
 
         const res = await fetch(`/api/import/${activeModule}?${params}`, {
@@ -388,17 +393,43 @@ export default function ImportPage() {
               <div className="mt-6 space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium text-gray-900">
-                    Preview — {preview.data.length} registros válidos
+                    Preview — {preview.data.length - excludedRows.size} de {preview.data.length} registros selecionados
                   </h3>
                   <button
                     onClick={handleImport}
-                    disabled={preview.data.length === 0}
+                    disabled={preview.data.length - excludedRows.size === 0}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
                   >
                     <Upload className="w-4 h-4" />
-                    Importar {preview.data.length} registros
+                    Importar {preview.data.length - excludedRows.size} registros
                   </button>
                 </div>
+
+                {/* Controles de seleção */}
+                {preview.data.length > 0 && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setExcludedRows(new Set())}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Selecionar todas
+                    </button>
+                    <span className="text-gray-300">|</span>
+                    <button
+                      type="button"
+                      onClick={() => setExcludedRows(new Set(preview.data.map((_, i) => i)))}
+                      className="text-blue-600 hover:underline"
+                    >
+                      Desmarcar todas
+                    </button>
+                    {excludedRows.size > 0 && (
+                      <span className="text-amber-600 ml-2">
+                        {excludedRows.size} linha(s) excluída(s)
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 {/* Preview errors */}
                 {preview.errors.length > 0 && (
@@ -417,12 +448,25 @@ export default function ImportPage() {
                   </div>
                 )}
 
-                {/* Preview table */}
+                {/* Preview table with checkboxes */}
                 {preview.data.length > 0 && (
-                  <div className="border border-gray-200 rounded-lg overflow-x-auto max-h-64 overflow-y-auto">
+                  <div className="border border-gray-200 rounded-lg overflow-x-auto max-h-72 overflow-y-auto">
                     <table className="w-full text-xs">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
+                          <th className="px-2 py-2 w-8">
+                            <input
+                              type="checkbox"
+                              checked={excludedRows.size === 0}
+                              onChange={(e) => {
+                                if (e.target.checked) setExcludedRows(new Set());
+                                else setExcludedRows(new Set(preview.data.map((_, i) => i)));
+                              }}
+                              className="w-3.5 h-3.5 rounded"
+                              title="Selecionar/desmarcar todas"
+                            />
+                          </th>
+                          <th className="px-2 py-2 text-left font-medium text-gray-600 w-8">#</th>
                           {Object.keys(preview.data[0]).map((key) => (
                             <th
                               key={key}
@@ -434,8 +478,25 @@ export default function ImportPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
-                        {preview.data.slice(0, 50).map((row, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
+                        {preview.data.slice(0, 100).map((row, i) => (
+                          <tr
+                            key={i}
+                            className={`hover:bg-gray-50 ${excludedRows.has(i) ? "opacity-40 line-through bg-red-50" : ""}`}
+                          >
+                            <td className="px-2 py-1.5">
+                              <input
+                                type="checkbox"
+                                checked={!excludedRows.has(i)}
+                                onChange={(e) => {
+                                  const next = new Set(excludedRows);
+                                  if (e.target.checked) next.delete(i);
+                                  else next.add(i);
+                                  setExcludedRows(next);
+                                }}
+                                className="w-3.5 h-3.5 rounded"
+                              />
+                            </td>
+                            <td className="px-2 py-1.5 text-gray-400 font-mono">{i + 1}</td>
                             {Object.values(row).map((val, j) => (
                               <td
                                 key={j}
@@ -448,9 +509,9 @@ export default function ImportPage() {
                         ))}
                       </tbody>
                     </table>
-                    {preview.data.length > 50 && (
+                    {preview.data.length > 100 && (
                       <p className="text-xs text-gray-500 p-2 bg-gray-50 text-center">
-                        Mostrando 50 de {preview.data.length} registros
+                        Mostrando 100 de {preview.data.length} registros
                       </p>
                     )}
                   </div>

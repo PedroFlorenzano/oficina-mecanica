@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "StockItem" ADD COLUMN "ncm" TEXT;
+ALTER TABLE "StockItem" ADD COLUMN "cfop" TEXT;
+ALTER TABLE "StockItem" ADD COLUMN "cstA" TEXT;
+ALTER TABLE "StockItem" ADD COLUMN "csosn" TEXT;
+ALTER TABLE "StockItem" ADD COLUMN "cstB" TEXT;
+ALTER TABLE "StockItem" ADD COLUMN "productUse" TEXT;

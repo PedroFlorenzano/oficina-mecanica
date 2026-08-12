@@ -10,6 +10,7 @@ export interface ImportVehiclesInput {
   skipDuplicates?: boolean;
   chunk?: number;
   chunkSize?: number;
+  skipRows?: Set<number>;
 }
 
 export interface ImportVehiclesOutput {
@@ -28,7 +29,7 @@ export class ImportVehicles {
   ) {}
 
   async execute(input: ImportVehiclesInput): Promise<ImportVehiclesOutput> {
-    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30 } = input;
+    const { buffer, filename, tenantId, skipDuplicates = true, chunk, chunkSize = 30, skipRows } = input;
 
     // 1. Parse file
     const parsed = FileParser.parse(buffer, filename);
@@ -60,6 +61,9 @@ export class ImportVehicles {
     const warnings = [...mapped.warnings];
 
     let itemsToProcess = mapped.success;
+    if (skipRows && skipRows.size > 0) {
+      itemsToProcess = itemsToProcess.filter((_, i) => !skipRows.has(i));
+    }
     if (chunk !== undefined) {
       const start = chunk * chunkSize;
       itemsToProcess = mapped.success.slice(start, start + chunkSize);

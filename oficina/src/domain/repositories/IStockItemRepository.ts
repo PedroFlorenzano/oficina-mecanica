@@ -17,6 +17,13 @@ export interface StockItemData {
   profitMargin: number | null;
   active: boolean;
   tenantId: string;
+  // Tributários (opcionais)
+  ncm?: string | null;
+  cfop?: string | null;
+  cstA?: string | null;
+  csosn?: string | null;
+  cstB?: string | null;
+  productUse?: string | null;
 }
 
 export interface IStockItemRepository {

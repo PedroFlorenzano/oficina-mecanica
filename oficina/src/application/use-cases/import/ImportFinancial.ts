@@ -5,6 +5,7 @@ export interface ImportFinancialInput {
   buffer: Buffer;
   filename: string;
   tenantId: string;
+  skipRows?: Set<number>;
 }
 
 export interface ImportFinancialOutput {

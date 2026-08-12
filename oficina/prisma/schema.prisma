@@ -253,6 +253,13 @@ model StockItem {
   avgCost      Float    @default(0)
   profitMargin Float?   @default(0)
   active       Boolean  @default(true)
+  // Dados tributários (NF-e)
+  ncm          String?  // NCM - 8 dígitos
+  cfop         String?  // CFOP - 4 dígitos (ex: 5405)
+  cstA         String?  // Origem / CST A (ex: "0", "1", "2"...)
+  csosn        String?  // CSOSN Simples Nacional (ex: "500", "102")
+  cstB         String?  // CST ICMS regime normal (ex: "00", "60")
+  productUse   String?  // Finalidade: REVENDA, CONSUMO, INDUSTRIALIZACAO
   tenantId     String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

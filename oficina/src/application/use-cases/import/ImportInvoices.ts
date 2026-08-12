@@ -6,6 +6,7 @@ export interface ImportInvoicesInput {
   filename: string;
   tenantId: string;
   skipDuplicates?: boolean;
+  skipRows?: Set<number>;
 }
 
 export interface ImportInvoicesOutput {
