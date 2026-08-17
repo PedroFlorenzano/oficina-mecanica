@@ -126,6 +126,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     });
     fetchOrder();
     setUpdating(false);
+
+    // Gerar Check-out de Saída automaticamente ao iniciar serviço
+    if (newStatus === "IN_PROGRESS") {
+      window.open(`/api/orders/${id}/checkout`, "_blank");
+    }
   };
 
   const handleCancel = async () => {
