@@ -3056,3 +3056,19 @@ Os dropdowns já viriam pré-selecionados com as sugestões. O admin só confirm
 **Não implementar antes** — o sistema atual com sinônimos já cobre Syscar, Odin e exportações Excel genéricas. O mapeamento interativo é over-engineering até ter demanda real.
 
 *Última atualização: 29/07/2026 — Módulo de importação self-service implementado e validado com dados reais do Syscar (8 módulos, 6.251 registros importáveis).*
+
+## Limitações Conhecidas — Integrações Externas (12/08/2026)
+
+### Consulta por Placa (Veículos)
+- **APIs públicas gratuitas de consulta veicular NÃO existem mais no Brasil**
+- A busca por placa no cadastro de veículos funciona apenas para veículos **já cadastrados na base do Operare** (busca interna)
+- Para consulta FIPE + Denatran real (marca/modelo/ano pela placa), precisa de serviço pago:
+  - PlacaFipe (~R$ 99/mês)
+  - API Consulta Placa (~R$ 50/mês)
+- **Decisão:** não integrar por enquanto (custo fixo mensal). Reavaliar quando houver volume de oficinas.
+
+### Consulta por CPF (Pessoa Física)
+- **Dados de PF são protegidos pela LGPD** — nenhuma API pública gratuita retorna nome/endereço/telefone a partir de CPF
+- A BrasilAPI apenas **valida** o CPF (confirma se é válido), mas não retorna dados pessoais
+- **CNPJ funciona normalmente** — dados de empresas são públicos (razão social, endereço, telefone, email)
+- **Decisão:** CPF apenas valida. CNPJ preenche dados automaticamente.
