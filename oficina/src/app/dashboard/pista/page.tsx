@@ -156,6 +156,11 @@ export default function PistaPage() {
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
+
+        // Gerar Check-out de Saída automaticamente ao iniciar serviço
+        if (toStatus === "IN_PROGRESS") {
+          window.open(`/api/orders/${currentDraggingId}/checkout`, "_blank");
+        }
       } catch {
         // Rollback optimistic update and notify user
         setOrders(originalOrders);
