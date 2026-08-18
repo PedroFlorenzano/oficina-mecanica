@@ -120,14 +120,19 @@ export default function StockPage() {
           </div>
           <div className="grid gap-2">
             {lowStockItems.map((item) => (
-              <div key={item.id} className="flex justify-between text-sm text-red-700">
+              <button
+                key={item.id}
+                onClick={() => handleEdit(item)}
+                className="flex justify-between text-sm text-red-700 w-full text-left px-3 py-2 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
+              >
                 <span>
                   <span className="font-mono">{item.code}</span> — {item.description}
                 </span>
-                <span>
+                <span className="flex items-center gap-2">
                   {item.quantity} / mín {item.minQuantity} {item.unit}
+                  <Pencil size={14} className="text-red-400" />
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
