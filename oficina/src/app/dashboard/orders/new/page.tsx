@@ -35,15 +35,18 @@ interface StockItem {
   unit: string;
   quantity: number;
   sellPrice: number;
+  costPrice: number;
+  profitMargin: number | null;
 }
 
 interface ServiceItem {
   description: string;
   price: number;
-  timeMinutes: number;
+  timeHours: number;
   serviceId?: string;
   commissionRate?: number | null;
   mechanicId?: string;
+  approved?: boolean;
 }
 
 interface PartItem {
@@ -51,7 +54,9 @@ interface PartItem {
   brand: string;
   quantity: number;
   unitPrice: number;
+  costPrice?: number;
   stockItemId?: string;
+  approved?: boolean;
 }
 
 interface ComplaintItem {
@@ -82,12 +87,13 @@ export default function NewOrderPage() {
   const [vehicleId, setVehicleId] = useState("");
   const [mileageIn, setMileageIn] = useState(0);
   const [complaints, setComplaints] = useState<ComplaintItem[]>([
-    { description: "", services: [{ description: "", price: 0, timeMinutes: 0 }], parts: [], expanded: true },
+    { description: "", services: [{ description: "", price: 0, timeHours: 0, approved: true }], parts: [], expanded: true },
   ]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const [clientSearch, setClientSearch] = useState("");
+  const [plateSearch, setPlateSearch] = useState("");
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
@@ -131,6 +137,36 @@ export default function NewOrderPage() {
     setVehicleId("");
   };
 
+  // Buscar cliente+veículo pela placa digitada
+  const handlePlateSearch = async (plate: string) => {
+    const raw = plate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    setPlateSearch(plate.toUpperCase());
+    if (raw.length < 7) return;
+
+    try {
+      const res = await fetch(`/api/clients?search=${encodeURIComponent(raw)}`);
+      if (res.ok) {
+        const data: Client[] = await res.json();
+        // Encontrar o cliente que tem um veículo com essa placa
+        for (const client of data) {
+          const vehicle = client.vehicles.find(
+            (v) => v.plate.replace(/[^A-Za-z0-9]/g, "").toUpperCase() === raw
+          );
+          if (vehicle) {
+            setSelectedClient(client);
+            setClientSearch(client.name);
+            setVehicleId(vehicle.id);
+            setMileageIn(vehicle.mileage);
+            setPlateSearch(vehicle.plate);
+            return;
+          }
+        }
+      }
+    } catch {
+      // silencioso
+    }
+  };
+
   const clientOptions: ComboboxOption[] = clients.map((c) => ({
     id: c.id,
     label: c.name,
@@ -170,7 +206,7 @@ export default function NewOrderPage() {
     const u = [...complaints];
     const newServices = ids.map((id) => {
       const svc = catalogServices.find((s) => s.id === id)!;
-      return { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id, commissionRate: svc.commissionRate };
+      return { description: svc.description, price: svc.defaultPrice, timeHours: svc.estimatedTime ? svc.estimatedTime / 60 : 0, serviceId: svc.id, commissionRate: svc.commissionRate, approved: true };
     });
     // Remove empty placeholder if exists
     if (u[ci].services.length === 1 && !u[ci].services[0].description) {
@@ -193,11 +229,25 @@ export default function NewOrderPage() {
     setShowPartModal(null);
   };
 
+  const getServiceTotal = (s: ServiceItem) => {
+    if (s.approved === false) return 0;
+    return (s.price || 0) * (s.timeHours > 0 ? s.timeHours : 1);
+  };
+
+  const getPartTotal = (p: PartItem) => {
+    if (p.approved === false) return 0;
+    return (p.quantity || 0) * (p.unitPrice || 0);
+  };
+
   const getComplaintTotal = (c: ComplaintItem) => {
-    const svcTotal = c.services.reduce((sum, s) => sum + (s.price || 0), 0);
-    const prtTotal = c.parts.reduce((sum, p) => sum + (p.quantity || 0) * (p.unitPrice || 0), 0);
+    const svcTotal = c.services.reduce((sum, s) => sum + getServiceTotal(s), 0);
+    const prtTotal = c.parts.reduce((sum, p) => sum + getPartTotal(p), 0);
     return svcTotal + prtTotal;
   };
+
+  const getComplaintServiceTotal = (c: ComplaintItem) => c.services.reduce((sum, s) => sum + getServiceTotal(s), 0);
+  const getComplaintPartTotal = (c: ComplaintItem) => c.parts.reduce((sum, p) => sum + getPartTotal(p), 0);
+  const getComplaintTimeTotal = (c: ComplaintItem) => c.services.reduce((sum, s) => sum + (s.approved !== false ? (s.timeHours || 0) : 0), 0);
 
   const totalGeral = complaints.reduce((sum, c) => sum + getComplaintTotal(c), 0);
 
@@ -208,7 +258,7 @@ export default function NewOrderPage() {
   };
 
   const addComplaint = () => {
-    setComplaints([...complaints, { description: "", services: [{ description: "", price: 0, timeMinutes: 0 }], parts: [], expanded: true }]);
+    setComplaints([...complaints, { description: "", services: [{ description: "", price: 0, timeHours: 0, approved: true }], parts: [], expanded: true }]);
   };
 
   const removeComplaint = (idx: number) => {
@@ -237,17 +287,19 @@ export default function NewOrderPage() {
           description: c.description,
           services: c.services.filter(s => s.description).map(s => ({
             description: s.description,
-            price: s.price,
-            timeMinutes: s.timeMinutes,
+            price: s.approved === false ? 0 : s.price * (s.timeHours > 0 ? s.timeHours : 1),
+            timeMinutes: Math.round((s.timeHours || 0) * 60),
             serviceId: s.serviceId,
             commissionRate: s.commissionRate ?? undefined,
             mechanicId: s.mechanicId,
+            approved: s.approved !== false,
           })),
           parts: c.parts.filter(p => p.description).map(p => ({
             description: p.description,
             quantity: p.quantity,
-            unitPrice: p.unitPrice,
+            unitPrice: p.approved === false ? 0 : p.unitPrice,
             stockItemId: p.stockItemId,
+            approved: p.approved !== false,
           })),
         })),
       }),
@@ -323,7 +375,10 @@ export default function NewOrderPage() {
                 onChange={(e) => {
                   setVehicleId(e.target.value);
                   const v = selectedClient?.vehicles.find((v) => v.id === e.target.value);
-                  if (v) setMileageIn(v.mileage);
+                  if (v) {
+                    setMileageIn(v.mileage);
+                    setPlateSearch(v.plate);
+                  }
                   if (e.target.value) {
                     fetch(`/api/vehicles/${e.target.value}/history`).then((r) => r.ok ? r.json() : []).then((data) => {
                       const orders = Array.isArray(data) ? data : (data.orders || []);
@@ -345,7 +400,17 @@ export default function NewOrderPage() {
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">PLACA</label>
-              <input type="text" readOnly value={selectedVehicle?.plate || ""} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
+              <input
+                type="text"
+                value={plateSearch || selectedVehicle?.plate || ""}
+                onChange={(e) => handlePlateSearch(e.target.value)}
+                placeholder="Digite a placa..."
+                maxLength={8}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              />
+              {plateSearch.replace(/[^A-Za-z0-9]/g, "").length >= 7 && !selectedVehicle && (
+                <p className="text-[10px] text-amber-600 mt-0.5">Placa não encontrada na base</p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">COR</label>
@@ -433,9 +498,9 @@ export default function NewOrderPage() {
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">DESCRIÇÃO DA RECLAMAÇÃO *</label>
                     <input type="text" value={complaint.description}
-                      onChange={(e) => { const u = [...complaints]; u[ci].description = e.target.value; setComplaints(u); }}
-                      placeholder="Ex: Barulho na suspensão"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      onChange={(e) => { const u = [...complaints]; u[ci].description = e.target.value.toUpperCase(); setComplaints(u); }}
+                      placeholder="Ex: BARULHO NA SUSPENSÃO"
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
                   </div>
 
                   {/* Services within complaint */}
@@ -445,19 +510,25 @@ export default function NewOrderPage() {
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setShowServiceModal(ci)}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><ListChecks size={12} /> Adicionar Vários</button>
-                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeMinutes: 0 }); setComplaints(u); }}
+                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeHours: 0, approved: true }); setComplaints(u); }}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
                       </div>
                     </div>
                     <div className="space-y-2">
                       {complaint.services.map((s, si) => (
-                        <div key={si} className="grid grid-cols-[1fr_100px_80px_120px_30px] gap-2 items-end">
+                        <div key={si} className={`grid grid-cols-[24px_1fr_100px_70px_120px_30px] gap-2 items-end ${s.approved === false ? "opacity-50" : ""}`}>
+                          <div className="pb-2">
+                            <input type="checkbox" checked={s.approved !== false}
+                              onChange={(e) => { const u = [...complaints]; u[ci].services[si].approved = e.target.checked; setComplaints(u); }}
+                              title="Aprovado pelo cliente"
+                              className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500" />
+                          </div>
                           <Combobox
                             options={serviceOptions}
                             value={s.description}
                             onChange={(val) => {
                               const u = [...complaints];
-                              u[ci].services[si] = { ...u[ci].services[si], description: val, serviceId: undefined };
+                              u[ci].services[si] = { ...u[ci].services[si], description: val.toUpperCase(), serviceId: undefined };
                               setComplaints(u);
                             }}
                             onSelect={(opt) => {
@@ -467,10 +538,11 @@ export default function NewOrderPage() {
                                 u[ci].services[si] = {
                                   description: svc.description,
                                   price: svc.defaultPrice,
-                                  timeMinutes: svc.estimatedTime || 0,
+                                  timeHours: svc.estimatedTime ? svc.estimatedTime / 60 : 0,
                                   serviceId: svc.id,
                                   commissionRate: svc.commissionRate,
                                   mechanicId: u[ci].services[si].mechanicId,
+                                  approved: true,
                                 };
                                 setComplaints(u);
                               }
@@ -485,10 +557,10 @@ export default function NewOrderPage() {
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1">Tempo</label>
-                            <input type="number" value={s.timeMinutes || ""}
-                              onChange={(e) => { const u = [...complaints]; u[ci].services[si].timeMinutes = Number(e.target.value); setComplaints(u); }}
-                              placeholder="Min"
+                            <label className="block text-xs font-medium text-slate-600 mb-1">Tempo (h)</label>
+                            <input type="number" step="0.5" min="0" value={s.timeHours || ""}
+                              onChange={(e) => { const u = [...complaints]; u[ci].services[si].timeHours = Number(e.target.value); setComplaints(u); }}
+                              placeholder="1.5"
                               className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500" />
                           </div>
                           <div>
@@ -525,7 +597,13 @@ export default function NewOrderPage() {
                     ) : (
                       <div className="space-y-2">
                         {complaint.parts.map((p, pi) => (
-                          <div key={pi} className="grid grid-cols-[1fr_80px_60px_90px_30px] gap-2 items-end">
+                          <div key={pi} className={`grid grid-cols-[24px_1fr_80px_60px_80px_90px_30px] gap-2 items-end ${p.approved === false ? "opacity-50" : ""}`}>
+                            <div className="pb-2">
+                              <input type="checkbox" checked={p.approved !== false}
+                                onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].approved = e.target.checked; setComplaints(u); }}
+                                title="Aprovado pelo cliente"
+                                className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500" />
+                            </div>
                             <Combobox
                               options={partOptions}
                               value={p.description}
@@ -533,19 +611,24 @@ export default function NewOrderPage() {
                                 const u = [...complaints];
                                 const current = u[ci].parts[pi];
                                 const matchedItem = stockItems.find(st => st.description === val);
-                                u[ci].parts[pi] = { ...current, description: val, stockItemId: matchedItem ? matchedItem.id : undefined };
+                                u[ci].parts[pi] = { ...current, description: val.toUpperCase(), stockItemId: matchedItem ? matchedItem.id : undefined };
                                 setComplaints(u);
                               }}
                               onSelect={(opt) => {
                                 const item = stockItems.find(st => st.id === opt.id);
                                 if (item) {
                                   const u = [...complaints];
+                                  const costPrice = item.costPrice || 0;
+                                  const margin = item.profitMargin || 0;
+                                  const unitPrice = costPrice > 0 && margin > 0 ? costPrice * (1 + margin / 100) : item.sellPrice;
                                   u[ci].parts[pi] = {
                                     description: item.description,
                                     brand: item.brand || "",
                                     quantity: 1,
-                                    unitPrice: item.sellPrice,
+                                    unitPrice,
+                                    costPrice,
                                     stockItemId: item.id,
+                                    approved: true,
                                   };
                                   setComplaints(u);
                                 }
@@ -555,7 +638,7 @@ export default function NewOrderPage() {
                             <div>
                               <label className="block text-xs font-medium text-slate-600 mb-1">Marca</label>
                               <input type="text" value={p.brand}
-                                onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].brand = e.target.value; setComplaints(u); }}
+                                onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].brand = e.target.value.toUpperCase(); setComplaints(u); }}
                                 placeholder="Marca" className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
                             <div>
@@ -565,8 +648,25 @@ export default function NewOrderPage() {
                                 placeholder="Qtd" className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
                             <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">R$ Custo</label>
+                              <input type="number" step="0.01" value={p.costPrice || ""}
+                                onChange={(e) => {
+                                  const u = [...complaints];
+                                  const cost = Number(e.target.value);
+                                  u[ci].parts[pi].costPrice = cost;
+                                  // Auto-calcular R$ Unit via margem do estoque
+                                  if (cost > 0 && p.stockItemId) {
+                                    const item = stockItems.find(st => st.id === p.stockItemId);
+                                    const margin = item?.profitMargin || 0;
+                                    if (margin > 0) u[ci].parts[pi].unitPrice = cost * (1 + margin / 100);
+                                  }
+                                  setComplaints(u);
+                                }}
+                                placeholder="Custo" className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm bg-yellow-50" />
+                            </div>
+                            <div>
                               <label className="block text-xs font-medium text-slate-600 mb-1">R$ Unit</label>
-                              <input type="number" value={p.unitPrice || ""}
+                              <input type="number" step="0.01" value={p.unitPrice || ""}
                                 onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].unitPrice = Number(e.target.value); setComplaints(u); }}
                                 placeholder="R$ Unit" className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
                             </div>
@@ -579,8 +679,15 @@ export default function NewOrderPage() {
                   </div>
 
                   {/* Subtotal */}
-                  <div className="text-right pt-3 border-t border-slate-200">
-                    <span className="text-sm font-bold text-slate-700">Subtotal: {formatCurrency(getComplaintTotal(complaint))}</span>
+                  <div className="pt-3 border-t border-slate-200 space-y-1">
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>Serviços: {formatCurrency(getComplaintServiceTotal(complaint))}</span>
+                      <span>Peças: {formatCurrency(getComplaintPartTotal(complaint))}</span>
+                      <span>Tempo total: {getComplaintTimeTotal(complaint).toFixed(1)}h</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-slate-700">Subtotal: {formatCurrency(getComplaintTotal(complaint))}</span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -598,6 +705,11 @@ export default function NewOrderPage() {
                 <span className="font-medium text-slate-700">{formatCurrency(getComplaintTotal(c))}</span>
               </div>
             ))}
+            <div className="flex justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
+              <span>Total Serviços: {formatCurrency(complaints.reduce((s, c) => s + getComplaintServiceTotal(c), 0))}</span>
+              <span>Total Peças: {formatCurrency(complaints.reduce((s, c) => s + getComplaintPartTotal(c), 0))}</span>
+              <span>Tempo Total: {complaints.reduce((s, c) => s + getComplaintTimeTotal(c), 0).toFixed(1)}h</span>
+            </div>
             <div className="flex justify-between pt-3 border-t border-slate-200">
               <span className="text-sm font-bold text-slate-800">TOTAL GERAL</span>
               <span className="text-2xl font-bold text-green-600">{formatCurrency(totalGeral)}</span>

@@ -27,10 +27,10 @@ export class PrismaClientRepository implements IClientRepository {
         tenantId,
         active: true,
         OR: [
-          { name: { contains: query } },
-          { document: { contains: query } },
-          { phone: { contains: query } },
-          { vehicles: { some: { plate: { contains: query } } } },
+          { name: { contains: query, mode: "insensitive" } },
+          { document: { contains: query, mode: "insensitive" } },
+          { phone: { contains: query, mode: "insensitive" } },
+          { vehicles: { some: { plate: { contains: query, mode: "insensitive" } } } },
         ],
       },
       include: {
