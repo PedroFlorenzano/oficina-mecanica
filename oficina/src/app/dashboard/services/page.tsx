@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Plus, Wrench, Pencil, Trash2, Power } from "lucide-react";
+import { Plus, Wrench, Pencil, Trash2, Power, Package } from "lucide-react";
+import Link from "next/link";
 import ServiceForm from "./ServiceForm";
 import { formatCurrency } from "@/lib/format";
 import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
@@ -90,14 +91,19 @@ export default function ServicesPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-slate-800">Catálogo de Serviços</h1>
-        {canCreate && (
-        <button
-          onClick={handleNew}
-          className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
-        >
-          <Plus size={18} /> Novo Serviço
-        </button>
-        )}
+        <div className="flex items-center gap-2">
+          <Link href="/dashboard/services/kits" className="flex items-center gap-2 border border-slate-300 text-slate-700 px-4 py-2.5 rounded-lg hover:bg-slate-50 text-sm font-medium">
+            <Package size={18} /> Kits
+          </Link>
+          {canCreate && (
+          <button
+            onClick={handleNew}
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm font-medium"
+          >
+            <Plus size={18} /> Novo Serviço
+          </button>
+          )}
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

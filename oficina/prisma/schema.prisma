@@ -35,6 +35,7 @@ model Tenant {
   scheduleConfig ScheduleConfig?
   appointments   Appointment[]
   financialEntries FinancialEntry[]
+  kits             Kit[]
 }
 
 model User {
@@ -233,6 +234,37 @@ model OrderPart {
   stockItem   StockItem?   @relation(fields: [stockItemId], references: [id])
   order       ServiceOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   complaint   Complaint?   @relation(fields: [complaintId], references: [id])
+}
+
+model Kit {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  tenantId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant      Tenant    @relation(fields: [tenantId], references: [id])
+  items       KitItem[]
+
+  @@unique([name, tenantId])
+}
+
+model KitItem {
+  id          String  @id @default(cuid())
+  kitId       String
+  type        String  // "SERVICE" | "PART"
+  description String
+  // Service fields
+  serviceId   String?
+  price       Float   @default(0)
+  timeMinutes Int     @default(0)
+  // Part fields
+  stockItemId String?
+  quantity    Int     @default(1)
+  unitPrice   Float   @default(0)
+
+  kit         Kit     @relation(fields: [kitId], references: [id], onDelete: Cascade)
 }
 
 model StockItem {

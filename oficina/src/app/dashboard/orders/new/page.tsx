@@ -71,6 +71,13 @@ interface Mechanic {
   name: string;
 }
 
+interface KitData {
+  id: string;
+  name: string;
+  description: string | null;
+  items: Array<{ type: string; description: string; serviceId?: string | null; price: number; timeMinutes: number; stockItemId?: string | null; quantity: number; unitPrice: number }>;
+}
+
 interface VehicleHistoryItem {
   id: string;
   number: number;
@@ -97,6 +104,7 @@ export default function NewOrderPage() {
   const [catalogServices, setCatalogServices] = useState<CatalogService[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
+  const [kits, setKits] = useState<KitData[]>([]);
   const [vehicleHistory, setVehicleHistory] = useState<VehicleHistoryItem[]>([]);
   const clientAbortRef = useRef<AbortController | null>(null);
 
@@ -108,6 +116,7 @@ export default function NewOrderPage() {
     fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }).then(setCatalogServices).catch(() => {});
     fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }).then(setStockItems).catch(() => {});
     fetch("/api/users?role=MECHANIC").then((r) => { if (!r.ok) return []; return r.json(); }).then(setMechanics).catch(() => {});
+    fetch("/api/kits").then((r) => { if (!r.ok) return []; return r.json(); }).then(setKits).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -222,11 +231,43 @@ export default function NewOrderPage() {
     const u = [...complaints];
     const newParts = ids.map((id) => {
       const item = stockItems.find((s) => s.id === id)!;
-      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice: item.sellPrice, stockItemId: item.id };
+      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice: item.sellPrice, stockItemId: item.id, approved: true };
     });
     u[ci].parts.push(...newParts);
     setComplaints(u);
     setShowPartModal(null);
+  };
+
+  const applyKit = (ci: number, kitId: string) => {
+    const kit = kits.find(k => k.id === kitId);
+    if (!kit) return;
+    const u = [...complaints];
+    for (const item of kit.items) {
+      if (item.type === "SERVICE") {
+        const svc: ServiceItem = {
+          description: item.description,
+          price: item.price,
+          timeHours: item.timeMinutes > 0 ? item.timeMinutes / 60 : 0,
+          serviceId: item.serviceId || undefined,
+          approved: true,
+        };
+        if (u[ci].services.length === 1 && !u[ci].services[0].description) {
+          u[ci].services = [svc];
+        } else {
+          u[ci].services.push(svc);
+        }
+      } else {
+        u[ci].parts.push({
+          description: item.description,
+          brand: "",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          stockItemId: item.stockItemId || undefined,
+          approved: true,
+        });
+      }
+    }
+    setComplaints(u);
   };
 
   const getServiceTotal = (s: ServiceItem) => {
@@ -508,6 +549,16 @@ export default function NewOrderPage() {
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="text-sm font-bold text-slate-700">Serviços</h3>
                       <div className="flex items-center gap-2">
+                        {kits.length > 0 && (
+                          <select
+                            value=""
+                            onChange={(e) => { if (e.target.value) applyKit(ci, e.target.value); e.target.value = ""; }}
+                            className="text-xs border border-purple-300 rounded px-2 py-1 text-purple-700 bg-purple-50"
+                          >
+                            <option value="">🧰 Aplicar Kit...</option>
+                            {kits.map(k => <option key={k.id} value={k.id}>{k.name}</option>)}
+                          </select>
+                        )}
                         <button type="button" onClick={() => setShowServiceModal(ci)}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><ListChecks size={12} /> Adicionar Vários</button>
                         <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeHours: 0, approved: true }); setComplaints(u); }}
