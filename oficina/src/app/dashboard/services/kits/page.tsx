@@ -291,9 +291,10 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-500 mb-1">Tempo (min)</label>
-                          <input type="number" value={item.timeMinutes || ""}
-                            onChange={(e) => updateItem(i, { timeMinutes: Number(e.target.value) })}
+                          <label className="block text-xs text-slate-500 mb-1">Tempo (h)</label>
+                          <input type="number" step="0.5" min="0" value={item.timeMinutes > 0 ? item.timeMinutes / 60 : ""}
+                            onChange={(e) => updateItem(i, { timeMinutes: Math.round(Number(e.target.value) * 60) })}
+                            placeholder="1.5"
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                       </div>
