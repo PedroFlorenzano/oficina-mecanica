@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Package, Wrench } from "lucide-react";
 import Link from "next/link";
-import { PageHeader, Card, Button } from "@/components/ui";
+import { PageHeader, Card, Button, Combobox } from "@/components/ui";
+import type { ComboboxOption } from "@/components/ui";
 
 interface KitItem {
   id?: string;
@@ -260,21 +261,18 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_100px] gap-3">
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Serviço</label>
-                          <select
-                            value={item.serviceId || ""}
-                            onChange={(e) => {
-                              const svc = catalogServices.find(s => s.id === e.target.value);
+                          <Combobox
+                            options={catalogServices.map(s => ({ id: s.id, label: s.description, rightLabel: `R$ ${s.defaultPrice.toFixed(2)}` }))}
+                            value={item.description}
+                            onChange={(val) => updateItem(i, { description: val })}
+                            onSelect={(opt) => {
+                              const svc = catalogServices.find(s => s.id === opt.id);
                               if (svc) {
                                 updateItem(i, { description: svc.description, serviceId: svc.id, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0 });
                               }
                             }}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Selecionar serviço...</option>
-                            {catalogServices.map(s => (
-                              <option key={s.id} value={s.id}>{s.description}</option>
-                            ))}
-                          </select>
+                            placeholder="Buscar serviço..."
+                          />
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Preço (R$)</label>
@@ -293,21 +291,18 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_80px_120px] gap-3">
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Peça / Produto</label>
-                          <select
-                            value={item.stockItemId || ""}
-                            onChange={(e) => {
-                              const st = stockItems.find(s => s.id === e.target.value);
+                          <Combobox
+                            options={stockItems.map(s => ({ id: s.id, label: s.description, sublabel: s.code, rightLabel: `R$ ${s.sellPrice.toFixed(2)}` }))}
+                            value={item.description}
+                            onChange={(val) => updateItem(i, { description: val })}
+                            onSelect={(opt) => {
+                              const st = stockItems.find(s => s.id === opt.id);
                               if (st) {
                                 updateItem(i, { description: st.description, stockItemId: st.id, unitPrice: st.sellPrice });
                               }
                             }}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          >
-                            <option value="">Selecionar peça...</option>
-                            {stockItems.map(s => (
-                              <option key={s.id} value={s.id}>{s.description} ({s.code})</option>
-                            ))}
-                          </select>
+                            placeholder="Buscar peça..."
+                          />
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Qtd</label>
