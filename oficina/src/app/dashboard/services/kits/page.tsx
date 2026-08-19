@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Pencil, Package, Wrench } from "lucide-react";
 import Link from "next/link";
-import { PageHeader, Card, Button, Input, Modal } from "@/components/ui";
+import { PageHeader, Card, Button } from "@/components/ui";
 
 interface KitItem {
   id?: string;
@@ -191,101 +191,159 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
   };
 
   return (
-    <Modal title={kit ? "Editar Kit" : "Novo Kit"} onClose={onClose} size="lg" isOpen={true}>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <Input label="Nome do Kit *" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Troca de Óleo" required />
-          <Input label="Descrição" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descrição opcional" />
+    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6 border-b pb-4">
+          <h2 className="text-xl font-bold text-slate-800">{kit ? "Editar Kit" : "Novo Kit"}</h2>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-sm">
+            ✕ Fechar
+          </button>
         </div>
 
-        {/* Items */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h4 className="text-sm font-bold text-slate-700">Itens do Kit</h4>
-            <div className="flex gap-2">
-              <button type="button" onClick={() => addItem("SERVICE")} className="text-xs text-blue-600 hover:underline flex items-center gap-1">
-                <Wrench size={12} /> + Serviço
-              </button>
-              <button type="button" onClick={() => addItem("PART")} className="text-xs text-green-600 hover:underline flex items-center gap-1">
-                <Package size={12} /> + Peça
-              </button>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Info básica */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Nome do Kit *</label>
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="Ex: Troca de Óleo" required
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Descrição</label>
+              <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+                placeholder="Descrição opcional"
+                className="w-full px-3 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           </div>
 
-          {items.length === 0 ? (
-            <p className="text-xs text-slate-400 py-4 text-center">Nenhum item adicionado. Clique em &quot;+ Serviço&quot; ou &quot;+ Peça&quot; acima.</p>
-          ) : (
-            <div className="space-y-2 max-h-72 overflow-y-auto">
-              {items.map((item, i) => (
-                <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-slate-50">
-                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${item.type === "SERVICE" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
-                    {item.type === "SERVICE" ? "SVC" : "PÇ"}
-                  </span>
-                  {item.type === "SERVICE" ? (
-                    <>
-                      <select
-                        value={item.serviceId || ""}
-                        onChange={(e) => {
-                          const svc = catalogServices.find(s => s.id === e.target.value);
-                          if (svc) {
-                            updateItem(i, { description: svc.description, serviceId: svc.id, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0 });
-                          }
-                        }}
-                        className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm"
-                      >
-                        <option value="">Selecionar serviço...</option>
-                        {catalogServices.map(s => (
-                          <option key={s.id} value={s.id}>{s.description}</option>
-                        ))}
-                      </select>
-                      <input type="number" step="0.01" value={item.price || ""}
-                        onChange={(e) => updateItem(i, { price: Number(e.target.value) })}
-                        placeholder="R$" className="w-20 px-2 py-1.5 border border-slate-300 rounded text-sm" />
-                      <input type="number" value={item.timeMinutes || ""}
-                        onChange={(e) => updateItem(i, { timeMinutes: Number(e.target.value) })}
-                        placeholder="Min" className="w-16 px-2 py-1.5 border border-slate-300 rounded text-sm" />
-                    </>
-                  ) : (
-                    <>
-                      <select
-                        value={item.stockItemId || ""}
-                        onChange={(e) => {
-                          const st = stockItems.find(s => s.id === e.target.value);
-                          if (st) {
-                            updateItem(i, { description: st.description, stockItemId: st.id, unitPrice: st.sellPrice });
-                          }
-                        }}
-                        className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm"
-                      >
-                        <option value="">Selecionar peça...</option>
-                        {stockItems.map(s => (
-                          <option key={s.id} value={s.id}>{s.description} ({s.code})</option>
-                        ))}
-                      </select>
-                      <input type="number" min="1" value={item.quantity || ""}
-                        onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
-                        placeholder="Qtd" className="w-14 px-2 py-1.5 border border-slate-300 rounded text-sm" />
-                      <input type="number" step="0.01" value={item.unitPrice || ""}
-                        onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })}
-                        placeholder="R$ Unit" className="w-20 px-2 py-1.5 border border-slate-300 rounded text-sm" />
-                    </>
-                  )}
-                  <button type="button" onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 shrink-0">
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
+          {/* Itens */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-800">Itens do Kit</h3>
+              <div className="flex gap-3">
+                <button type="button" onClick={() => addItem("SERVICE")}
+                  className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1">
+                  <Wrench size={12} /> + Serviço
+                </button>
+                <button type="button" onClick={() => addItem("PART")}
+                  className="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 flex items-center gap-1">
+                  <Package size={12} /> + Peça
+                </button>
+              </div>
             </div>
-          )}
-        </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+            {items.length === 0 ? (
+              <div className="border-2 border-dashed border-slate-200 rounded-lg p-8 text-center">
+                <Package className="w-8 h-8 mx-auto text-slate-300 mb-2" />
+                <p className="text-sm text-slate-400">Nenhum item adicionado.</p>
+                <p className="text-xs text-slate-400 mt-1">Clique em &quot;+ Serviço&quot; ou &quot;+ Peça&quot; acima.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {items.map((item, i) => (
+                  <div key={i} className="border border-slate-200 rounded-lg p-4 bg-slate-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${item.type === "SERVICE" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                        {item.type === "SERVICE" ? "SERVIÇO" : "PEÇA"}
+                      </span>
+                      <span className="flex-1 text-sm text-slate-600 font-medium">
+                        {item.description || "(selecione abaixo)"}
+                      </span>
+                      <button type="button" onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600">
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
 
-        <div className="flex justify-end gap-2 pt-2">
-          <Button variant="outline" type="button" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" disabled={saving}>{saving ? "Salvando..." : kit ? "Atualizar" : "Criar Kit"}</Button>
-        </div>
-      </form>
-    </Modal>
+                    {item.type === "SERVICE" ? (
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_100px] gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Serviço</label>
+                          <select
+                            value={item.serviceId || ""}
+                            onChange={(e) => {
+                              const svc = catalogServices.find(s => s.id === e.target.value);
+                              if (svc) {
+                                updateItem(i, { description: svc.description, serviceId: svc.id, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0 });
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Selecionar serviço...</option>
+                            {catalogServices.map(s => (
+                              <option key={s.id} value={s.id}>{s.description}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Preço (R$)</label>
+                          <input type="number" step="0.01" value={item.price || ""}
+                            onChange={(e) => updateItem(i, { price: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Tempo (min)</label>
+                          <input type="number" value={item.timeMinutes || ""}
+                            onChange={(e) => updateItem(i, { timeMinutes: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-[1fr_80px_120px] gap-3">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Peça / Produto</label>
+                          <select
+                            value={item.stockItemId || ""}
+                            onChange={(e) => {
+                              const st = stockItems.find(s => s.id === e.target.value);
+                              if (st) {
+                                updateItem(i, { description: st.description, stockItemId: st.id, unitPrice: st.sellPrice });
+                              }
+                            }}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">Selecionar peça...</option>
+                            {stockItems.map(s => (
+                              <option key={s.id} value={s.id}>{s.description} ({s.code})</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">Qtd</label>
+                          <input type="number" min="1" value={item.quantity || ""}
+                            onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1">R$ Unitário</label>
+                          <input type="number" step="0.01" value={item.unitPrice || ""}
+                            onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{error}</p>}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-4 border-t">
+            <button type="button" onClick={onClose}
+              className="px-5 py-2.5 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium">
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving}
+              className="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm font-medium">
+              {saving ? "Salvando..." : kit ? "Atualizar Kit" : "Criar Kit"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }
