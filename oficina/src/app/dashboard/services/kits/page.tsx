@@ -286,7 +286,7 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Preço (R$)</label>
-                          <input type="number" step="0.01" value={item.price || ""}
+                          <input type="number" step="0.01" value={item.price}
                             onChange={(e) => updateItem(i, { price: Number(e.target.value) })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
@@ -317,13 +317,13 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Qtd</label>
-                          <input type="number" min="1" value={item.quantity || ""}
+                          <input type="number" min="1" value={item.quantity}
                             onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">R$ Unitário</label>
-                          <input type="number" step="0.01" value={item.unitPrice || ""}
+                          <input type="number" step="0.01" value={item.unitPrice}
                             onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
