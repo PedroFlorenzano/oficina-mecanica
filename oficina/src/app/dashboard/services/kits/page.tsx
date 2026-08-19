@@ -142,6 +142,13 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
   const [items, setItems] = useState<KitItem[]>(kit?.items || []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [catalogServices, setCatalogServices] = useState<Array<{ id: string; description: string; defaultPrice: number; estimatedTime: number | null }>>([]);
+  const [stockItems, setStockItems] = useState<Array<{ id: string; code: string; description: string; brand: string | null; sellPrice: number }>>([]);
+
+  useEffect(() => {
+    fetch("/api/services").then(r => r.ok ? r.json() : []).then(setCatalogServices).catch(() => {});
+    fetch("/api/stock").then(r => r.ok ? r.json() : []).then(setStockItems).catch(() => {});
+  }, []);
 
   const addItem = (type: "SERVICE" | "PART") => {
     setItems([...items, { type, description: "", price: 0, timeMinutes: 0, quantity: 1, unitPrice: 0 }]);
@@ -151,10 +158,9 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
     setItems(items.filter((_, i) => i !== idx));
   };
 
-  const updateItem = (idx: number, field: string, value: string | number) => {
+  const updateItem = (idx: number, updates: Partial<KitItem>) => {
     const u = [...items];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (u[idx] as any)[field] = value;
+    u[idx] = { ...u[idx], ...updates };
     setItems(u);
   };
 
@@ -209,36 +215,62 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
           {items.length === 0 ? (
             <p className="text-xs text-slate-400 py-4 text-center">Nenhum item adicionado. Clique em &quot;+ Serviço&quot; ou &quot;+ Peça&quot; acima.</p>
           ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+            <div className="space-y-2 max-h-72 overflow-y-auto">
               {items.map((item, i) => (
                 <div key={i} className="flex items-center gap-2 p-2 rounded-lg border border-slate-200 bg-slate-50">
-                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${item.type === "SERVICE" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
+                  <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 ${item.type === "SERVICE" ? "bg-blue-100 text-blue-700" : "bg-green-100 text-green-700"}`}>
                     {item.type === "SERVICE" ? "SVC" : "PÇ"}
                   </span>
-                  <input type="text" value={item.description}
-                    onChange={(e) => updateItem(i, "description", e.target.value)}
-                    placeholder="Descrição"
-                    className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm" />
                   {item.type === "SERVICE" ? (
                     <>
+                      <select
+                        value={item.serviceId || ""}
+                        onChange={(e) => {
+                          const svc = catalogServices.find(s => s.id === e.target.value);
+                          if (svc) {
+                            updateItem(i, { description: svc.description, serviceId: svc.id, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0 });
+                          }
+                        }}
+                        className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm"
+                      >
+                        <option value="">Selecionar serviço...</option>
+                        {catalogServices.map(s => (
+                          <option key={s.id} value={s.id}>{s.description}</option>
+                        ))}
+                      </select>
                       <input type="number" step="0.01" value={item.price || ""}
-                        onChange={(e) => updateItem(i, "price", Number(e.target.value))}
+                        onChange={(e) => updateItem(i, { price: Number(e.target.value) })}
                         placeholder="R$" className="w-20 px-2 py-1.5 border border-slate-300 rounded text-sm" />
                       <input type="number" value={item.timeMinutes || ""}
-                        onChange={(e) => updateItem(i, "timeMinutes", Number(e.target.value))}
+                        onChange={(e) => updateItem(i, { timeMinutes: Number(e.target.value) })}
                         placeholder="Min" className="w-16 px-2 py-1.5 border border-slate-300 rounded text-sm" />
                     </>
                   ) : (
                     <>
+                      <select
+                        value={item.stockItemId || ""}
+                        onChange={(e) => {
+                          const st = stockItems.find(s => s.id === e.target.value);
+                          if (st) {
+                            updateItem(i, { description: st.description, stockItemId: st.id, unitPrice: st.sellPrice });
+                          }
+                        }}
+                        className="flex-1 px-2 py-1.5 border border-slate-300 rounded text-sm"
+                      >
+                        <option value="">Selecionar peça...</option>
+                        {stockItems.map(s => (
+                          <option key={s.id} value={s.id}>{s.description} ({s.code})</option>
+                        ))}
+                      </select>
                       <input type="number" min="1" value={item.quantity || ""}
-                        onChange={(e) => updateItem(i, "quantity", Number(e.target.value))}
+                        onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
                         placeholder="Qtd" className="w-14 px-2 py-1.5 border border-slate-300 rounded text-sm" />
                       <input type="number" step="0.01" value={item.unitPrice || ""}
-                        onChange={(e) => updateItem(i, "unitPrice", Number(e.target.value))}
+                        onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })}
                         placeholder="R$ Unit" className="w-20 px-2 py-1.5 border border-slate-300 rounded text-sm" />
                     </>
                   )}
-                  <button type="button" onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600">
+                  <button type="button" onClick={() => removeItem(i)} className="text-red-400 hover:text-red-600 shrink-0">
                     <Trash2 size={14} />
                   </button>
                 </div>
