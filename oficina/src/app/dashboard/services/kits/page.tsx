@@ -50,6 +50,16 @@ export default function KitsPage() {
     if (res.ok) fetchKits();
   };
 
+  if (showForm) {
+    return (
+      <KitFormModal
+        kit={editingKit}
+        onClose={() => setShowForm(false)}
+        onSaved={() => { setShowForm(false); fetchKits(); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -192,8 +202,8 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-white overflow-y-auto">
-      <div className="max-w-4xl mx-auto p-6">
+    <div className="space-y-6">
+      <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-6 border-b pb-4">
           <h2 className="text-xl font-bold text-slate-800">{kit ? "Editar Kit" : "Novo Kit"}</h2>
