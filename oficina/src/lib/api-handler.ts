@@ -18,5 +18,6 @@ export function handleError(error: unknown): NextResponse | Response {
     return NextResponse.json({ error: error.message, code: error.code }, { status });
   }
   console.error("Unhandled error:", error);
-  return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 });
+  const message = error instanceof Error ? error.message : "Erro interno do servidor";
+  return NextResponse.json({ error: "Erro interno do servidor", detail: message }, { status: 500 });
 }

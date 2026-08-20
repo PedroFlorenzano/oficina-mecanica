@@ -345,7 +345,7 @@ export default function NewOrderPage() {
     });
     if (!res.ok) {
       let errorMsg = "Erro ao criar OS";
-      try { const data = await res.json(); errorMsg = data.error || data.message || errorMsg; } catch { errorMsg = `Erro do servidor (${res.status})`; }
+      try { const data = await res.json(); errorMsg = data.detail || data.error || data.message || errorMsg; } catch { errorMsg = `Erro do servidor (${res.status})`; }
       setError(errorMsg);
       setSaving(false);
       return;
