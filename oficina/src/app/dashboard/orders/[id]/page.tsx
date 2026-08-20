@@ -207,8 +207,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   // For orders without complaints, use flat services/parts
   const ungroupedServices = order.services.filter(s => !s.complaintId);
   const ungroupedParts = order.parts.filter(p => !p.complaintId);
-  const totalParts = order.parts.reduce((s, p) => s + (p.approved === false ? 0 : p.totalPrice), 0);
-  const totalServices = order.services.reduce((s, sv) => s + (sv.approved === false ? 0 : sv.price), 0);
+  const totalParts = order.parts.reduce((s, p) => s + p.totalPrice, 0);
+  const totalServices = order.services.reduce((s, sv) => s + sv.price, 0);
 
   return (
     <div className="max-w-5xl">
@@ -435,8 +435,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="space-y-4 mb-4">
           <h2 className="font-bold text-slate-800 text-lg">RECLAMAÇÕES</h2>
           {order.complaints.map((complaint) => {
-            const cSvcTotal = complaint.services.reduce((s, sv) => s + (sv.approved === false ? 0 : sv.price), 0);
-            const cPrtTotal = complaint.parts.reduce((s, p) => s + (p.approved === false ? 0 : p.totalPrice), 0);
+            const cSvcTotal = complaint.services.reduce((s, sv) => s + sv.price, 0);
+            const cPrtTotal = complaint.parts.reduce((s, p) => s + p.totalPrice, 0);
             const cTotal = cSvcTotal + cPrtTotal;
             return (
               <div key={complaint.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
@@ -459,42 +459,39 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {complaint.services.map((s) => {
-                          const reproved = s.approved === false;
-                          return (
-                            <Fragment key={s.id}>
-                              <tr className={reproved ? "bg-red-50" : undefined}>
-                                {isWaitingApproval && (
-                                  <td className="py-1.5 text-center">
-                                    <input
-                                      type="checkbox"
-                                      checked={s.approved !== false}
-                                      disabled={togglingItem === s.id}
-                                      onChange={(e) => toggleItemApproval("service", s.id, e.target.checked)}
-                                      className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                                      title="Aprovado pelo cliente"
-                                    />
-                                  </td>
-                                )}
-                                <td className={`py-1.5 ${reproved ? "text-red-500 line-through" : "text-slate-700"}`}>{s.description}</td>
-                                <td className="py-1.5 text-slate-500 text-xs">{s.mechanicId ? mechanicMap[s.mechanicId] || "—" : "—"}</td>
-                                <td className="py-1.5 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
-                                <td className={`py-1.5 text-right font-medium ${reproved ? "text-red-600" : "text-slate-800"}`}>{reproved ? "R$ 0,00" : formatCurrency(s.price)}</td>
-                              </tr>
-                              <tr>
-                                <td colSpan={isWaitingApproval ? 5 : 4} className="py-2 px-0">
-                                  <TimerControl
-                                    orderServiceId={s.id}
-                                    userId={userId}
-                                    userRole={userRole}
-                                    serviceDescription={s.description}
-                                    estimatedMinutes={s.timeMinutes}
+                        {complaint.services.map((s) => (
+                          <Fragment key={s.id}>
+                            <tr>
+                              {isWaitingApproval && (
+                                <td className="py-1.5 text-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={s.approved !== false}
+                                    disabled={togglingItem === s.id}
+                                    onChange={(e) => toggleItemApproval("service", s.id, e.target.checked)}
+                                    className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                                    title="Aprovado pelo cliente"
                                   />
                                 </td>
-                              </tr>
-                            </Fragment>
-                          );
-                        })}
+                              )}
+                              <td className="py-1.5 text-slate-700">{s.description}</td>
+                              <td className="py-1.5 text-slate-500 text-xs">{s.mechanicId ? mechanicMap[s.mechanicId] || "—" : "—"}</td>
+                              <td className="py-1.5 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
+                              <td className="py-1.5 text-right font-medium text-slate-800">{formatCurrency(s.price)}</td>
+                            </tr>
+                            <tr>
+                              <td colSpan={isWaitingApproval ? 5 : 4} className="py-2 px-0">
+                                <TimerControl
+                                  orderServiceId={s.id}
+                                  userId={userId}
+                                  userRole={userRole}
+                                  serviceDescription={s.description}
+                                  estimatedMinutes={s.timeMinutes}
+                                />
+                              </td>
+                            </tr>
+                          </Fragment>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -516,30 +513,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                         </tr>
                       </thead>
                       <tbody className="divide-y">
-                        {complaint.parts.map((p) => {
-                          const reproved = p.approved === false;
-                          return (
-                            <tr key={p.id} className={reproved ? "bg-red-50" : undefined}>
-                              {isWaitingApproval && (
-                                <td className="py-1.5 text-center">
-                                  <input
-                                    type="checkbox"
-                                    checked={p.approved !== false}
-                                    disabled={togglingItem === p.id}
-                                    onChange={(e) => toggleItemApproval("part", p.id, e.target.checked)}
-                                    className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                                    title="Aprovado pelo cliente"
-                                  />
-                                </td>
-                              )}
-                              <td className={`py-1.5 ${reproved ? "text-red-500 line-through" : "text-slate-700"}`}>{p.description}</td>
-                              <td className="py-1.5 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
-                              <td className="py-1.5 text-center text-slate-600">{p.quantity}x</td>
-                              <td className="py-1.5 text-right text-slate-600">{reproved ? "R$ 0,00" : formatCurrency(p.unitPrice)}</td>
-                              <td className={`py-1.5 text-right font-medium ${reproved ? "text-red-600" : "text-slate-800"}`}>{reproved ? "R$ 0,00" : formatCurrency(p.totalPrice)}</td>
-                            </tr>
-                          );
-                        })}
+                        {complaint.parts.map((p) => (
+                          <tr key={p.id}>
+                            {isWaitingApproval && (
+                              <td className="py-1.5 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={p.approved !== false}
+                                  disabled={togglingItem === p.id}
+                                  onChange={(e) => toggleItemApproval("part", p.id, e.target.checked)}
+                                  className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                                  title="Aprovado pelo cliente"
+                                />
+                              </td>
+                            )}
+                            <td className="py-1.5 text-slate-700">{p.description}</td>
+                            <td className="py-1.5 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
+                            <td className="py-1.5 text-center text-slate-600">{p.quantity}x</td>
+                            <td className="py-1.5 text-right text-slate-600">{formatCurrency(p.unitPrice)}</td>
+                            <td className="py-1.5 text-right font-medium text-slate-800">{formatCurrency(p.totalPrice)}</td>
+                          </tr>
+                        ))}
                       </tbody>
                     </table>
                   </div>
@@ -569,41 +563,38 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </tr>
             </thead>
             <tbody className="divide-y">
-              {ungroupedServices.map((s) => {
-                const reproved = s.approved === false;
-                return (
-                  <Fragment key={s.id}>
-                    <tr className={reproved ? "bg-red-50" : undefined}>
-                      {isWaitingApproval && (
-                        <td className="py-2 text-center">
-                          <input
-                            type="checkbox"
-                            checked={s.approved !== false}
-                            disabled={togglingItem === s.id}
-                            onChange={(e) => toggleItemApproval("service", s.id, e.target.checked)}
-                            className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                            title="Aprovado pelo cliente"
-                          />
-                        </td>
-                      )}
-                      <td className={`py-2 ${reproved ? "text-red-500 line-through" : "text-slate-700"}`}>{s.description}</td>
-                      <td className="py-2 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
-                      <td className={`py-2 text-right font-medium ${reproved ? "text-red-600" : "text-slate-800"}`}>{reproved ? "R$ 0,00" : formatCurrency(s.price)}</td>
-                    </tr>
-                    <tr>
-                      <td colSpan={isWaitingApproval ? 4 : 3} className="py-2 px-0">
-                        <TimerControl
-                          orderServiceId={s.id}
-                          userId={userId}
-                          userRole={userRole}
-                          serviceDescription={s.description}
-                          estimatedMinutes={s.timeMinutes}
+              {ungroupedServices.map((s) => (
+                <Fragment key={s.id}>
+                  <tr>
+                    {isWaitingApproval && (
+                      <td className="py-2 text-center">
+                        <input
+                          type="checkbox"
+                          checked={s.approved !== false}
+                          disabled={togglingItem === s.id}
+                          onChange={(e) => toggleItemApproval("service", s.id, e.target.checked)}
+                          className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                          title="Aprovado pelo cliente"
                         />
                       </td>
-                    </tr>
-                  </Fragment>
-                );
-              })}
+                    )}
+                    <td className="py-2 text-slate-700">{s.description}</td>
+                    <td className="py-2 text-right text-slate-500">{s.timeMinutes ? `${s.timeMinutes} min` : "—"}</td>
+                    <td className="py-2 text-right font-medium text-slate-800">{formatCurrency(s.price)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={isWaitingApproval ? 4 : 3} className="py-2 px-0">
+                      <TimerControl
+                        orderServiceId={s.id}
+                        userId={userId}
+                        userRole={userRole}
+                        serviceDescription={s.description}
+                        estimatedMinutes={s.timeMinutes}
+                      />
+                    </td>
+                  </tr>
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
@@ -625,30 +616,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               </tr>
             </thead>
             <tbody className="divide-y">
-              {ungroupedParts.map((p) => {
-                const reproved = p.approved === false;
-                return (
-                  <tr key={p.id} className={reproved ? "bg-red-50" : undefined}>
-                    {isWaitingApproval && (
-                      <td className="py-2 text-center">
-                        <input
-                          type="checkbox"
-                          checked={p.approved !== false}
-                          disabled={togglingItem === p.id}
-                          onChange={(e) => toggleItemApproval("part", p.id, e.target.checked)}
-                          className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                          title="Aprovado pelo cliente"
-                        />
-                      </td>
-                    )}
-                    <td className={`py-2 ${reproved ? "text-red-500 line-through" : "text-slate-700"}`}>{p.description}</td>
-                    <td className="py-2 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
-                    <td className="py-2 text-center text-slate-600">{p.quantity}</td>
-                    <td className="py-2 text-right text-slate-600">{reproved ? "R$ 0,00" : formatCurrency(p.unitPrice)}</td>
-                    <td className={`py-2 text-right font-medium ${reproved ? "text-red-600" : "text-slate-800"}`}>{reproved ? "R$ 0,00" : formatCurrency(p.totalPrice)}</td>
-                  </tr>
-                );
-              })}
+              {ungroupedParts.map((p) => (
+                <tr key={p.id}>
+                  {isWaitingApproval && (
+                    <td className="py-2 text-center">
+                      <input
+                        type="checkbox"
+                        checked={p.approved !== false}
+                        disabled={togglingItem === p.id}
+                        onChange={(e) => toggleItemApproval("part", p.id, e.target.checked)}
+                        className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500"
+                        title="Aprovado pelo cliente"
+                      />
+                    </td>
+                  )}
+                  <td className="py-2 text-slate-700">{p.description}</td>
+                  <td className="py-2 text-slate-500 text-xs">{p.stockItem?.supplier || "—"}</td>
+                  <td className="py-2 text-center text-slate-600">{p.quantity}</td>
+                  <td className="py-2 text-right text-slate-600">{formatCurrency(p.unitPrice)}</td>
+                  <td className="py-2 text-right font-medium text-slate-800">{formatCurrency(p.totalPrice)}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>

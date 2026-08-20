@@ -7,6 +7,7 @@ interface OSServiceItem {
   timeMinutes?: number | null;
   complaintId?: string | null;
   service?: { estimatedTime?: number | null } | null;
+  approved?: boolean;
 }
 
 interface OSPartItem {
@@ -17,6 +18,7 @@ interface OSPartItem {
   totalPrice: number;
   complaintId?: string | null;
   stockItem?: { supplier?: string | null } | null;
+  approved?: boolean;
 }
 
 interface OSComplaint {
@@ -92,6 +94,8 @@ const styles = StyleSheet.create({
   colTotal: { flex: 1.2, textAlign: "right" },
   cellText: { fontSize: 8, color: "#334155" },
   cellTextMuted: { fontSize: 8, color: "#94a3b8" },
+  cellTextRejected: { fontSize: 8, color: "#dc2626", textDecoration: "line-through" },
+  cellTextRejectedMuted: { fontSize: 8, color: "#f87171", textDecoration: "line-through" },
 
   // Subtotal reclamação
   subtotalRow: { flexDirection: "row", justifyContent: "flex-end", paddingTop: 5, marginTop: 3, borderTopWidth: 0.5, borderTopColor: "#e2e8f0" },
@@ -158,8 +162,8 @@ export function OSDocument({ order }: { order: OSOrderData }) {
   const ungroupedServices = (order.services || []).filter((s: OSServiceItem) => !s.complaintId);
   const ungroupedParts = (order.parts || []).filter((p: OSPartItem) => !p.complaintId);
 
-  const totalServices = (order.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.price || 0), 0);
-  const totalParts = (order.parts || []).reduce((s: number, p: OSPartItem) => s + (p.totalPrice || 0), 0);
+  const totalServices = (order.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.approved === false ? 0 : (sv.price || 0)), 0);
+  const totalParts = (order.parts || []).reduce((s: number, p: OSPartItem) => s + (p.approved === false ? 0 : (p.totalPrice || 0)), 0);
 
   return (
     <Document>
@@ -246,8 +250,8 @@ export function OSDocument({ order }: { order: OSOrderData }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Reclamações / Serviços</Text>
             {order.complaints!.map((c: OSComplaint) => {
-              const cSvcTotal = (c.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.price || 0), 0);
-              const cPrtTotal = (c.parts || []).reduce((s: number, p: OSPartItem) => s + (p.totalPrice || 0), 0);
+              const cSvcTotal = (c.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.approved === false ? 0 : (sv.price || 0)), 0);
+              const cPrtTotal = (c.parts || []).reduce((s: number, p: OSPartItem) => s + (p.approved === false ? 0 : (p.totalPrice || 0)), 0);
               const cSubtotal = cSvcTotal + cPrtTotal;
 
               return (
@@ -266,18 +270,23 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                           <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo Previsto</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
                         </View>
-                        {(c.services || []).map((sv: OSServiceItem, idx: number) => (
-                          <View
-                            key={sv.id}
-                            style={idx === c.services.length - 1 ? styles.tableRowLast : styles.tableRow}
-                          >
-                            <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
-                            <Text style={[styles.cellTextMuted, styles.colTime]}>
-                              {formatMinutes(sv.service?.estimatedTime)}
-                            </Text>
-                            <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
-                          </View>
-                        ))}
+                        {(c.services || []).map((sv: OSServiceItem, idx: number) => {
+                          const rejected = sv.approved === false;
+                          return (
+                            <View
+                              key={sv.id}
+                              style={idx === c.services.length - 1 ? styles.tableRowLast : styles.tableRow}
+                            >
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                                {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
+                              </Text>
+                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colTime]}>
+                                {formatMinutes(sv.service?.estimatedTime)}
+                              </Text>
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
                     )}
 
@@ -292,18 +301,23 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                           <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
                         </View>
-                        {(c.parts || []).map((p: OSPartItem, idx: number) => (
-                          <View
-                            key={p.id}
-                            style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}
-                          >
-                            <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
-                            <Text style={[styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
-                            <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
-                            <Text style={[styles.cellTextMuted, styles.colUnit]}>{formatMoney(p.unitPrice)}</Text>
-                            <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(p.totalPrice)}</Text>
-                          </View>
-                        ))}
+                        {(c.parts || []).map((p: OSPartItem, idx: number) => {
+                          const rejected = p.approved === false;
+                          return (
+                            <View
+                              key={p.id}
+                              style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}
+                            >
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                                {p.description}{rejected ? " (NÃO APROVADO)" : ""}
+                              </Text>
+                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
+                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
+                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
                     )}
 
@@ -328,13 +342,18 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                 <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo Previsto</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
               </View>
-              {ungroupedServices.map((sv: OSServiceItem, idx: number) => (
-                <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
-                  <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
-                  <Text style={[styles.cellTextMuted, styles.colTime]}>{formatMinutes(sv.service?.estimatedTime)}</Text>
-                  <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
-                </View>
-              ))}
+              {ungroupedServices.map((sv: OSServiceItem, idx: number) => {
+                const rejected = sv.approved === false;
+                return (
+                  <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                      {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
+                    </Text>
+                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colTime]}>{formatMinutes(sv.service?.estimatedTime)}</Text>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -351,15 +370,20 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                 <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
               </View>
-              {ungroupedParts.map((p: OSPartItem, idx: number) => (
-                <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
-                  <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
-                  <Text style={[styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
-                  <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
-                  <Text style={[styles.cellTextMuted, styles.colUnit]}>{formatMoney(p.unitPrice)}</Text>
-                  <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(p.totalPrice)}</Text>
-                </View>
-              ))}
+              {ungroupedParts.map((p: OSPartItem, idx: number) => {
+                const rejected = p.approved === false;
+                return (
+                  <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                      {p.description}{rejected ? " (NÃO APROVADO)" : ""}
+                    </Text>
+                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
+                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
+                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
