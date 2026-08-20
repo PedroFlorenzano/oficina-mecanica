@@ -146,7 +146,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
           vehicle: { select: { plate: true, model: true } },
         },
       });
-    });
+    }, { timeout: 15000 });
   }
 
   async createLegacy(data: LegacyCreateOrderData): Promise<OrderData> {
