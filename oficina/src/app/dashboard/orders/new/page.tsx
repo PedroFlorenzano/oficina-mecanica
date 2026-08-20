@@ -330,22 +330,26 @@ export default function NewOrderPage() {
             description: s.description,
             price: s.approved === false ? 0 : s.price * (s.timeHours > 0 ? s.timeHours : 1),
             timeMinutes: Math.round((s.timeHours || 0) * 60),
-            serviceId: s.serviceId,
+            serviceId: s.serviceId || undefined,
             commissionRate: s.commissionRate ?? undefined,
-            mechanicId: s.mechanicId,
-            approved: s.approved !== false,
+            mechanicId: s.mechanicId || undefined,
           })),
           parts: c.parts.filter(p => p.description).map(p => ({
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.approved === false ? 0 : p.unitPrice,
-            stockItemId: p.stockItemId,
-            approved: p.approved !== false,
+            stockItemId: p.stockItemId || undefined,
           })),
         })),
       }),
     });
-    if (!res.ok) { const data = await res.json(); setError(data.error || "Erro ao criar OS"); setSaving(false); return; }
+    if (!res.ok) {
+      let errorMsg = "Erro ao criar OS";
+      try { const data = await res.json(); errorMsg = data.error || data.message || errorMsg; } catch { errorMsg = `Erro do servidor (${res.status})`; }
+      setError(errorMsg);
+      setSaving(false);
+      return;
+    }
     router.replace("/dashboard/orders");
   };
 
@@ -769,6 +773,9 @@ export default function NewOrderPage() {
         </div>
 
         {/* Submit */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+        )}
         <div className="flex gap-3">
           <button type="submit" disabled={saving}
             className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium text-sm">
