@@ -274,7 +274,7 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                           <Combobox
                             options={catalogServices.map(s => ({ id: s.id, label: s.description, rightLabel: `R$ ${s.defaultPrice.toFixed(2)}` }))}
                             value={item.description}
-                            onChange={(val) => updateItem(i, { description: val })}
+                            onChange={() => {}}
                             onSelect={(opt) => {
                               const svc = catalogServices.find(s => s.id === opt.id);
                               if (svc) {
@@ -305,7 +305,7 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                           <Combobox
                             options={stockItems.map(s => ({ id: s.id, label: s.description, sublabel: s.code, rightLabel: `R$ ${s.sellPrice.toFixed(2)}` }))}
                             value={item.description}
-                            onChange={(val) => updateItem(i, { description: val })}
+                            onChange={() => {}}
                             onSelect={(opt) => {
                               const st = stockItems.find(s => s.id === opt.id);
                               if (st) {
