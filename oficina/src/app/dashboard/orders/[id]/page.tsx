@@ -127,7 +127,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemType, itemId, approved }),
       });
-      if (res.ok) fetchOrder();
+      if (res.ok) {
+        fetchOrder();
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setWhatsAppMsg(`✗ ${data.detail || data.error || "Erro ao atualizar aprovação"}`);
+        setTimeout(() => setWhatsAppMsg(""), 5000);
+      }
     } finally {
       setTogglingItem(null);
     }

@@ -365,9 +365,15 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   async setItemApproval(orderId: string, itemType: "service" | "part", itemId: string, approved: boolean): Promise<OrderData> {
     return this.db.$transaction(async (tx) => {
       if (itemType === "service") {
-        await tx.orderService.update({ where: { id: itemId, orderId }, data: { approved } });
+        const result = await tx.orderService.updateMany({ where: { id: itemId, orderId }, data: { approved } });
+        if (result.count === 0) {
+          throw new Error("Serviço não encontrado nesta OS");
+        }
       } else {
-        await tx.orderPart.update({ where: { id: itemId, orderId }, data: { approved } });
+        const result = await tx.orderPart.updateMany({ where: { id: itemId, orderId }, data: { approved } });
+        if (result.count === 0) {
+          throw new Error("Peça não encontrada nesta OS");
+        }
       }
 
       const [services, parts] = await Promise.all([
