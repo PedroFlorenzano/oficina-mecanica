@@ -119,24 +119,54 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }, [id]);
   const [togglingItem, setTogglingItem] = useState<string | null>(null);
 
-  const toggleItemApproval = async (itemType: "service" | "part", itemId: string, approved: boolean) => {
-    setTogglingItem(itemId);
-    try {
-      const res = await fetch(`/api/orders/${id}/items`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ itemType, itemId, approved }),
-      });
-      if (res.ok) {
-        fetchOrder();
-      } else {
-        const data = await res.json().catch(() => ({}));
-        setWhatsAppMsg(`✗ ${data.detail || data.error || "Erro ao atualizar aprovação"}`);
-        setTimeout(() => setWhatsAppMsg(""), 5000);
+  const toggleItemApproval = (itemType: "service" | "part", itemId: string, approved: boolean) => {
+    if (!order) return;
+
+    // Snapshot para reverter em caso de erro
+    const previousOrder = order;
+
+    // Atualização otimista — reflete o clique imediatamente na UI
+    setOrder((prev) => {
+      if (!prev) return prev;
+      function updateServices<T extends { id: string; approved?: boolean }>(services: T[]): T[] {
+        return services.map((s) => (s.id === itemId ? { ...s, approved } : s));
       }
-    } finally {
-      setTogglingItem(null);
-    }
+      function updateParts<T extends { id: string; approved?: boolean }>(parts: T[]): T[] {
+        return parts.map((p) => (p.id === itemId ? { ...p, approved } : p));
+      }
+
+      return {
+        ...prev,
+        services: itemType === "service" ? updateServices(prev.services) : prev.services,
+        parts: itemType === "part" ? updateParts(prev.parts) : prev.parts,
+        complaints: prev.complaints.map((c) => ({
+          ...c,
+          services: itemType === "service" ? updateServices(c.services) : c.services,
+          parts: itemType === "part" ? updateParts(c.parts) : c.parts,
+        })),
+      };
+    });
+
+    setTogglingItem(itemId);
+    fetch(`/api/orders/${id}/items`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ itemType, itemId, approved }),
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setOrder(previousOrder); // reverte
+          setWhatsAppMsg(`✗ ${data.detail || data.error || "Erro ao atualizar aprovação"}`);
+          setTimeout(() => setWhatsAppMsg(""), 5000);
+        }
+      })
+      .catch(() => {
+        setOrder(previousOrder); // reverte
+        setWhatsAppMsg("✗ Erro de conexão ao atualizar aprovação");
+        setTimeout(() => setWhatsAppMsg(""), 5000);
+      })
+      .finally(() => setTogglingItem(null));
   };
 
   const changeStatus = async (newStatus: string) => {
