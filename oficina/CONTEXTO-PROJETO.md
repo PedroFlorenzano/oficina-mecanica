@@ -3072,3 +3072,66 @@ Os dropdowns já viriam pré-selecionados com as sugestões. O admin só confirm
 - A BrasilAPI apenas **valida** o CPF (confirma se é válido), mas não retorna dados pessoais
 - **CNPJ funciona normalmente** — dados de empresas são públicos (razão social, endereço, telefone, email)
 - **Decisão:** CPF apenas valida. CNPJ preenche dados automaticamente.
+
+
+## Sessão 19-20/08/2026 — Melhorias OS + Kits + Correções
+
+### Melhorias na OS (itens 1.1 a 1.7)
+
+| Item | Funcionalidade | Status |
+|------|---------------|--------|
+| 1.1 | Campo PLACA editável na OS — digitar placa busca e vincula veículo+cliente automaticamente | ✅ |
+| 1.2 | Busca de clientes case-insensitive (mode: "insensitive" no Prisma) | ✅ |
+| 1.3 | Tempo em horas decimais (1.5 = 1h30) com soma total por reclamação e geral | ✅ |
+| 1.4 | Campo R$ Custo nas peças (fundo amarelo) — auto-calcula R$ Unit via margem do estoque | ✅ |
+| 1.5 | Uppercase automático nos campos de texto (reclamação, descrição, marca) | ✅ |
+| 1.6 | Subtotais discriminados: serviços + peças + tempo. Cálculo: preço × tempo (horas) | ✅ |
+| 1.7 | Checkbox "Aprovado" em cada serviço/peça — desmarcado = valor zero + opacidade | ✅ |
+
+**IMPORTANTE sobre cálculo de serviços:**
+- Preço do serviço na OS = `preço unitário × tempo (h)`. Se tempo = 0, usa preço direto.
+- Ao enviar para o backend, o preço já vai multiplicado (price * timeHours).
+- O backend recebe `price` como valor final e `timeMinutes` como referência.
+
+### Módulo Kits de Serviço (NOVO)
+
+- **Schema:** model Kit + KitItem (cascade delete)
+- **Migration:** `20260819170011_add_kits`
+- **API:** GET/POST `/api/kits`, PUT/DELETE `/api/kits/[id]`
+- **UI:** Sub-aba em `/dashboard/services/kits` (link "Kits" no Catálogo)
+- **Formulário:** Tela full (não modal) com Combobox pesquisável para serviços/peças
+- **Integração OS:** Dropdown "🧰 Aplicar Kit..." em cada reclamação — injeta serviços + peças
+- **Tempo no Kit:** Campo em horas (internamente salva em minutos ×60, converte de volta ÷60)
+- **Fix race condition:** onChange do Combobox no Kit é no-op (onSelect cuida de tudo)
+
+### Correções Importantes
+
+| Fix | Detalhe |
+|-----|---------|
+| Transaction timeout | `createWithComplaints` aumentado de 5s → 15s (RLS + Vercel Hobby causa latência) |
+| Mensagem de erro da OS | Movida do topo para acima do botão Submit |
+| handleError detail | Agora retorna `detail` com mensagem real do erro (para debug) |
+| Busca de clientes | `mode: "insensitive"` no Prisma (PostgreSQL é case-sensitive por padrão) |
+| Check-out de saída | Auto-abre PDF ao mover OS para IN_PROGRESS (tanto na Pista quanto na tela de detalhe) |
+| Estoque alertas | Linhas de alerta clicáveis — abre edição do item |
+
+### Commits desta sessão
+- `1ea0b0d` — Alertas de estoque clicáveis
+- `6848105` — Melhorias OS (placa, busca, tempo, custo, uppercase, subtotais, aprovado)
+- `77df367` — Módulo Kits (schema + CRUD + sub-aba + integração OS)
+- `83d62fc` — Dropdown de serviços/peças no Kit
+- `a669a7e` — Combobox pesquisável nos Kits
+- `6a2d45f` — Kit form inline (sem overlay fixed)
+- `4429dbe` — Tempo do Kit em horas
+- `35ebf1c` — Fix preenchimento de preço no Kit
+- `7f54436` — Fix race condition onSelect/onChange no Kit
+- `0430c11` — Erro da OS perto do botão submit
+- `253947d` — Detail no handleError
+- `50c62c9` — Transaction timeout 15s
+
+### Pendente / Em andamento
+- **Erro na criação de OS:** Transaction timeout foi corrigido (5s → 15s). Aguardando teste do usuário.
+- **PlacaFipe:** Usuário entrou em contato com a empresa. Aguardando resposta sobre API/preços.
+- **Item 4 (Importação por Chave NF-e):** Não implementado ainda (maior complexidade).
+- **Edição de OS:** A tela de edição (`/dashboard/orders/[id]/edit`) NÃO foi atualizada com as mesmas melhorias da nova OS (tempo em horas, custo, approved, kits). Precisa ser feito.
+- **Backend approved:** O campo `approved` não é persistido no banco ainda (não tem coluna). Funciona apenas no frontend (zerado no submit). Para persistir, precisaria de migration adicionando coluna `approved Boolean @default(true)` em OrderService e OrderPart.
