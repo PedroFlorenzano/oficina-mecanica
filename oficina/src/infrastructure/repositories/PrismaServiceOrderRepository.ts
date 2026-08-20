@@ -108,6 +108,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
               serviceId: s.serviceId || null,
               mechanicId: s.mechanicId || null,
               commissionRate: s.commissionRate ?? null,
+              approved: s.approved ?? true,
               orderId: order.id,
               complaintId: complaint.id,
             })),
@@ -131,6 +132,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
                 unitPrice: p.unitPrice,
                 totalPrice: p.quantity * p.unitPrice,
                 stockItemId,
+                approved: p.approved ?? true,
                 orderId: order.id,
                 complaintId: complaint.id,
               },
@@ -289,7 +291,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   async replaceComplaints(
     orderId: string,
     tenantId: string,
-    complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null }[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[] }[],
+    complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null; approved?: boolean }[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null; approved?: boolean }[] }[],
     totalAmount: number,
     notes: string | null
   ): Promise<OrderData> {
@@ -313,6 +315,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
               serviceId: s.serviceId || null,
               mechanicId: s.mechanicId || null,
               commissionRate: s.commissionRate ?? null,
+              approved: s.approved ?? true,
               orderId,
               complaintId: complaint.id,
             })),
@@ -335,6 +338,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
               unitPrice: p.unitPrice,
               totalPrice: p.quantity * p.unitPrice,
               stockItemId,
+              approved: p.approved ?? true,
               orderId,
               complaintId: complaint.id,
             },
@@ -355,6 +359,35 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
           complaints: { include: { services: true, parts: true } },
         },
       }) as unknown as OrderData;
+    });
+  }
+
+  async setItemApproval(orderId: string, itemType: "service" | "part", itemId: string, approved: boolean): Promise<OrderData> {
+    return this.db.$transaction(async (tx) => {
+      if (itemType === "service") {
+        await tx.orderService.update({ where: { id: itemId, orderId }, data: { approved } });
+      } else {
+        await tx.orderPart.update({ where: { id: itemId, orderId }, data: { approved } });
+      }
+
+      const [services, parts] = await Promise.all([
+        tx.orderService.findMany({ where: { orderId }, select: { price: true, approved: true } }),
+        tx.orderPart.findMany({ where: { orderId }, select: { totalPrice: true, approved: true } }),
+      ]);
+
+      const totalAmount =
+        services.reduce((sum, s) => sum + (s.approved ? s.price : 0), 0) +
+        parts.reduce((sum, p) => sum + (p.approved ? p.totalPrice : 0), 0);
+
+      await tx.serviceOrder.update({ where: { id: orderId }, data: { totalAmount } });
+
+      return tx.serviceOrder.findUnique({
+        where: { id: orderId },
+        include: {
+          client: { select: { name: true } },
+          vehicle: { select: { plate: true, model: true } },
+        },
+      }) as unknown as Promise<OrderData>;
     });
   }
 }

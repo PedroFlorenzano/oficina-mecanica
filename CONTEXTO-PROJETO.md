@@ -3135,3 +3135,85 @@ Os dropdowns já viriam pré-selecionados com as sugestões. O admin só confirm
 - **Item 4 (Importação por Chave NF-e):** Não implementado ainda (maior complexidade).
 - **Edição de OS:** A tela de edição (`/dashboard/orders/[id]/edit`) NÃO foi atualizada com as mesmas melhorias da nova OS (tempo em horas, custo, approved, kits). Precisa ser feito.
 - **Backend approved:** O campo `approved` não é persistido no banco ainda (não tem coluna). Funciona apenas no frontend (zerado no submit). Para persistir, precisaria de migration adicionando coluna `approved Boolean @default(true)` em OrderService e OrderPart.
+
+---
+
+## Sessão 20/08/2026 — Persistência do flag "Aprovado" + Qualidade da tela de Kits
+
+### Flag "Aprovado" — persistência real e visibilidade condicional
+
+Corrigido o comportamento do checkbox "Aprovado" (item 1.7 da sessão anterior), que até então só existia no frontend da criação de OS e zerava o valor irreversivelmente antes de enviar ao backend.
+
+**Schema:**
+```prisma
+// OrderService e OrderPart — novo campo:
+approved  Boolean  @default(true)  // Aprovado pelo cliente
+```
+Migration `20260820140000_add_approved_flag` (aplicada manualmente via `prisma db execute` + `migrate resolve --applied`, pois o banco de dev tinha drift de outras migrations aplicadas fora de sequência).
+
+**Mudança de abordagem importante:** antes, o frontend zerava `price`/`unitPrice` no momento do submit quando `approved === false`, perdendo o valor original. Agora o valor real é sempre enviado e persistido; `approved` é uma flag independente. O cálculo de `totalAmount` (em `CreateOrder`, `UpdateOrder` e no novo `ToggleItemApproval`) soma apenas itens com `approved !== false`. Isso permite reverter uma reprovação sem perder o preço.
+
+**Novo fluxo de aprovação por item:**
+- `ToggleItemApproval` use case + rota `PATCH /api/orders/[id]/items` (`{ itemType: "service"|"part", itemId, approved }`)
+- Só permite alteração enquanto a OS está em `WAITING_APPROVAL` (`BusinessRuleError` caso contrário)
+- `PrismaServiceOrderRepository.setItemApproval` atualiza o item e recalcula `totalAmount` da OS somando apenas serviços/peças aprovados
+
+**Tela de detalhe da OS (`/dashboard/orders/[id]`):**
+- Checkbox "Aprovado" por linha (serviços e peças, dentro de reclamações e nas tabelas avulsas/ungrouped) — **só aparece quando `status === WAITING_APPROVAL`**
+- Após a OS sair de `WAITING_APPROVAL` (aprovada ou mudou de status), a coluna de checkbox desaparece — reflete a regra de negócio "aprovação só é editável enquanto aguarda aprovação"
+- Item reprovado: linha com fundo vermelho claro (`bg-red-50`), texto riscado, valor exibido como R$ 0,00
+- Totais gerais (`totalParts`, `totalServices`) recalculados no frontend considerando `approved === false` como 0
+
+**Telas de criação e edição de OS:**
+- `new/page.tsx`: já tinha o checkbox; ajustado para enviar `approved` real e valor completo (não zera mais no frontend)
+- `edit/page.tsx`: não tinha nenhum suporte a `approved` — adicionado checkbox no mesmo padrão visual da criação, em serviços e peças
+
+**PDF de Orçamento (`BudgetDocument.tsx`):**
+- Linhas com `approved === false`: texto em vermelho, riscado (`line-through`), sufixo "(NÃO APROVADO)", valores exibidos como R$ 0,00
+- Totais (subtotal por reclamação, total de serviços, total de peças) descontam itens reprovados
+- Rota `/api/orders/[id]/budget` não precisou de alteração — `findById` já retorna o campo `approved` automaticamente (campo escalar novo do Prisma)
+
+### Arquivos criados/modificados
+
+| Arquivo | Ação |
+|---------|------|
+| `prisma/schema.prisma` | Campo `approved` em OrderService e OrderPart |
+| `prisma/migrations/20260820140000_add_approved_flag/migration.sql` | Migration idempotente (`ADD COLUMN IF NOT EXISTS`) |
+| `src/domain/repositories/IServiceOrderRepository.ts` | `approved?` em ComplaintInput, OrderServiceDetail, OrderPartDetail + método `setItemApproval` |
+| `src/infrastructure/repositories/PrismaServiceOrderRepository.ts` | `createWithComplaints`, `replaceComplaints` persistem `approved`; novo `setItemApproval` |
+| `src/application/dtos/CreateOrderDTO.ts` / `UpdateOrderDTO.ts` | Campo `approved?` em services/parts |
+| `src/application/use-cases/orders/CreateOrder.ts` | totalAmount considera `approved` |
+| `src/application/use-cases/orders/UpdateOrder.ts` | totalAmount considera `approved` |
+| `src/application/use-cases/orders/ToggleItemApproval.ts` | Criado — use case de toggle com guarda de status |
+| `src/app/api/orders/[id]/items/route.ts` | Criado — rota PATCH |
+| `src/app/dashboard/orders/new/page.tsx` | Envia approved real + valor completo |
+| `src/app/dashboard/orders/[id]/edit/page.tsx` | Checkbox approved adicionado |
+| `src/app/dashboard/orders/[id]/page.tsx` | Checkbox condicional + estilo vermelho + handler de toggle |
+| `src/components/pdf/BudgetDocument.tsx` | Estilo vermelho + riscado + zerar valores de itens reprovados |
+
+### Qualidade da Tela de Kits — Análise e Correções
+
+Análise comparativa da tela `/dashboard/services/kits` contra os padrões de UI do restante do projeto (Design System, RBAC, modais de confirmação).
+
+**Problemas encontrados:**
+1. Sem verificação de permissões no frontend (qualquer usuário logado via os botões de criar/editar/excluir)
+2. `confirm()` nativo do browser para exclusão em vez de modal customizado
+3. Listagem usava `Card` em grid solto em vez de `Table` do design system
+4. Erro do formulário não usava `data.detail` (padrão adotado no restante do projeto para debug)
+5. Estado vazio customizado em vez do componente `EmptyState`
+6. Linha da listagem não era clicável (só o ícone de editar)
+7. Botão de voltar usava texto "← Catálogo" em vez do ícone `ArrowLeft` padrão
+
+**Descoberta importante:** o backend (`/api/kits` e `/api/kits/[id]`) já restringe POST/PUT/DELETE a `role === "ADMIN"` — não havia falha de segurança real, mas uma falha de UX (usuários não-ADMIN viam os botões e só descobriam o bloqueio ao salvar). A correção do frontend usa `isAdmin` (refletindo a regra real do backend) em vez da matriz de permissões customizável `hasPermission`, evitando uma inconsistência onde o frontend permitiria algo que o backend nega.
+
+**Correções aplicadas:**
+- RBAC: botões de criar/editar/excluir só aparecem para `role === "ADMIN"` (alinhado ao backend)
+- Modal de confirmação de exclusão (mesmo padrão do cancelamento de OS) substituindo `confirm()`
+- Listagem migrada para `Table`/`TableHeader`/`TableBody`/`TableRow`/`TableCell`, com linha inteira clicável
+- `EmptyState` do design system no lugar do card customizado
+- Erro do formulário usa `data.detail` com fallback para `data.error`
+- Botão de voltar usa ícone `ArrowLeft`
+
+**Mantido sem alteração (decisão deliberada, documentada no contexto):** o formulário de criação/edição de Kit continua como "full-page swap" em vez de `Modal` overlay — essa era uma decisão intencional já registrada. Não foi revertida sem confirmação do usuário.
+
+*Última atualização: 20/08/2026 — Flag "Aprovado" persistida no banco com visibilidade condicional por status + cor no orçamento; qualidade da tela de Kits corrigida (RBAC, Table, EmptyState, modal de confirmação).*

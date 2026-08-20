@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 
-interface BudgetService { id: string; description: string; price: number; complaintId?: string | null }
-interface BudgetPart { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; complaintId?: string | null }
+interface BudgetService { id: string; description: string; price: number; complaintId?: string | null; approved?: boolean }
+interface BudgetPart { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; complaintId?: string | null; approved?: boolean }
 interface BudgetComplaint { id: string; number: number; description: string; services: BudgetService[]; parts: BudgetPart[] }
 interface BudgetOrder {
   number: number; createdAt: string | Date; mileage: number; totalAmount: number;
@@ -40,6 +40,9 @@ const styles = StyleSheet.create({
   colTotal: { flex: 1.2, textAlign: "right" },
   cellText: { fontSize: 8, color: "#334155" },
   cellTextMuted: { fontSize: 8, color: "#94a3b8" },
+  cellTextRejected: { fontSize: 8, color: "#dc2626", textDecoration: "line-through" },
+  cellTextRejectedMuted: { fontSize: 8, color: "#f87171", textDecoration: "line-through" },
+  rejectedBadge: { fontSize: 6, color: "#dc2626", fontFamily: "Helvetica-Bold", marginLeft: 3 },
   subtotalRow: { flexDirection: "row", justifyContent: "flex-end", paddingTop: 5, marginTop: 3, borderTopWidth: 0.5, borderTopColor: "#e2e8f0" },
   subtotalLabel: { fontSize: 8, color: "#64748b", marginRight: 8 },
   subtotalValue: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#1e293b" },
@@ -68,8 +71,8 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
   const hasComplaints = order.complaints && order.complaints.length > 0;
   const ungroupedServices = (order.services || []).filter((s) => !s.complaintId);
   const ungroupedParts = (order.parts || []).filter((p) => !p.complaintId);
-  const totalServices = (order.services || []).reduce((s, sv) => s + (sv.price || 0), 0);
-  const totalParts = (order.parts || []).reduce((s, p) => s + (p.totalPrice || 0), 0);
+  const totalServices = (order.services || []).reduce((s, sv) => s + (sv.approved === false ? 0 : (sv.price || 0)), 0);
+  const totalParts = (order.parts || []).reduce((s, p) => s + (p.approved === false ? 0 : (p.totalPrice || 0)), 0);
 
   return (
     <Document>
@@ -127,8 +130,8 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Serviços e Peças</Text>
             {order.complaints!.map((c: BudgetComplaint) => {
-              const cSvcTotal = (c.services || []).reduce((s, sv) => s + (sv.price || 0), 0);
-              const cPrtTotal = (c.parts || []).reduce((s, p) => s + (p.totalPrice || 0), 0);
+              const cSvcTotal = (c.services || []).reduce((s, sv) => s + (sv.approved === false ? 0 : (sv.price || 0)), 0);
+              const cPrtTotal = (c.parts || []).reduce((s, p) => s + (p.approved === false ? 0 : (p.totalPrice || 0)), 0);
               return (
                 <View key={c.id} style={styles.complaintBox}>
                   <View style={styles.complaintHeader}>
@@ -142,12 +145,17 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
                         </View>
-                        {(c.services || []).map((sv: BudgetService, idx: number) => (
-                          <View key={sv.id} style={idx === c.services.length - 1 ? styles.tableRowLast : styles.tableRow}>
-                            <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
-                            <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
-                          </View>
-                        ))}
+                        {(c.services || []).map((sv: BudgetService, idx: number) => {
+                          const rejected = sv.approved === false;
+                          return (
+                            <View key={sv.id} style={idx === c.services.length - 1 ? styles.tableRowLast : styles.tableRow}>
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                                {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
+                              </Text>
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
                     )}
                     {(c.parts || []).length > 0 && (
@@ -159,14 +167,19 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                           <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                           <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
                         </View>
-                        {(c.parts || []).map((p: BudgetPart, idx: number) => (
-                          <View key={p.id} style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}>
-                            <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
-                            <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
-                            <Text style={[styles.cellTextMuted, styles.colUnit]}>{formatMoney(p.unitPrice)}</Text>
-                            <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(p.totalPrice)}</Text>
-                          </View>
-                        ))}
+                        {(c.parts || []).map((p: BudgetPart, idx: number) => {
+                          const rejected = p.approved === false;
+                          return (
+                            <View key={p.id} style={idx === c.parts.length - 1 ? styles.tableRowLast : styles.tableRow}>
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                                {p.description}{rejected ? " (NÃO APROVADO)" : ""}
+                              </Text>
+                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
+                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>
+                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>
+                            </View>
+                          );
+                        })}
                       </View>
                     )}
                     <View style={styles.subtotalRow}>
@@ -189,12 +202,17 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
               </View>
-              {ungroupedServices.map((sv: BudgetService, idx: number) => (
-                <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
-                  <Text style={[styles.cellText, styles.colDesc]}>{sv.description}</Text>
-                  <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(sv.price)}</Text>
-                </View>
-              ))}
+              {ungroupedServices.map((sv: BudgetService, idx: number) => {
+                const rejected = sv.approved === false;
+                return (
+                  <View key={sv.id} style={idx === ungroupedServices.length - 1 ? styles.tableRowLast : styles.tableRow}>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                      {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
+                    </Text>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}
@@ -210,14 +228,19 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                 <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
                 <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
               </View>
-              {ungroupedParts.map((p: BudgetPart, idx: number) => (
-                <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
-                  <Text style={[styles.cellText, styles.colDesc]}>{p.description}</Text>
-                  <Text style={[styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
-                  <Text style={[styles.cellTextMuted, styles.colUnit]}>{formatMoney(p.unitPrice)}</Text>
-                  <Text style={[styles.cellText, styles.colTotal]}>{formatMoney(p.totalPrice)}</Text>
-                </View>
-              ))}
+              {ungroupedParts.map((p: BudgetPart, idx: number) => {
+                const rejected = p.approved === false;
+                return (
+                  <View key={p.id} style={idx === ungroupedParts.length - 1 ? styles.tableRowLast : styles.tableRow}>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
+                      {p.description}{rejected ? " (NÃO APROVADO)" : ""}
+                    </Text>
+                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
+                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>
+                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>
+                  </View>
+                );
+              })}
             </View>
           </View>
         )}

@@ -26,8 +26,8 @@ export class CreateOrder {
     if (hasComplaints) {
       let totalAmount = 0;
       for (const c of input.complaints!) {
-        const svcTotal = (c.services || []).reduce((sum, s) => sum + (s.price || 0), 0);
-        const prtTotal = (c.parts || []).reduce((sum, p) => sum + (p.quantity || 0) * (p.unitPrice || 0), 0);
+        const svcTotal = (c.services || []).reduce((sum, s) => sum + (s.approved === false ? 0 : (s.price || 0)), 0);
+        const prtTotal = (c.parts || []).reduce((sum, p) => sum + (p.approved === false ? 0 : (p.quantity || 0) * (p.unitPrice || 0)), 0);
         totalAmount += svcTotal + prtTotal;
       }
 
@@ -47,12 +47,14 @@ export class CreateOrder {
             timeMinutes: s.timeMinutes || null,
             serviceId: s.serviceId || null,
             mechanicId: s.mechanicId || null,
+            approved: s.approved ?? true,
           })),
           parts: (c.parts || []).map((p) => ({
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
             stockItemId: p.stockItemId || null,
+            approved: p.approved ?? true,
           })),
         })),
       });

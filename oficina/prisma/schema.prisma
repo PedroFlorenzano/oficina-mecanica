@@ -207,6 +207,7 @@ model OrderService {
   complaintId    String?
   mechanicId     String?
   commissionRate Float?   // % comissão snapshot (null = usa taxa do mecânico)
+  approved       Boolean  @default(true) // Aprovado pelo cliente (visível/editável apenas em WAITING_APPROVAL)
   createdAt      DateTime @default(now())
 
   service     ServiceCatalog? @relation(fields: [serviceId], references: [id])
@@ -229,6 +230,7 @@ model OrderPart {
   orderId     String
   complaintId String?
   used        Boolean  @default(false)
+  approved    Boolean  @default(true) // Aprovado pelo cliente (visível/editável apenas em WAITING_APPROVAL)
   createdAt   DateTime @default(now())
 
   stockItem   StockItem?   @relation(fields: [stockItemId], references: [id])

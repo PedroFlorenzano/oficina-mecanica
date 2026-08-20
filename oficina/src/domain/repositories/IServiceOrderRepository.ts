@@ -27,8 +27,8 @@ export interface OrderSummary {
 
 export interface ComplaintInput {
   description: string;
-  services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null }[];
-  parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[];
+  services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null; approved?: boolean }[];
+  parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null; approved?: boolean }[];
 }
 
 export interface CreateOrderData {
@@ -61,6 +61,7 @@ export interface OrderServiceDetail {
   serviceId: string | null;
   mechanicId: string | null;
   mechanic?: { name: string } | null;
+  approved: boolean;
 }
 
 export interface OrderPartDetail {
@@ -72,6 +73,7 @@ export interface OrderPartDetail {
   stockItemId: string | null;
   used: boolean;
   stockItem?: { supplier: string | null; brand: string | null } | null;
+  approved: boolean;
 }
 
 export interface ComplaintDetail {
@@ -113,6 +115,7 @@ export interface IServiceOrderRepository {
   createLegacy(data: LegacyCreateOrderData): Promise<OrderData>;
   updateStatus(id: string, status: string, userId: string): Promise<OrderData | null>;
   replaceComplaints(orderId: string, tenantId: string, complaints: ComplaintInput[], totalAmount: number, notes: string | null): Promise<OrderData>;
+  setItemApproval(orderId: string, itemType: "service" | "part", itemId: string, approved: boolean): Promise<OrderData>;
   findByClientId(clientId: string, tenantId: string): Promise<OrderSummary[]>;
   findByVehicleId(vehicleId: string, tenantId: string): Promise<OrderSummary[]>;
   findOilChangeOrders(vehicleId: string, tenantId: string): Promise<{ mileage: number; createdAt: Date }[]>;

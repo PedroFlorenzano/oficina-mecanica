@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2, Pencil, Package, Wrench } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { Plus, Trash2, Pencil, Package, Wrench, ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { PageHeader, Card, Button, Combobox } from "@/components/ui";
-import type { ComboboxOption } from "@/components/ui";
+import { PageHeader, Button, Combobox, EmptyState, Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui";
 
 interface KitItem {
   id?: string;
@@ -26,10 +26,17 @@ interface Kit {
 }
 
 export default function KitsPage() {
+  const { data: session } = useSession();
+  // Backend restringe criação/edição/exclusão de kits a ADMIN (ver /api/kits) — refletir a mesma regra aqui
+  const isAdmin = session?.user?.role === "ADMIN";
+
   const [kits, setKits] = useState<Kit[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingKit, setEditingKit] = useState<Kit | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Kit | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   const fetchKits = async () => {
     setLoading(true);
@@ -44,10 +51,22 @@ export default function KitsPage() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchKits(); }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Excluir este kit?")) return;
-    const res = await fetch(`/api/kits/${id}`, { method: "DELETE" });
-    if (res.ok) fetchKits();
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch(`/api/kits/${deleteTarget.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setDeleteError(data.detail || data.error || "Erro ao excluir kit");
+        return;
+      }
+      setDeleteTarget(null);
+      fetchKits();
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (showForm) {
@@ -67,77 +86,135 @@ export default function KitsPage() {
         description="Conjuntos pré-definidos de serviços + peças para uso rápido na OS"
         action={
           <div className="flex items-center gap-2">
-            <Link href="/dashboard/services" className="px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700">
-              ← Catálogo
+            <Link href="/dashboard/services" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg hover:bg-slate-50 text-sm font-medium text-slate-700">
+              <ArrowLeft size={16} /> Catálogo
             </Link>
-            <Button onClick={() => { setEditingKit(null); setShowForm(true); }}>
-              <Plus className="w-4 h-4 mr-2" /> Novo Kit
-            </Button>
+            {isAdmin && (
+              <Button onClick={() => { setEditingKit(null); setShowForm(true); }}>
+                <Plus className="w-4 h-4 mr-2" /> Novo Kit
+              </Button>
+            )}
           </div>
         }
       />
 
-      {loading ? (
-        <div className="text-center py-12 text-gray-500">Carregando...</div>
-      ) : kits.length === 0 ? (
-        <Card className="p-8 text-center">
-          <Package className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-          <p className="text-slate-500">Nenhum kit cadastrado.</p>
-          <p className="text-sm text-slate-400 mt-1">Crie kits com serviços e peças frequentes para agilizar a criação de OS.</p>
-        </Card>
-      ) : (
-        <div className="grid gap-4">
-          {kits.map((kit) => (
-            <Card key={kit.id} className="p-5">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="font-bold text-slate-800">{kit.name}</h3>
-                  {kit.description && <p className="text-sm text-slate-500 mt-0.5">{kit.description}</p>}
-                  <div className="flex gap-4 mt-2 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Wrench size={12} /> {kit.items.filter(i => i.type === "SERVICE").length} serviço(s)
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Package size={12} /> {kit.items.filter(i => i.type === "PART").length} peça(s)
-                    </span>
-                  </div>
-                  {kit.items.length > 0 && (
-                    <div className="mt-3 space-y-1">
-                      {kit.items.map((item, i) => (
-                        <div key={i} className="text-xs text-slate-600 flex items-center gap-2">
-                          <span className={`w-1.5 h-1.5 rounded-full ${item.type === "SERVICE" ? "bg-blue-400" : "bg-green-400"}`} />
-                          {item.description}
-                          {item.type === "SERVICE" && item.price > 0 && (
-                            <span className="text-slate-400">R$ {item.price.toFixed(2)}</span>
-                          )}
-                          {item.type === "PART" && (
-                            <span className="text-slate-400">×{item.quantity}</span>
-                          )}
-                        </div>
-                      ))}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        {loading ? (
+          <p className="p-6 text-slate-500">Carregando...</p>
+        ) : kits.length === 0 ? (
+          <EmptyState
+            icon={Package}
+            title="Nenhum kit cadastrado"
+            description="Crie kits com serviços e peças frequentes para agilizar a criação de OS."
+          />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Kit</TableHead>
+                <TableHead>Itens</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {kits.map((kit) => (
+                <TableRow
+                  key={kit.id}
+                  className="hover:bg-slate-50 cursor-pointer"
+                  onClick={() => { setEditingKit(kit); setShowForm(true); }}
+                >
+                  <TableCell>
+                    <p className="font-medium text-slate-800">{kit.name}</p>
+                    {kit.description && <p className="text-sm text-slate-500 mt-0.5">{kit.description}</p>}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-4 text-xs text-slate-500 mb-1">
+                      <span className="flex items-center gap-1">
+                        <Wrench size={12} /> {kit.items.filter(i => i.type === "SERVICE").length} serviço(s)
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Package size={12} /> {kit.items.filter(i => i.type === "PART").length} peça(s)
+                      </span>
                     </div>
-                  )}
-                </div>
-                <div className="flex gap-1">
-                  <button onClick={() => { setEditingKit(kit); setShowForm(true); }} className="p-1.5 rounded hover:bg-yellow-50 text-yellow-600" title="Editar">
-                    <Pencil size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(kit.id)} className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Excluir">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+                    {kit.items.length > 0 && (
+                      <div className="space-y-0.5">
+                        {kit.items.map((item, i) => (
+                          <div key={i} className="text-xs text-slate-600 flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${item.type === "SERVICE" ? "bg-blue-400" : "bg-green-400"}`} />
+                            {item.description}
+                            {item.type === "SERVICE" && item.price > 0 && (
+                              <span className="text-slate-400">R$ {item.price.toFixed(2)}</span>
+                            )}
+                            {item.type === "PART" && (
+                              <span className="text-slate-400">×{item.quantity}</span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setEditingKit(kit); setShowForm(true); }}
+                        className="p-1.5 rounded hover:bg-yellow-50 text-yellow-600" title="Editar"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
+                    {isAdmin && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setDeleteTarget(kit); setDeleteError(""); }}
+                        className="p-1.5 rounded hover:bg-red-50 text-red-600" title="Excluir"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
 
-      {showForm && (
-        <KitFormModal
-          kit={editingKit}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); fetchKits(); }}
-        />
+      {/* Modal de confirmação de exclusão */}
+      {deleteTarget && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                <Trash2 size={20} className="text-red-600" />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-800">Excluir Kit</h3>
+                <p className="text-sm text-slate-500">{deleteTarget.name}</p>
+              </div>
+            </div>
+            <p className="text-sm text-slate-700 mb-4">
+              Tem certeza que deseja excluir este kit? Esta ação não pode ser desfeita.
+            </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 mb-3">{deleteError}</p>
+            )}
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200"
+                disabled={deleting}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50"
+                disabled={deleting}
+              >
+                {deleting ? "Excluindo..." : "Confirmar Exclusão"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -193,8 +270,8 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
     });
 
     if (!res.ok) {
-      const data = await res.json();
-      setError(data.error || "Erro ao salvar");
+      const data = await res.json().catch(() => ({}));
+      setError(data.detail || data.error || "Erro ao salvar");
       setSaving(false);
       return;
     }
@@ -286,7 +363,7 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Preço (R$)</label>
-                          <input type="number" step="0.01" value={item.price}
+                          <input type="number" step="0.01" value={item.price || ""}
                             onChange={(e) => updateItem(i, { price: Number(e.target.value) })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
@@ -317,13 +394,13 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">Qtd</label>
-                          <input type="number" min="1" value={item.quantity}
+                          <input type="number" min="1" value={item.quantity || ""}
                             onChange={(e) => updateItem(i, { quantity: Number(e.target.value) })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>
                         <div>
                           <label className="block text-xs text-slate-500 mb-1">R$ Unitário</label>
-                          <input type="number" step="0.01" value={item.unitPrice}
+                          <input type="number" step="0.01" value={item.unitPrice || ""}
                             onChange={(e) => updateItem(i, { unitPrice: Number(e.target.value) })}
                             className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                         </div>

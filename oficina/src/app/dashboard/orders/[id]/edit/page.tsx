@@ -32,6 +32,7 @@ interface ServiceItem {
   timeMinutes: number;
   serviceId?: string;
   mechanicId?: string;
+  approved?: boolean;
 }
 
 interface PartItem {
@@ -40,6 +41,7 @@ interface PartItem {
   quantity: number;
   unitPrice: number;
   stockItemId?: string;
+  approved?: boolean;
 }
 
 interface ComplaintItem {
@@ -63,8 +65,8 @@ interface OrderData {
   vehicle: { plate: string; brand: string; model: string };
   complaints: {
     description: string;
-    services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null }[];
-    parts: { description: string; quantity: number; unitPrice: number; totalPrice: number; stockItemId?: string | null; stockItem?: { brand?: string | null } | null }[];
+    services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; approved?: boolean }[];
+    parts: { description: string; quantity: number; unitPrice: number; totalPrice: number; stockItemId?: string | null; stockItem?: { brand?: string | null } | null; approved?: boolean }[];
   }[];
 }
 
@@ -109,6 +111,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             timeMinutes: s.timeMinutes || 0,
             serviceId: s.serviceId || undefined,
             mechanicId: s.mechanicId || undefined,
+            approved: s.approved !== false,
           })),
           parts: c.parts.map((p: OrderData["complaints"][number]["parts"][number]) => ({
             description: p.description,
@@ -116,6 +119,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             quantity: p.quantity,
             unitPrice: p.unitPrice,
             stockItemId: p.stockItemId || undefined,
+            approved: p.approved !== false,
           })),
           expanded: true,
         }))
@@ -158,7 +162,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
     const u = [...complaints];
     const newServices = ids.map((id) => {
       const svc = catalogServices.find((s) => s.id === id)!;
-      return { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id };
+      return { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id, approved: true };
     });
     if (u[ci].services.length === 1 && !u[ci].services[0].description) {
       u[ci].services = newServices;
@@ -173,16 +177,19 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
     const u = [...complaints];
     const newParts = ids.map((id) => {
       const item = stockItems.find((s) => s.id === id)!;
-      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice: item.sellPrice, stockItemId: item.id };
+      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice: item.sellPrice, stockItemId: item.id, approved: true };
     });
     u[ci].parts.push(...newParts);
     setComplaints(u);
     setShowPartModal(null);
   };
 
+  const getServiceTotal = (s: ServiceItem) => (s.approved === false ? 0 : (s.price || 0));
+  const getPartTotal = (p: PartItem) => (p.approved === false ? 0 : (p.quantity || 0) * (p.unitPrice || 0));
+
   const getComplaintTotal = (c: ComplaintItem) => {
-    const svcTotal = c.services.reduce((sum, s) => sum + (s.price || 0), 0);
-    const prtTotal = c.parts.reduce((sum, p) => sum + (p.quantity || 0) * (p.unitPrice || 0), 0);
+    const svcTotal = c.services.reduce((sum, s) => sum + getServiceTotal(s), 0);
+    const prtTotal = c.parts.reduce((sum, p) => sum + getPartTotal(p), 0);
     return svcTotal + prtTotal;
   };
 
@@ -195,7 +202,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
   };
 
   const addComplaint = () => {
-    setComplaints([...complaints, { description: "", services: [{ description: "", price: 0, timeMinutes: 0 }], parts: [], expanded: true }]);
+    setComplaints([...complaints, { description: "", services: [{ description: "", price: 0, timeMinutes: 0, approved: true }], parts: [], expanded: true }]);
   };
 
   const removeComplaint = (idx: number) => {
@@ -225,12 +232,14 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             timeMinutes: s.timeMinutes,
             serviceId: s.serviceId,
             mechanicId: s.mechanicId,
+            approved: s.approved !== false,
           })),
           parts: c.parts.filter(p => p.description).map(p => ({
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
             stockItemId: p.stockItemId,
+            approved: p.approved !== false,
           })),
         })),
       }),
@@ -326,13 +335,19 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setShowServiceModal(ci)}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><ListChecks size={12} /> Adicionar Vários</button>
-                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeMinutes: 0 }); setComplaints(u); }}
+                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].services.push({ description: "", price: 0, timeMinutes: 0, approved: true }); setComplaints(u); }}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
                       </div>
                     </div>
                     <div className="space-y-2">
                       {complaint.services.map((s, si) => (
-                        <div key={si} className="grid grid-cols-[1fr_100px_80px_120px_30px] gap-2 items-end">
+                        <div key={si} className={`grid grid-cols-[24px_1fr_100px_80px_120px_30px] gap-2 items-end ${s.approved === false ? "opacity-50" : ""}`}>
+                          <div className="pb-2">
+                            <input type="checkbox" checked={s.approved !== false}
+                              onChange={(e) => { const u = [...complaints]; u[ci].services[si].approved = e.target.checked; setComplaints(u); }}
+                              title="Aprovado pelo cliente"
+                              className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500" />
+                          </div>
                           <Combobox
                             options={serviceOptions}
                             value={s.description}
@@ -345,7 +360,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                               const svc = catalogServices.find(sv => sv.id === opt.id);
                               if (svc) {
                                 const u = [...complaints];
-                                u[ci].services[si] = { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id, mechanicId: u[ci].services[si].mechanicId };
+                                u[ci].services[si] = { description: svc.description, price: svc.defaultPrice, timeMinutes: svc.estimatedTime || 0, serviceId: svc.id, mechanicId: u[ci].services[si].mechanicId, approved: true };
                                 setComplaints(u);
                               }
                             }}
@@ -388,7 +403,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => setShowPartModal(ci)}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><ListChecks size={12} /> Adicionar Várias</button>
-                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].parts.push({ description: "", brand: "", quantity: 1, unitPrice: 0 }); setComplaints(u); }}
+                        <button type="button" onClick={() => { const u = [...complaints]; u[ci].parts.push({ description: "", brand: "", quantity: 1, unitPrice: 0, approved: true }); setComplaints(u); }}
                           className="text-blue-600 text-xs flex items-center gap-1 hover:text-blue-800"><Plus size={12} /> Adicionar</button>
                       </div>
                     </div>
@@ -397,7 +412,13 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                     ) : (
                       <div className="space-y-2">
                         {complaint.parts.map((p, pi) => (
-                          <div key={pi} className="grid grid-cols-[1fr_80px_60px_90px_30px] gap-2 items-end">
+                          <div key={pi} className={`grid grid-cols-[24px_1fr_80px_60px_90px_30px] gap-2 items-end ${p.approved === false ? "opacity-50" : ""}`}>
+                            <div className="pb-2">
+                              <input type="checkbox" checked={p.approved !== false}
+                                onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].approved = e.target.checked; setComplaints(u); }}
+                                title="Aprovado pelo cliente"
+                                className="w-4 h-4 rounded border-slate-300 text-green-600 focus:ring-green-500" />
+                            </div>
                             <Combobox
                               options={partOptions}
                               value={p.description}
@@ -410,7 +431,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                                 const item = stockItems.find(st => st.id === opt.id);
                                 if (item) {
                                   const u = [...complaints];
-                                  u[ci].parts[pi] = { description: item.description, brand: item.brand || "", quantity: u[ci].parts[pi].quantity || 1, unitPrice: item.sellPrice, stockItemId: item.id };
+                                  u[ci].parts[pi] = { description: item.description, brand: item.brand || "", quantity: u[ci].parts[pi].quantity || 1, unitPrice: item.sellPrice, stockItemId: item.id, approved: true };
                                   setComplaints(u);
                                 }
                               }}
