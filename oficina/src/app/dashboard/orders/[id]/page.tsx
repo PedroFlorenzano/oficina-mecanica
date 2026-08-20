@@ -487,7 +487,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     <table className="w-full text-sm">
                       <thead className="text-xs text-slate-400">
                         <tr>
-                          {isWaitingApproval && <th className="text-center py-1 w-10">Aprovado</th>}
+                          {isWaitingApproval && <th className="text-center py-1 w-16 whitespace-nowrap">Aprovado</th>}
                           <th className="text-left py-1">Descrição</th>
                           <th className="text-left py-1 w-28">Mecânico</th>
                           <th className="text-right py-1 w-24">Tempo</th>
@@ -540,7 +540,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                     <table className="w-full text-sm">
                       <thead className="text-xs text-slate-400">
                         <tr>
-                          {isWaitingApproval && <th className="text-center py-1 w-10">Aprovado</th>}
+                          {isWaitingApproval && <th className="text-center py-1 w-16 whitespace-nowrap">Aprovado</th>}
                           <th className="text-left py-1">Descrição</th>
                           <th className="text-left py-1">Fornecedor</th>
                           <th className="text-center py-1 w-12">Qtd</th>
@@ -592,7 +592,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <table className="w-full text-sm">
             <thead className="text-xs text-slate-500 border-b">
               <tr>
-                {isWaitingApproval && <th className="text-center py-2 w-10">Aprovado</th>}
+                {isWaitingApproval && <th className="text-center py-2 w-16 whitespace-nowrap">Aprovado</th>}
                 <th className="text-left py-2">Descrição</th>
                 <th className="text-right py-2">Tempo</th>
                 <th className="text-right py-2">R$ Total</th>
@@ -643,7 +643,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <table className="w-full text-sm">
             <thead className="text-xs text-slate-500 border-b">
               <tr>
-                {isWaitingApproval && <th className="text-center py-2 w-10">Aprovado</th>}
+                {isWaitingApproval && <th className="text-center py-2 w-16 whitespace-nowrap">Aprovado</th>}
                 <th className="text-left py-2">Descrição</th>
                 <th className="text-left py-2">Fornecedor</th>
                 <th className="text-center py-2">Qtd</th>
