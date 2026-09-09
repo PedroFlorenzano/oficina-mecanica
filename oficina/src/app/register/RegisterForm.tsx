@@ -12,6 +12,13 @@ export default function RegisterForm() {
   const [success, setSuccess] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
   const handleToken = useCallback((token: string) => setTurnstileToken(token), []);
+  const handleTurnstileError = useCallback(
+    (code: string) =>
+      setError(
+        `Falha na verificação de segurança (código ${code}). Recarregue a página; se persistir, avise o suporte.`
+      ),
+    []
+  );
 
   const [form, setForm] = useState({
     officeName: "",
@@ -175,7 +182,7 @@ export default function RegisterForm() {
         </div>
       )}
 
-      <TurnstileWidget onToken={handleToken} />
+      <TurnstileWidget onToken={handleToken} onError={handleTurnstileError} />
 
       <Button type="submit" loading={loading} className="w-full">
         Cadastrar Oficina

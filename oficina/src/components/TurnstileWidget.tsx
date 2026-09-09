@@ -4,8 +4,10 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 
 interface TurnstileWidgetProps {
-  /** Recebe o token gerado pela Cloudflare (ou "" quando expira) */
+  /** Recebe o token gerado pela Cloudflare (ou "" quando expira/falha) */
   onToken: (token: string) => void;
+  /** Recebe o código de erro da Cloudflare (ex.: "110200") para exibição/diagnóstico */
+  onError?: (code: string) => void;
 }
 
 interface TurnstileApi {
@@ -15,7 +17,7 @@ interface TurnstileApi {
       sitekey: string;
       callback: (token: string) => void;
       "expired-callback"?: () => void;
-      "error-callback"?: () => void;
+      "error-callback"?: (code?: string) => void;
       language?: string;
     }
   ) => string;
@@ -32,7 +34,7 @@ declare global {
  * Não renderiza nada se NEXT_PUBLIC_TURNSTILE_SITE_KEY não estiver configurada,
  * então o formulário continua utilizável em dev/CI.
  */
-export default function TurnstileWidget({ onToken }: TurnstileWidgetProps) {
+export default function TurnstileWidget({ onToken, onError }: TurnstileWidgetProps) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const containerRef = useRef<HTMLDivElement>(null);
   const renderedRef = useRef(false);
@@ -46,12 +48,17 @@ export default function TurnstileWidget({ onToken }: TurnstileWidgetProps) {
     renderedRef.current = true;
     window.turnstile.render(el, {
       sitekey: siteKey,
-      language: "pt-br",
+      language: "pt-BR",
       callback: (token: string) => onToken(token),
       "expired-callback": () => onToken(""),
-      "error-callback": () => onToken(""),
+      "error-callback": (code?: string) => {
+        onToken("");
+        // Código da Cloudflare (110200 = domínio não autorizado, 110100 = sitekey inválida)
+        console.error("[Turnstile] erro", code ?? "desconhecido");
+        onError?.(code ?? "desconhecido");
+      },
     });
-  }, [siteKey, scriptReady, onToken]);
+  }, [siteKey, scriptReady, onToken, onError]);
 
   if (!siteKey) return null;
 
