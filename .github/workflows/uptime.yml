@@ -1,0 +1,51 @@
+name: Uptime
+
+# Monitoramento sem serviço externo: o GitHub Actions checa o site e, se falhar,
+# o workflow fica vermelho e o GitHub avisa por e-mail automaticamente.
+# Repositório público = minutos de Actions ilimitados.
+on:
+  schedule:
+    # A cada 10 minutos (o GitHub pode atrasar alguns minutos em horário de pico)
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check da aplicação
+        run: |
+          set -e
+          URL="https://www.operare.tech/api/health"
+
+          # Duas tentativas: evita alarme por instabilidade momentânea de rede
+          for attempt in 1 2; do
+            RESPONSE=$(curl -sS --max-time 20 -w "\n%{http_code}" "$URL" || echo "\n000")
+            BODY=$(echo "$RESPONSE" | head -n -1)
+            CODE=$(echo "$RESPONSE" | tail -n 1)
+
+            echo "Tentativa $attempt — HTTP $CODE — $BODY"
+
+            if [ "$CODE" = "200" ]; then
+              echo "Aplicação e banco respondendo."
+              exit 0
+            fi
+
+            if [ "$attempt" = "1" ]; then
+              echo "Falhou, tentando de novo em 20s..."
+              sleep 20
+            fi
+          done
+
+          echo "::error::Health check falhou (HTTP $CODE). Aplicacao ou banco indisponivel."
+          exit 1
+
+      - name: Página de login responde
+        run: |
+          set -e
+          CODE=$(curl -sS --max-time 20 -o /dev/null -w "%{http_code}" -L https://www.operare.tech/login)
+          echo "login -> HTTP $CODE"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Pagina de login retornou HTTP $CODE"
+            exit 1
+          fi
