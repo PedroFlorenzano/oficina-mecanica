@@ -3,31 +3,36 @@ name: Uptime
 # Monitoramento sem serviço externo: o GitHub Actions checa o site e, se falhar,
 # o workflow fica vermelho e o GitHub avisa por e-mail automaticamente.
 # Repositório público = minutos de Actions ilimitados.
+#
+# IMPORTANTE: a checagem frequente NÃO consulta o banco. O Neon (Free) hiberna
+# o compute após 5 min de inatividade e dá 100 CU-horas/mês; acordá-lo a cada
+# 15 min consumiria quase toda a cota e o banco seria suspenso. O banco é
+# verificado uma vez por dia, no job "daily".
 on:
   schedule:
-    # A cada 10 minutos (o GitHub pode atrasar alguns minutos em horário de pico)
-    - cron: "*/10 * * * *"
+    # Disponibilidade da aplicação — a cada 15 minutos (GitHub pode atrasar alguns minutos)
+    - cron: "*/15 * * * *"
+    # Checagem profunda (inclui banco) — uma vez por dia, 11h UTC (~8h de Brasília)
+    - cron: "0 11 * * *"
   workflow_dispatch:
 
 jobs:
-  check:
+  app:
+    name: Aplicação responde
     runs-on: ubuntu-latest
     steps:
-      - name: Health check da aplicação
+      - name: Health check (sem banco)
         run: |
           set -e
           URL="https://www.operare.tech/api/health"
 
           # Duas tentativas: evita alarme por instabilidade momentânea de rede
           for attempt in 1 2; do
-            RESPONSE=$(curl -sS --max-time 20 -w "\n%{http_code}" "$URL" || echo "\n000")
-            BODY=$(echo "$RESPONSE" | head -n -1)
-            CODE=$(echo "$RESPONSE" | tail -n 1)
-
-            echo "Tentativa $attempt — HTTP $CODE — $BODY"
+            CODE=$(curl -sS --max-time 20 -o /tmp/body -w "%{http_code}" "$URL" || echo "000")
+            echo "Tentativa $attempt — HTTP $CODE — $(cat /tmp/body 2>/dev/null)"
 
             if [ "$CODE" = "200" ]; then
-              echo "Aplicação e banco respondendo."
+              echo "Aplicação respondendo."
               exit 0
             fi
 
@@ -37,13 +42,29 @@ jobs:
             fi
           done
 
-          echo "::error::Health check falhou (HTTP $CODE). Aplicacao ou banco indisponivel."
+          echo "::error::Health check falhou (HTTP $CODE). Aplicacao indisponivel."
           exit 1
+
+  daily:
+    name: Banco e login (1x/dia)
+    # Só roda no agendamento diário ou quando disparado manualmente
+    if: github.event.schedule == '0 11 * * *' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health check com banco
+        run: |
+          set -e
+          CODE=$(curl -sS --max-time 30 -o /tmp/body -w "%{http_code}" "https://www.operare.tech/api/health?db=1" || echo "000")
+          echo "HTTP $CODE — $(cat /tmp/body 2>/dev/null)"
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Banco inacessivel (HTTP $CODE)"
+            exit 1
+          fi
 
       - name: Página de login responde
         run: |
           set -e
-          CODE=$(curl -sS --max-time 20 -o /dev/null -w "%{http_code}" -L https://www.operare.tech/login)
+          CODE=$(curl -sS --max-time 30 -o /dev/null -w "%{http_code}" -L https://www.operare.tech/login)
           echo "login -> HTTP $CODE"
           if [ "$CODE" != "200" ]; then
             echo "::error::Pagina de login retornou HTTP $CODE"
