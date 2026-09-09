@@ -14,6 +14,7 @@ Ordem de prioridade: primeiro o que protege quem já usa o sistema, depois o que
 | S4 | **Rastreamento de erros de aplicação** | 1–2h | O monitoramento atual diz se o site está no ar, não se uma tela lança exceção. Recomendado Sentry no plano gratuito (entra com login do GitHub, sem credencial nova). Alternativa sem serviço externo é tabela de log com tela de ADMIN, mas consome o 0,5 GB apertado do Neon. |
 | S5 | **Trocar a senha do `neondb_owner`** | 15min | A credencial circulou por canais pouco controlados. É o role com acesso total ao banco. |
 | S6 | **Reset de senha por e-mail** | 4–6h | Não existe. Hoje só um ADMIN redefine a senha de outro usuário, e um ADMIN que perde a senha depende de intervenção manual no banco. Nenhuma biblioteca de e-mail no projeto ainda; Resend tem faixa gratuita. |
+| S7 | **Alerta de cota do banco** | 1–2h | Não existe aviso algum de que o banco está perto do limite. Os 0,5 GB do plano gratuito, ao estourar, fazem **inserções e atualizações falharem** — a oficina simplesmente não consegue mais abrir OS. O plano gratuito do Neon também não oferece notificação de consumo. Hoje em 0,04 GB (8%), mas sem vigilância isso vira uma parada de operação sem aviso. Basta o job diário já existente consultar `pg_database_size` e falhar o workflow acima de um limite. |
 
 ## 2. Destrava receita
 
@@ -44,7 +45,7 @@ Básico R$250, Profissional R$400, Enterprise R$600 por mês.
 
 ## 3. Projeto próprio: ativar o RLS
 
-Trabalho com risco alto de quebrar produção, detalhado em [specs/rls-ativacao.md](./specs/rls-ativacao.md). Resumo: cerca de 25 arquivos consultam o Prisma fora do `withTenant` e passariam a receber zero linhas se o role perdesse `BYPASSRLS`. Trocar a variável de conexão hoje deixaria telas vazias em produção.
+Trabalho com risco alto de quebrar produção, detalhado em [specs/rls-ativacao.md](./specs/rls-ativacao.md). Resumo: 14 arquivos de produção consultam o Prisma fora do `withTenant`. Eles **filtram `tenantId` explicitamente**, então não vazam dados hoje — mas passariam a receber zero linhas se o role perdesse `BYPASSRLS`, porque a variável de sessão que as policies usam não estaria definida. Trocar a variável de conexão hoje deixaria telas vazias em produção, sem erro visível.
 
 ## 4. Dívida técnica com prazo
 
@@ -79,7 +80,7 @@ Registro do que saiu do backlog, para não ser reaberto por engano. Histórico c
 | Rate limit e captcha nas rotas públicas | 09/09/2026 |
 | 15 ajustes vindos do feedback do cliente-piloto | 09/09/2026 |
 | Deploy em produção (Vercel + Neon, `operare.tech`) | 2026 |
-| NF-e SEFAZ-SP e NFS-e Sorocaba reais | 06/2026 |
+| NF-e (SEFAZ) e NFS-e (padrão Nacional) com emissão real | 06/2026 |
 | Importação de dados do sistema anterior | 07/2026 |
 | Kits de serviço | 08/2026 |
 | Exportação de OS em lote (CSV) | 06/2026 |
