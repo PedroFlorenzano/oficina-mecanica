@@ -1,4 +1,4 @@
-# Manual do Usuário — Sistema Oficina Mecânica
+# Manual do Usuário — Operare
 
 ## Visão Geral
 
@@ -84,7 +84,7 @@ A formatação é automática ao digitar.
 
 ### Lembrete de Troca de Óleo
 
-Cada veículo tem um toggle de lembrete. Quando ativado, o sistema alerta quando o veículo se aproximar do intervalo de troca (5.000 km ou 6 meses).
+Cada veículo tem um toggle de lembrete. Quando ativado, o sistema alerta quando o veículo se aproximar do intervalo de troca (10.000 km desde a última troca registrada).
 
 ---
 
@@ -267,7 +267,7 @@ Toda vez que uma OS é movida na Pista, o cliente recebe uma mensagem automátic
 
 ### Lembrete Preventivo
 
-O sistema verifica diariamente veículos com troca de óleo vencida (>6 meses ou >5.000 km) e envia lembrete via WhatsApp.
+O sistema verifica diariamente veículos com troca de óleo vencida (mais de 10.000 km desde a última troca) e envia lembrete via WhatsApp.
 
 ---
 
@@ -345,7 +345,9 @@ Cada usuário pode trocar sua própria senha em **Perfil** (menu superior).
 
 ## Dados de Demonstração
 
-Para testar o sistema:
+Para testar o sistema. O seed cria duas oficinas, e o segundo conjunto de usuários serve para conferir que os dados de uma oficina não aparecem na outra.
+
+**Oficina Paiffer**
 
 | Usuário | E-mail | Senha | Perfil |
 |---------|--------|-------|--------|
@@ -353,6 +355,13 @@ Para testar o sistema:
 | João Mecânico | mecanico@paiffer.com | password123 | MECHANIC |
 | Carlos Eletricista | carlos@paiffer.com | password123 | MECHANIC |
 | Ana Atendente | atendente@paiffer.com | password123 | ATTENDANT |
+
+**Oficina Demo**
+
+| Usuário | E-mail | Senha | Perfil |
+|---------|--------|-------|--------|
+| Admin Demo | admin@demo.com | password123 | ADMIN |
+| Pedro Mecânico | mecanico@demo.com | password123 | MECHANIC |
 
 ---
 

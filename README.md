@@ -1,141 +1,70 @@
-# Operare — Sistema de Gestão para Oficinas Mecânicas
+# Operare
 
-Sistema SaaS multi-tenant de gestão para oficinas mecânicas automotivas brasileiras. Desenvolvido com Next.js 16, TypeScript, Prisma, PostgreSQL com Row-Level Security e Clean Architecture (DDD).
+SaaS de gestão para oficinas mecânicas automotivas brasileiras. Multi-oficina, com Next.js 16, TypeScript, Prisma, PostgreSQL e Clean Architecture.
 
-## Stack
+Em produção em [operare.tech](https://www.operare.tech). Projeto piloto na Paiffer Bosch Car Service, em Sorocaba (SP), substituindo o sistema legado Syscar.
 
-- **Frontend:** Next.js 16 (App Router) + Tailwind CSS 4
-- **Backend:** API Routes + Clean Architecture (DDD)
-- **Banco:** PostgreSQL 16 (via Docker) + Row-Level Security (RLS)
-- **ORM:** Prisma 6
-- **Auth:** NextAuth v4 + JWT
-- **PDF:** @react-pdf/renderer
-- **WhatsApp:** Evolution API
+## O que o sistema faz
 
-## Módulos
+Ordens de serviço organizadas por **reclamações do cliente** — cada reclamação com seus próprios serviços, peças e subtotal, porque é assim que o cliente aprova o orçamento. Em volta disso: clientes e veículos, estoque com custo médio ponderado, quadro Kanban da pista, cronômetro por serviço, comissões, financeiro, emissão de NF-e e NFS-e, WhatsApp com aprovação digital, agendamento online, fotos da OS e importação de dados do sistema anterior.
 
-| Módulo | Status |
-|--------|--------|
-| Clientes e Veículos | ✅ |
-| Ordens de Serviço | ✅ |
-| Controle de Estoque | ✅ |
-| Pista (Kanban) | ✅ |
-| Autenticação + RBAC | ✅ |
-| Cronômetro de Serviço | ✅ |
-| Gestão de Comissões | ✅ |
-| WhatsApp + Assinatura Digital | ✅ |
-| Etiqueta de Troca de Óleo | ✅ |
-| Relatórios Financeiros | ✅ |
-| NF-e/NFS-e | ✅ (SEFAZ + DSF) |
-| Multi-Tenancy (PostgreSQL + RLS) | ✅ |
-| Fotos na OS (Antes/Depois/Dano) | ✅ |
-| Onboarding Self-Service | ✅ |
-| Agendamento Online | ✅ |
-| Billing/Assinatura | ✅ (infra + UI) |
-| Landing Page + Planos | ✅ |
-| Alerta de Garantia | ✅ |
-| Exportar OS em Lote (CSV) | ✅ |
+O catálogo completo está em [docs/modulos.md](./docs/modulos.md).
 
-## Setup
+## Começando
 
 ```bash
 cd oficina
 npm install
-cp .env.example .env  # editar com seus valores
+cp .env.example .env
 
-# Subir PostgreSQL via Docker
-npm run db:docker
-
-# Criar shadow database (primeira vez)
-docker exec -it oficina-postgres-1 psql -U operare -d operare_dev -c "CREATE DATABASE operare_shadow;"
-
-# Aplicar migrations (schema + RLS policies)
+npm run db:docker    # PostgreSQL em container
 npx prisma migrate dev
-
-# Popular com dados demo (2 tenants)
 npx prisma db seed
-
-# Iniciar
-npm run dev
+npm run dev          # http://localhost:3000
 ```
 
-Acesse http://localhost:3000
-
-**Credenciais demo:**
-- Admin Paiffer: `admin@paiffer.com` / `password123`
-- Mecânico Paiffer: `mecanico@paiffer.com` / `password123`
-- Admin Demo: `admin@demo.com` / `password123`
-
-## Arquitetura
-
-```
-src/
-├── domain/          # Regras de negócio puras
-├── application/     # Use cases + DTOs
-├── infrastructure/  # Prisma repos + DI (createContainer por tenant)
-├── app/             # Next.js App Router
-├── components/      # React components + Design System
-└── lib/             # Utilitários compartilhados
-```
-
-### Multi-Tenancy (Defense in Depth)
-
-```
-API Route → requireAuth() → session.tenantId
-  → createContainer(tenantId) → repositórios com RLS ativo
-    → PostgreSQL RLS policies bloqueiam acesso cross-tenant
-```
-
-- **Camada 1 (código):** Todos os repositórios filtram por `tenantId`
-- **Camada 2 (banco):** RLS policies em 22 tabelas (12 diretas + 10 indiretas via join)
-- **Roles:** `operare_app` (sem BYPASSRLS) para uso normal, `operare` owner (BYPASSRLS) para login/assinatura pública
-
-## Testes
-
-```bash
-npm test           # 225 testes unitários
-npm run build      # Build de produção
-```
+Entre com `admin@paiffer.com` e senha `password123`. O passo a passo completo, incluindo a criação do shadow database na primeira execução, está em [docs/operacao.md](./docs/operacao.md).
 
 ## Documentação
 
-- **[Manual do Usuário](./MANUAL-USUARIO.md)** — Guia completo de uso do sistema
-- **PDF do Manual:** Acesse `/api/manual` com o sistema rodando para baixar o PDF
-- **[Contexto do Projeto](./CONTEXTO-PROJETO.md)** — Decisões técnicas e estado atual
+| Documento | Conteúdo |
+|-----------|----------|
+| [docs/arquitetura.md](./docs/arquitetura.md) | Camadas, padrões e como o multi-tenant funciona de fato |
+| [docs/modulos.md](./docs/modulos.md) | O que cada módulo faz e onde vive |
+| [docs/operacao.md](./docs/operacao.md) | Ambiente, deploy, CI, monitoramento e limites dos planos |
+| [docs/seguranca.md](./docs/seguranca.md) | Autenticação, permissões e isolamento entre oficinas |
+| [docs/backlog.md](./docs/backlog.md) | O que falta, priorizado |
+| [docs/manual-usuario.md](./docs/manual-usuario.md) | Guia para o usuário final |
+| [docs/](./docs/) | Índice completo |
 
-## Roadmap para Produção
+## Estrutura
 
-### 1. NF-e/NFS-e ✅
-- ~~Certificado digital A1 (upload + assinatura XML)~~ ✅
-- ~~Adapter SEFAZ (webservice SOAP, NF-e 4.0)~~ ✅
-- ~~Adapter Prefeitura (DSF Sorocaba, NFS-e)~~ ✅
-- ~~DANFE com código de barras (Code128)~~ ✅
-- ~~Inutilização, CC-e, Cancelamento, Status SEFAZ~~ ✅
+```
+ProjetoOficina/
+├── docs/       Documentação (referência única)
+├── oficina/    A aplicação Next.js
+└── .kiro/      Workspace local do Kiro (não versionado)
+```
 
-### 2. Multi-Tenancy ✅
-- ~~Migração SQLite → PostgreSQL~~ ✅
-- ~~Row-Level Security em 22 tabelas~~ ✅
-- ~~Roles separados (operare_app / operare_admin)~~ ✅
-- ~~Seed multi-tenant (2 tenants)~~ ✅
-- ~~Validação end-to-end com Docker~~ ✅
-- ~~Onboarding self-service~~ ✅
-- ~~Billing/Assinatura (infra + UI)~~ ✅
-- ~~Landing page + planos~~ ✅
-- ~~Path-based multi-tenant (`/paiffer` → login)~~ ✅
-- Integração real com gateway de pagamento (Stripe/Asaas)
+## Verificação antes de publicar
 
-### 3. Deploy em Produção
-- Hosting (Vercel / AWS / VPS)
-- Domínio + SSL (`operare.tech`)
-- ~~CI/CD (GitHub Actions)~~ ✅
-- Backup diário + monitoramento (Sentry)
+```bash
+cd oficina
+npm run lint      # 0 erros
+npx tsc --noEmit  # sem saída
+npm test          # 455 testes
+npx next build    # compila
+```
 
-### 4. Comercialização
-- ~~Landing page + deck comercial~~ ✅
-- ~~Planos e preços~~ ✅
-- ~~Canal de suporte~~ ✅
-- Contrato / LGPD
+Todo push em `main` vai para produção depois do CI. Nada é considerado entregue com CI vermelho ou deploy falho.
+
+## Estado atual
+
+O sistema está no ar e em uso. Dois pontos que merecem conhecimento antes de mexer:
+
+- **O isolamento entre oficinas depende do filtro por `tenantId` no código.** As policies de Row-Level Security existem no banco mas não têm efeito em produção, porque a conexão usa um role com `BYPASSRLS`. Ver [docs/seguranca.md](./docs/seguranca.md) e [docs/specs/rls-ativacao.md](./docs/specs/rls-ativacao.md).
+- **Não há gateway de pagamento conectado.** A cobrança é manual, e nenhuma funcionalidade é restringida por plano.
 
 ## Licença
 
-Proprietary — DF Developer
+Proprietário — DF Developer
