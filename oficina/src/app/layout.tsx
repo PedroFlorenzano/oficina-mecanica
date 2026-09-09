@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Providers from "@/components/Providers";
 
@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "Operare - Gestão de Oficinas",
   description: "Sistema SaaS de gestão para oficinas mecânicas",
   manifest: "/manifest.json",
+};
+
+// themeColor pertence ao export viewport a partir do Next 14
+export const viewport: Viewport = {
   themeColor: "#2563eb",
 };
 
