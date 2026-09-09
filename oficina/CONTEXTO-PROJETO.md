@@ -1854,14 +1854,21 @@ Botão para criar nova OS baseada em uma existente, copiando cliente, veículo, 
 |---|------|---------|-----------|
 | 1 | Deploy produção | ✅ Concluído | Vercel + Neon (sa-east-1). Domínio operare.tech configurado. |
 | 2 | Gateway de pagamento | 4–8h | Asaas (boleto/Pix/cartão, API BR) ou Stripe. Webhook existente, ativar botão "Assinar" na billing page. |
-| 3 | Backup diário | ✅ Incluso | Neon faz backup automático (point-in-time recovery). |
+| 3 | Backup diário | ⚠️ Reavaliado em 09/09/2026 | **Não está resolvido.** O plano gratuito do Neon retém apenas **6 horas** de histórico para restauração (limitado a 1 GB de alterações) e permite 1 snapshot manual. Um erro percebido na manhã seguinte já é irrecuperável, e não existe cópia fora do Neon. Falta: `pg_dump` diário via GitHub Actions para storage externo, **com restauração testada** — só conta como pronto depois de restaurar de verdade. |
+
+### Segurança e dívida técnica (levantado em 09/09/2026)
+
+| # | Item | Esforço | Observação |
+|---|------|---------|-----------|
+| S1 | `findById` de OS não filtra por tenant | 3–5h | `PrismaServiceOrderRepository.findById(id)` não recebe `tenantId`. O comentário no código diz "Defense in depth: RLS também filtra no banco", mas o RLS está **inerte em produção** (diagnóstico de 09/09: `current_user = neondb_owner`, `bypasses_rls = true` nas duas conexões). Consequência: qualquer rota que use apenas `findById` pode devolver OS de outra oficina se o id for conhecido — o que protege hoje é só a imprevisibilidade do id. A rota de fotos já compara `order.tenantId` explicitamente, mas isso é remendo local. Correção real: incluir `tenantId` na assinatura e ajustar todos os chamadores. Mesma família do trabalho de ativar RLS de verdade. |
+| S2 | Vulnerabilidades em dependências | 2–4h | `npm audit` em 09/09/2026: 26 avisos (6 críticas, 15 altas, 2 moderadas, 3 baixas). Todas **pré-existentes**, vindas de `next`, `next-auth`, `xml-crypto`, `xlsx`, `prisma`, `playwright`, `@babel/core`, `@xmldom/xmldom`. Nenhuma introduzida pelo `cloudinary`. Não é `npm audit fix` cego: pode subir major de `next`/`prisma`. Fazer em commit isolado, com testes e E2E rodando, e validar o módulo fiscal (que depende de `xml-crypto` e `fast-xml-parser`). |
 
 ### Importantes mas não bloquantes (Média)
 
 | # | Item | Esforço | Observação |
 |---|------|---------|-----------|
 | 4 | Feature gating por plano | 4–6h | Implementar middleware/hook que restrinja funcionalidades por plano (basic/professional/enterprise). Planos definidos: Básico R$250, Profissional R$400, Enterprise R$600. Contas existentes (pilotos) mantêm acesso total. |
-| 5 | Monitoramento | 1h | Sentry free tier + UptimeRobot free. |
+| 5 | Monitoramento | Parcial (09/09/2026) | **Disponibilidade: feito** via GitHub Actions (`.github/workflows/uptime.yml`) + `GET /api/health` — sem serviço externo e sem conta nova. Atenção: a checagem frequente **não** consulta o banco de propósito; o Neon gratuito dá 100 CU-horas/mês e hiberna após 5 min ocioso, então um `SELECT 1` a cada 10 min consumiria ~90 CU-horas e o banco seria suspenso até o ciclo seguinte. O banco é verificado 1×/dia via `?db=1`. **Falta: rastreamento de erros de aplicação** (o uptime só cobre o site estar no ar). Recomendado Sentry free (login via GitHub, sem credencial nova). |
 | 6 | Contrato / LGPD | 2–3h | Termos de uso + política de privacidade (template adaptado). Necessário antes de cobrar. |
 | 7 | Landing page — conteúdo real | 2–3h | Adicionar screenshots reais, refinar copy. |
 
