@@ -5,6 +5,7 @@ import { handleError } from "@/lib/api-handler";
 import { UploadOrderPhoto } from "@/application/use-cases/photos/UploadOrderPhoto";
 import { getFileStorage } from "@/infrastructure/storage";
 import { detectImageMimeType, extensionFor } from "@/lib/image-validation";
+import { buildOrderPhotoKey } from "@/lib/file-access";
 import { randomUUID } from "crypto";
 
 /**
@@ -21,7 +22,18 @@ export async function GET(
   try {
     const session = await requireAuth();
     const { id } = await params;
-    const container = createContainer(session.user.tenantId);
+    const tenantId = session.user.tenantId;
+    const container = createContainer(tenantId);
+
+    // A tabela OrderPhoto não tem tenantId e findByOrderId não filtra por
+    // tenant, então a autorização precisa ser feita pela OS. Sem isso, quem
+    // soubesse o id de uma OS de outra oficina leria os metadados das fotos
+    // (descrição, nome do arquivo, quem enviou).
+    const order = await container.orderRepository.findById(id);
+    if (!order || order.tenantId !== tenantId) {
+      return NextResponse.json({ error: "Ordem de serviço não encontrada" }, { status: 404 });
+    }
+
     const photos = await container.orderPhotoRepository.findByOrderId(id);
     return NextResponse.json(photos);
   } catch (error) {
@@ -75,7 +87,11 @@ export async function POST(
     }
 
     // Tenant no início da chave: permite que a leitura barre acesso cruzado
-    const key = `t/${tenantId}/orders/${orderId}/${randomUUID()}.${extensionFor(mimeType)}`;
+    const key = buildOrderPhotoKey(
+      tenantId,
+      orderId,
+      `${randomUUID()}.${extensionFor(mimeType)}`
+    );
     await getFileStorage().save(key, content, mimeType);
 
     const useCase = new UploadOrderPhoto(container.orderPhotoRepository);

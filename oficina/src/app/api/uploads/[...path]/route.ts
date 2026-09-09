@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { getFileStorage } from "@/infrastructure/storage";
+import { isKeyOwnedByTenant } from "@/lib/file-access";
 import { handleError } from "@/lib/api-handler";
 
 /**
@@ -10,8 +11,8 @@ import { handleError } from "@/lib/api-handler";
  * assim nenhum link continua válido fora do sistema e o acesso é sempre
  * verificado contra a sessão. São fotos de veículos de clientes.
  *
- * Chaves novas têm o formato `t/<tenantId>/orders/<orderId>/<uuid>.<ext>`, o
- * que permite recusar leitura de arquivo de outro tenant sem ir ao banco.
+ * A chave precisa começar com `t/<tenantId>/`, comparado com a sessão. Qualquer
+ * outro formato é recusado, inclusive o legado sem tenant no caminho.
  */
 export async function GET(
   _request: NextRequest,
@@ -20,18 +21,12 @@ export async function GET(
   try {
     const session = await requireAuth();
     const { path: segments } = await params;
-
-    if (segments.some((segment) => segment === "..")) {
-      return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-    }
-
     const key = segments.join("/");
 
-    // Chave no formato novo: o tenant está no caminho e precisa bater com a sessão
-    if (segments[0] === "t") {
-      if (segments[1] !== session.user.tenantId) {
-        return NextResponse.json({ error: "Acesso negado" }, { status: 403 });
-      }
+    if (!isKeyOwnedByTenant(key, session.user.tenantId)) {
+      // Mesma resposta para "não é seu" e "não existe": não revela se o
+      // arquivo existe em outra oficina.
+      return NextResponse.json({ error: "Arquivo não encontrado" }, { status: 404 });
     }
 
     const file = await getFileStorage().get(key);
