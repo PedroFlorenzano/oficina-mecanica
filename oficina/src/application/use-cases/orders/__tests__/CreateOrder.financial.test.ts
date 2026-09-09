@@ -17,6 +17,7 @@ const makeOrderRepo = (): IServiceOrderRepository => ({
   findOilChangeOrders: jest.fn(),
   cancel: jest.fn(),
   replaceComplaints: jest.fn(),
+  setItemApproval: jest.fn(),
 });
 
 const makeVehicleRepo = (): IVehicleRepository => ({

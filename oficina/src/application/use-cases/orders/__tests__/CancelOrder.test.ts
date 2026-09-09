@@ -31,6 +31,7 @@ const makeOrderRepo = (order: ReturnType<typeof makeOrder> | null): IServiceOrde
   findOilChangeOrders: jest.fn(),
   cancel: jest.fn().mockResolvedValue({ ...makeOrder("CANCELLED") }),
   replaceComplaints: jest.fn(),
+  setItemApproval: jest.fn(),
 });
 
 const makeReverseReservations = (): ReverseStockReservations => ({

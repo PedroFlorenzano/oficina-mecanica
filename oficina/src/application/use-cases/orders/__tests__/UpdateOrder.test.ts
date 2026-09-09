@@ -39,6 +39,7 @@ const makeOrderRepo = (order = makeOrder()): IServiceOrderRepository => ({
   findByVehicleId: jest.fn(),
   findOilChangeOrders: jest.fn(),
   cancel: jest.fn(),
+  setItemApproval: jest.fn(),
 });
 
 const makeStockItemRepo = (items: StockItemData[] = [makeStockItem("stock-1")]): IStockItemRepository => ({
