@@ -30,7 +30,9 @@ interface CatalogService {
 interface StockItem {
   id: string;
   code: string;
+  originalCode: string | null;
   description: string;
+  application: string | null;
   brand: string | null;
   unit: string;
   quantity: number;
@@ -106,6 +108,9 @@ export default function NewOrderPage() {
   const [mechanics, setMechanics] = useState<Mechanic[]>([]);
   const [kits, setKits] = useState<KitData[]>([]);
   const [vehicleHistory, setVehicleHistory] = useState<VehicleHistoryItem[]>([]);
+  // Peças compatíveis com o veículo (busca pela placa → campo "Aplicação" do produto)
+  const [vehicleParts, setVehicleParts] = useState<{ vehicleId: string; ids: string[] } | null>(null);
+  const [onlyVehicleParts, setOnlyVehicleParts] = useState(false);
   const clientAbortRef = useRef<AbortController | null>(null);
 
   // Multi-select modal states
@@ -118,6 +123,20 @@ export default function NewOrderPage() {
     fetch("/api/users?role=MECHANIC").then((r) => { if (!r.ok) return []; return r.json(); }).then(setMechanics).catch(() => {});
     fetch("/api/kits").then((r) => { if (!r.ok) return []; return r.json(); }).then(setKits).catch(() => {});
   }, []);
+
+  // Peças cuja "Aplicação" casa com marca/modelo do veículo selecionado
+  useEffect(() => {
+    if (!vehicleId) return;
+    let active = true;
+    fetch(`/api/stock?vehicleId=${encodeURIComponent(vehicleId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { items?: { id: string }[] } | null) => {
+        if (!active) return;
+        setVehicleParts({ vehicleId, ids: data?.items ? data.items.map((i) => i.id) : [] });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [vehicleId]);
 
   useEffect(() => {
     clientAbortRef.current?.abort();
@@ -189,10 +208,18 @@ export default function NewOrderPage() {
     rightLabel: formatCurrency(s.defaultPrice),
   }));
 
-  const partOptions: ComboboxOption[] = stockItems.map((item) => ({
+  // Peças compatíveis com o veículo selecionado (campo "Aplicação" do produto)
+  const vehiclePartIds =
+    vehicleParts && vehicleParts.vehicleId === vehicleId ? vehicleParts.ids : null;
+  const vehiclePartsFilterActive = onlyVehicleParts && vehiclePartIds !== null;
+  const availableParts = vehiclePartsFilterActive
+    ? stockItems.filter((item) => vehiclePartIds!.includes(item.id))
+    : stockItems;
+
+  const partOptions: ComboboxOption[] = availableParts.map((item) => ({
     id: item.id,
     label: item.description,
-    sublabel: `${item.code} • ${item.brand || ""}`,
+    sublabel: `${item.originalCode || item.code} • ${item.brand || ""}${item.application ? ` • ${item.application}` : ""}`,
     rightLabel: formatCurrency(item.sellPrice),
     rightSublabel: `Estoque: ${item.quantity}`,
   }));
@@ -204,10 +231,10 @@ export default function NewOrderPage() {
     rightLabel: formatCurrency(s.defaultPrice),
   }));
 
-  const partModalItems: MultiSelectItem[] = stockItems.map((item) => ({
+  const partModalItems: MultiSelectItem[] = availableParts.map((item) => ({
     id: item.id,
     label: item.description,
-    sublabel: `${item.code} • ${item.brand || ""}`,
+    sublabel: `${item.originalCode || item.code} • ${item.brand || ""}`,
     rightLabel: formatCurrency(item.sellPrice),
   }));
 
@@ -339,6 +366,7 @@ export default function NewOrderPage() {
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
+            costPrice: p.costPrice ?? null,
             stockItemId: p.stockItemId || undefined,
             approved: p.approved !== false,
           })),
@@ -352,6 +380,19 @@ export default function NewOrderPage() {
       setSaving(false);
       return;
     }
+
+    // Avisos de estoque (reserva não realizada por saldo insuficiente)
+    try {
+      const created = await res.json();
+      if (Array.isArray(created?.stockWarnings) && created.stockWarnings.length > 0) {
+        alert(
+          "OS criada, mas o estoque não pôde ser reservado para:\n\n" +
+            created.stockWarnings.join("\n") +
+            "\n\nO saldo do estoque nunca fica negativo — registre a entrada dessas peças."
+        );
+      }
+    } catch { /* resposta sem corpo — segue o fluxo */ }
+
     router.replace("/dashboard/orders");
   };
 
@@ -504,6 +545,30 @@ export default function NewOrderPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Peças compatíveis com o veículo (campo "Aplicação" do cadastro do produto) */}
+        {vehicleId && vehiclePartIds !== null && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+            <div>
+              <p className="text-sm font-medium text-blue-800">
+                {vehiclePartIds.length} peça(s) cadastrada(s) para este veículo
+              </p>
+              <p className="text-xs text-blue-600">
+                Baseado no campo &quot;Aplicação&quot; do cadastro do produto
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-blue-800 cursor-pointer whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={onlyVehicleParts}
+                disabled={vehiclePartIds.length === 0}
+                onChange={(e) => setOnlyVehicleParts(e.target.checked)}
+                className="w-4 h-4 rounded border-blue-300 text-blue-600 focus:ring-blue-500"
+              />
+              Mostrar só peças deste veículo
+            </label>
           </div>
         )}
 

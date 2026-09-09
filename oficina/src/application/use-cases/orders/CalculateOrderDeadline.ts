@@ -141,6 +141,22 @@ export class CalculateOrderDeadline {
       ...order.complaints.flatMap((c) => c.parts),
     ];
 
+    // Peças já reservadas para ESTA OS foram descontadas do saldo na reserva.
+    // Sem isso, uma peça que está fisicamente na prateleira seria tratada como
+    // compra pendente e o prazo viraria o lead time do fornecedor.
+    const orderMovements = await prisma.stockMovement.findMany({
+      where: { orderId, type: { in: ["RESERVED", "REVERSAL"] } },
+      select: { type: true, quantity: true, stockItemId: true },
+    });
+    const reservedByItem = new Map<string, number>();
+    for (const mov of orderMovements) {
+      const current = reservedByItem.get(mov.stockItemId) ?? 0;
+      reservedByItem.set(
+        mov.stockItemId,
+        mov.type === "RESERVED" ? current + mov.quantity : current - mov.quantity
+      );
+    }
+
     for (const part of allParts) {
       if (!part.stockItem) {
         // Peça avulsa sem cadastro de estoque — usa default
@@ -152,9 +168,10 @@ export class CalculateOrderDeadline {
         continue;
       }
 
-      // Verificar se tem estoque suficiente
-      if (part.stockItem.quantity >= part.quantity) {
-        // Em estoque — 0 dias
+      // Verificar se tem estoque suficiente (saldo atual + reserva desta OS)
+      const reservedForThisOrder = Math.max(0, reservedByItem.get(part.stockItem.id) ?? 0);
+      if (part.stockItem.quantity + reservedForThisOrder >= part.quantity) {
+        // Em estoque (ou já reservada para esta OS) — 0 dias
         continue;
       }
 

@@ -6,7 +6,7 @@ export interface CreateOrderDTO {
   complaints?: {
     description: string;
     services: { description: string; price: number; timeMinutes?: number; serviceId?: string; mechanicId?: string; commissionRate?: number; approved?: boolean }[];
-    parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string; approved?: boolean }[];
+    parts: { description: string; quantity: number; unitPrice: number; costPrice?: number | null; stockItemId?: string; approved?: boolean }[];
   }[];
   // Legacy flat format
   services?: { description: string; price: number; timeMinutes?: number; serviceId?: string; mechanicId?: string; commissionRate?: number }[];

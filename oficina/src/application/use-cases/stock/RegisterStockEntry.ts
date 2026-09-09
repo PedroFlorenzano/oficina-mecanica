@@ -35,6 +35,14 @@ export class RegisterStockEntry {
             ((balanceBefore * item.avgCost + input.quantity * input.unitCost) / balanceAfter) * 100
           ) / 100;
 
+    // Margem de lucro cadastrada recalcula o preço de venda a partir do novo custo.
+    // Sem margem definida, o preço de venda é preservado.
+    const margin = item.profitMargin ?? 0;
+    const newSellPrice =
+      margin > 0
+        ? Math.round(newAvgCost * (1 + margin / 100) * 100) / 100
+        : item.sellPrice;
+
     return this.stockItemRepo.createEntryTransaction(
       itemId,
       {
@@ -53,6 +61,7 @@ export class RegisterStockEntry {
         quantity: balanceAfter,
         avgCost: newAvgCost,
         costPrice: newAvgCost,
+        sellPrice: newSellPrice,
       }
     ).then(async (result) => {
       // Recalcular prazo de OSs ativas que usam este item

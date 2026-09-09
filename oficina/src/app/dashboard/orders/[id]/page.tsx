@@ -171,11 +171,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
   const changeStatus = async (newStatus: string) => {
     setUpdating(true);
-    await fetch(`/api/orders/${id}`, {
+    const res = await fetch(`/api/orders/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: newStatus }),
     });
+
+    // Baixa de estoque ao concluir: informar peças sem saldo
+    try {
+      const data = await res.json();
+      if (Array.isArray(data?.stockWarnings) && data.stockWarnings.length > 0) {
+        setWhatsAppMsg(`✗ Baixa de estoque pendente — ${data.stockWarnings.join(" | ")}`);
+        setTimeout(() => setWhatsAppMsg(""), 10000);
+      }
+    } catch { /* resposta sem corpo — segue o fluxo */ }
+
     fetchOrder();
     setUpdating(false);
 
@@ -471,14 +481,21 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         <div className="space-y-4 mb-4">
           <h2 className="font-bold text-slate-800 text-lg">RECLAMAÇÕES</h2>
           {order.complaints.map((complaint) => {
-            const cSvcTotal = complaint.services.reduce((s, sv) => s + sv.price, 0);
-            const cPrtTotal = complaint.parts.reduce((s, p) => s + p.totalPrice, 0);
+            // Somente itens aprovados entram no subtotal (igual ao total da OS)
+            const cSvcTotal = complaint.services.reduce((s, sv) => s + (sv.approved === false ? 0 : sv.price), 0);
+            const cPrtTotal = complaint.parts.reduce((s, p) => s + (p.approved === false ? 0 : p.totalPrice), 0);
             const cTotal = cSvcTotal + cPrtTotal;
             return (
               <div key={complaint.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                <h3 className="font-bold text-slate-800 mb-3 border-b pb-2">
-                  #{complaint.number} — {complaint.description}
-                </h3>
+                {/* Subtotal na própria linha da reclamação — evita confundir valor parcial com total da OS */}
+                <div className="flex items-baseline justify-between gap-3 mb-3 border-b pb-2">
+                  <h3 className="font-bold text-slate-800">
+                    #{complaint.number} — {complaint.description}
+                  </h3>
+                  <span className="text-sm font-bold text-slate-800 whitespace-nowrap">
+                    Subtotal: {formatCurrency(cTotal)}
+                  </span>
+                </div>
 
                 {/* Services */}
                 {complaint.services.length > 0 && (
@@ -575,9 +592,12 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
                   </div>
                 )}
 
-                {/* Subtotal */}
+                {/* Subtotal (repetido no rodapé para reclamações longas) */}
                 <div className="text-right pt-2 border-t">
-                  <span className="font-bold text-slate-800">Subtotal: {formatCurrency(cTotal)}</span>
+                  <span className="text-sm text-slate-500">
+                    Subtotal da reclamação #{complaint.number}:{" "}
+                    <span className="font-bold text-slate-800">{formatCurrency(cTotal)}</span>
+                  </span>
                 </div>
               </div>
             );

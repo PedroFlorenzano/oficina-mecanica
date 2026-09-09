@@ -8,5 +8,6 @@ export interface CreateVehicleDTO {
   fuel?: string;
   chassis?: string;
   mileage?: number;
+  oilReminderEnabled?: boolean;
   clientId: string;
 }

@@ -7,7 +7,11 @@ interface StockItem {
   id?: string;
   code: string;
   barcode?: string | null;
+  originalCode?: string | null;
+  sku?: string | null;
   description: string;
+  application?: string | null;
+  observations?: string | null;
   brand?: string | null;
   unit: string;
   minQuantity: number;
@@ -63,16 +67,16 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
     code: item?.code || "",
     barcode: item?.barcode || "",
     description: item?.description || "",
-    application: "",
-    sku: "",
-    originalCode: "",
+    application: item?.application || "",
+    sku: item?.sku || "",
+    originalCode: item?.originalCode || "",
     brand: item?.brand || "",
     unit: item?.unit || "UN",
     location: item?.location || "",
     supplier: item?.supplier || "",
     supplierId: item?.supplierId || "",
     leadTimeDays: item?.leadTimeDays?.toString() || "",
-    observations: "",
+    observations: item?.observations || "",
     minQuantity: item?.minQuantity?.toString() || "0",
     quantity: item?.quantity?.toString() || "0",
     costPrice: item?.costPrice?.toString() || "0",
@@ -207,7 +211,9 @@ export default function StockItemForm({ item, onSaved, onCancel }: Props) {
                     <label className="block text-xs font-medium text-slate-600 mb-1">Código Original / Similaridade</label>
                     <input type="text" value={form.originalCode}
                       onChange={(e) => setForm({ ...form, originalCode: e.target.value })}
+                      placeholder="Código que vem marcado na peça"
                       className="w-full px-3 py-2 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <p className="text-xs text-slate-400 mt-0.5">Exibido como código principal na listagem</p>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-slate-600 mb-1">Marca</label>

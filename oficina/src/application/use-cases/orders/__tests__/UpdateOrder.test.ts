@@ -45,6 +45,8 @@ const makeStockItemRepo = (items: StockItemData[] = [makeStockItem("stock-1")]):
   findById: jest.fn().mockImplementation((id) => Promise.resolve(items.find((i) => i.id === id) ?? null)),
   findByCode: jest.fn(),
   findAll: jest.fn(),
+  search: jest.fn(),
+  findByApplication: jest.fn(),
   findLowStock: jest.fn(),
   count: jest.fn(),
   create: jest.fn(),

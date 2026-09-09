@@ -27,6 +27,8 @@ const makeRepos = (item: StockItemData) => {
     findById: jest.fn().mockResolvedValue(item),
     findByCode: jest.fn(),
     findAll: jest.fn(),
+    search: jest.fn(),
+    findByApplication: jest.fn(),
     findLowStock: jest.fn(),
     count: jest.fn(),
     create: jest.fn(),

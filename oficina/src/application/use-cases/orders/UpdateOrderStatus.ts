@@ -8,7 +8,7 @@ export class UpdateOrderStatus {
     private confirmStockConsumption?: ConfirmStockConsumption
   ) {}
 
-  async execute(id: string, status: string, userId: string): Promise<OrderData | null> {
+  async execute(id: string, status: string, userId: string): Promise<(OrderData & { stockWarnings?: string[] }) | null> {
     if (!status) {
       throw new ValidationError("Status é obrigatório");
     }
@@ -20,9 +20,10 @@ export class UpdateOrderStatus {
 
     const updated = await this.orderRepo.updateStatus(id, status, userId);
 
-    // Ao concluir a OS, confirmar consumo de estoque
+    // Ao concluir a OS, confirmar consumo de estoque (baixa das peças aprovadas)
+    let stockWarnings: string[] = [];
     if (status === "COMPLETED" && this.confirmStockConsumption) {
-      await this.confirmStockConsumption.execute(id);
+      stockWarnings = await this.confirmStockConsumption.execute(id);
     }
 
     // Ao iniciar execução, recalcular prazo com data atual
@@ -34,6 +35,8 @@ export class UpdateOrderStatus {
       } catch { /* não bloquear se falhar */ }
     }
 
-    return updated;
+    return updated
+      ? { ...updated, stockWarnings: stockWarnings.length > 0 ? stockWarnings : undefined }
+      : updated;
   }
 }

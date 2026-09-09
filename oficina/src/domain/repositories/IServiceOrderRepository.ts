@@ -28,7 +28,7 @@ export interface OrderSummary {
 export interface ComplaintInput {
   description: string;
   services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null; approved?: boolean }[];
-  parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null; approved?: boolean }[];
+  parts: { description: string; quantity: number; unitPrice: number; costPrice?: number | null; stockItemId?: string | null; approved?: boolean }[];
 }
 
 export interface CreateOrderData {
@@ -69,6 +69,7 @@ export interface OrderPartDetail {
   description: string;
   quantity: number;
   unitPrice: number;
+  costPrice: number | null;
   totalPrice: number;
   stockItemId: string | null;
   used: boolean;

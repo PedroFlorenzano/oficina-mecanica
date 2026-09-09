@@ -26,6 +26,45 @@ export class PrismaStockItemRepository implements IStockItemRepository {
     }) as unknown as StockItemData[];
   }
 
+  async search(term: string, tenantId: string): Promise<StockItemData[]> {
+    const q = term.trim();
+    if (!q) return this.findAll(tenantId);
+
+    const contains = { contains: q, mode: "insensitive" as const };
+    return this.db.stockItem.findMany({
+      where: {
+        tenantId,
+        OR: [
+          { code: contains },
+          { originalCode: contains },
+          { sku: contains },
+          { barcode: contains },
+          { description: contains },
+          { brand: contains },
+          { application: contains },
+          { location: contains },
+        ],
+      },
+      orderBy: { description: "asc" },
+    }) as unknown as StockItemData[];
+  }
+
+  async findByApplication(terms: string[], tenantId: string): Promise<StockItemData[]> {
+    const cleaned = terms.map((t) => t.trim()).filter((t) => t.length >= 2);
+    if (cleaned.length === 0) return [];
+
+    return this.db.stockItem.findMany({
+      where: {
+        tenantId,
+        active: true,
+        OR: cleaned.map((t) => ({
+          application: { contains: t, mode: "insensitive" as const },
+        })),
+      },
+      orderBy: { description: "asc" },
+    }) as unknown as StockItemData[];
+  }
+
   async findLowStock(tenantId: string): Promise<StockItemData[]> {
     const items = await this.db.stockItem.findMany({
       where: { tenantId, active: true },

@@ -42,6 +42,8 @@ const makeStockItemRepo = (items: StockItemData[]): IStockItemRepository => ({
   ),
   findByCode: jest.fn(),
   findAll: jest.fn(),
+  search: jest.fn(),
+  findByApplication: jest.fn(),
   findLowStock: jest.fn(),
   count: jest.fn(),
   create: jest.fn(),

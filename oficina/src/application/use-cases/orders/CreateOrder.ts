@@ -53,6 +53,7 @@ export class CreateOrder {
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
+            costPrice: p.costPrice != null ? Number(p.costPrice) : null,
             stockItemId: p.stockItemId || null,
             approved: p.approved ?? true,
           })),

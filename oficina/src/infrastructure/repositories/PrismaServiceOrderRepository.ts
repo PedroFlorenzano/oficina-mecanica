@@ -130,6 +130,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
                 description: p.description,
                 quantity: p.quantity,
                 unitPrice: p.unitPrice,
+                costPrice: p.costPrice ?? null,
                 totalPrice: p.quantity * p.unitPrice,
                 stockItemId,
                 approved: p.approved ?? true,
@@ -291,7 +292,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   async replaceComplaints(
     orderId: string,
     tenantId: string,
-    complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null; approved?: boolean }[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null; approved?: boolean }[] }[],
+    complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null; approved?: boolean }[]; parts: { description: string; quantity: number; unitPrice: number; costPrice?: number | null; stockItemId?: string | null; approved?: boolean }[] }[],
     totalAmount: number,
     notes: string | null
   ): Promise<OrderData> {
@@ -336,6 +337,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
               description: p.description,
               quantity: p.quantity,
               unitPrice: p.unitPrice,
+              costPrice: p.costPrice ?? null,
               totalPrice: p.quantity * p.unitPrice,
               stockItemId,
               approved: p.approved ?? true,

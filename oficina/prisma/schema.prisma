@@ -225,6 +225,7 @@ model OrderPart {
   description String
   quantity    Int
   unitPrice   Float
+  costPrice   Float?   // Custo unitário da peça no momento do orçamento
   totalPrice  Float
   stockItemId String?
   orderId     String
@@ -273,7 +274,11 @@ model StockItem {
   id           String   @id @default(cuid())
   code         String
   barcode      String?
+  originalCode String?    // Código original da peça (o que vem marcado na peça) — código principal para o usuário
+  sku          String?
   description  String
+  application  String?    // Aplicação: veículos/modelos compatíveis
+  observations String?
   brand        String?
   unit         String   @default("UN")
   minQuantity  Int      @default(0)

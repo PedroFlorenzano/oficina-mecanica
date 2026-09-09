@@ -28,6 +28,7 @@ export class UpdateVehicle {
       fuel: input.fuel || null,
       chassis: input.chassis || null,
       mileage: input.mileage ? Number(input.mileage) : 0,
+      oilReminderEnabled: input.oilReminderEnabled ?? true,
       clientId: input.clientId,
     });
   }

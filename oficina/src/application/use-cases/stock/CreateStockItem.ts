@@ -22,22 +22,32 @@ export class CreateStockItem {
     }
 
     const costPrice = input.costPrice ? Number(input.costPrice) : 0;
+    const leadTimeDays =
+      input.leadTimeDays !== undefined && input.leadTimeDays !== null && `${input.leadTimeDays}` !== ""
+        ? Number(input.leadTimeDays)
+        : null;
 
     return this.stockRepo.create({
       code: itemCode,
       barcode: input.barcode || null,
+      originalCode: input.originalCode || null,
+      sku: input.sku || null,
       description: input.description,
+      application: input.application || null,
+      observations: input.observations || null,
       brand: input.brand || null,
       unit: input.unit || "UN",
       minQuantity: input.minQuantity ? Number(input.minQuantity) : 0,
       quantity: input.quantity ? Number(input.quantity) : 0,
       location: input.location || null,
       supplier: input.supplier || null,
+      supplierId: input.supplierId || null,
+      leadTimeDays,
       costPrice,
       sellPrice: input.sellPrice ? Number(input.sellPrice) : 0,
       avgCost: costPrice,
       profitMargin: input.profitMargin ? Number(input.profitMargin) : 0,
-      active: true,
+      active: input.active ?? true,
       tenantId,
       ncm: input.ncm || null,
       cfop: input.cfop || null,

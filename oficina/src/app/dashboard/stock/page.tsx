@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { Plus, Package, AlertTriangle, Pencil, Trash2 } from "lucide-react";
+import { Plus, Package, AlertTriangle, Pencil, Trash2, Search, X } from "lucide-react";
 import StockItemForm from "./StockItemForm";
 import { formatCurrency } from "@/lib/format";
 import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
@@ -11,8 +11,12 @@ import { hasPermission, parseCustomPermissions, Role } from "@/lib/permissions";
 interface StockItem {
   id: string;
   code: string;
+  originalCode: string | null;
+  sku: string | null;
   barcode: string | null;
   description: string;
+  application: string | null;
+  observations: string | null;
   brand: string | null;
   unit: string;
   quantity: number;
@@ -21,6 +25,8 @@ interface StockItem {
   sellPrice: number;
   profitMargin: number | null;
   location: string | null;
+  supplierId: string | null;
+  leadTimeDays: number | null;
   active: boolean;
 }
 
@@ -34,37 +40,44 @@ export default function StockPage() {
 
   const router = useRouter();
   const [items, setItems] = useState<StockItem[]>([]);
-  const [lowStockItems, setLowStockItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
+  const [search, setSearch] = useState("");
+  const [onlyLowStock, setOnlyLowStock] = useState(false);
 
-  const fetchItems = async () => {
+  const fetchItems = useCallback(async (term: string) => {
     setLoading(true);
     try {
-      const [itemsRes, alertsRes] = await Promise.all([
-        fetch("/api/stock"),
-        fetch("/api/stock/alerts"),
-      ]);
-      if (itemsRes.ok) {
-        const itemsData = await itemsRes.json();
-        setItems(itemsData);
-      }
-      if (alertsRes.ok) {
-        const alertsData = await alertsRes.json();
-        setLowStockItems(Array.isArray(alertsData) ? alertsData : []);
-      }
+      const url = term.trim()
+        ? `/api/stock?search=${encodeURIComponent(term.trim())}`
+        : "/api/stock";
+      const res = await fetch(url);
+      setItems(res.ok ? await res.json() : []);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchItems();
   }, []);
+
+  // Busca com debounce — o cliente digita e a lista filtra sozinha
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchItems(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search, fetchItems]);
+
+  const lowStockCount = useMemo(
+    () => items.filter((i) => i.quantity <= i.minQuantity).length,
+    [items]
+  );
+
+  const visibleItems = useMemo(
+    () => (onlyLowStock ? items.filter((i) => i.quantity <= i.minQuantity) : items),
+    [items, onlyLowStock]
+  );
 
   const handleNew = () => {
     setEditingItem(null);
@@ -85,13 +98,13 @@ export default function StockPage() {
       alert(data.error || "Erro ao excluir");
       return;
     }
-    fetchItems();
+    fetchItems(search);
   };
 
   const handleSaved = () => {
     setShowForm(false);
     setEditingItem(null);
-    fetchItems();
+    fetchItems(search);
   };
 
   return (
@@ -108,50 +121,62 @@ export default function StockPage() {
         )}
       </div>
 
-      {/* Painel de alertas de estoque baixo */}
-      {lowStockItems.length > 0 && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-          <div className="flex items-center gap-2 mb-3">
-            <AlertTriangle size={18} className="text-red-600" />
-            <h2 className="font-semibold text-red-800">
-              {lowStockItems.length}{" "}
-              {lowStockItems.length === 1 ? "item" : "itens"} com estoque baixo
-            </h2>
-          </div>
-          <div className="grid gap-2">
-            {lowStockItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => handleEdit(item)}
-                className="flex justify-between text-sm text-red-700 w-full text-left px-3 py-2 rounded-lg hover:bg-red-100 transition-colors cursor-pointer"
-              >
-                <span>
-                  <span className="font-mono">{item.code}</span> — {item.description}
-                </span>
-                <span className="flex items-center gap-2">
-                  {item.quantity} / mín {item.minQuantity} {item.unit}
-                  <Pencil size={14} className="text-red-400" />
-                </span>
-              </button>
-            ))}
-          </div>
+      {/* Busca + filtro de estoque baixo */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-4">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar por código, código original, descrição, marca, aplicação ou localização..."
+            aria-label="Buscar item no estoque"
+            className="w-full pl-9 pr-9 py-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              aria-label="Limpar busca"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
-      )}
+        <button
+          onClick={() => setOnlyLowStock((v) => !v)}
+          aria-pressed={onlyLowStock}
+          className={`flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border ${
+            onlyLowStock
+              ? "bg-amber-100 border-amber-300 text-amber-800"
+              : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <AlertTriangle size={16} />
+          Estoque baixo{lowStockCount > 0 ? ` (${lowStockCount})` : ""}
+        </button>
+      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {loading ? (
           <p className="p-6 text-slate-500">Carregando...</p>
-        ) : items.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <div className="p-8 text-center">
             <Package size={40} className="mx-auto text-slate-300 mb-3" />
-            <p className="text-slate-500">Nenhum item em estoque</p>
+            <p className="text-slate-500">
+              {search || onlyLowStock
+                ? "Nenhum item encontrado para esse filtro"
+                : "Nenhum item em estoque"}
+            </p>
           </div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 border-b">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Código</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Descrição</th>
+                <th className="text-left px-4 py-3 font-medium text-slate-600">Aplicação</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Marca</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Local</th>
                 <th className="text-left px-4 py-3 font-medium text-slate-600">Qtd</th>
@@ -161,14 +186,26 @@ export default function StockPage() {
               </tr>
             </thead>
             <tbody className="divide-y">
-              {items.map((item) => (
+              {visibleItems.map((item) => (
                 <tr
                   key={item.id}
                   className="hover:bg-slate-50 cursor-pointer"
                   onClick={() => router.push(`/dashboard/stock/${item.id}`)}
                 >
-                  <td className="px-4 py-3 font-mono text-slate-800">{item.code}</td>
+                  {/* Código original (o que vem marcado na peça) é o principal;
+                      o código do sistema fica em segundo plano */}
+                  <td className="px-4 py-3">
+                    <span className="font-mono font-medium text-slate-800">
+                      {item.originalCode || item.code}
+                    </span>
+                    {item.originalCode && (
+                      <span className="block font-mono text-xs text-slate-400">{item.code}</span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-slate-700">{item.description}</td>
+                  <td className="px-4 py-3 text-slate-600 text-xs max-w-[220px] truncate" title={item.application || ""}>
+                    {item.application || "—"}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">{item.brand || "—"}</td>
                   <td className="px-4 py-3 text-slate-600 text-xs font-medium">{item.location || "—"}</td>
                   <td className="px-4 py-3">
@@ -185,7 +222,7 @@ export default function StockPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{formatCurrency(item.costPrice)}</td>
                   <td className="px-4 py-3 text-slate-700">{formatCurrency(item.sellPrice)}</td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
                     {canUpdate && (
                     <button
                       onClick={(e) => {
@@ -215,6 +252,7 @@ export default function StockPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 

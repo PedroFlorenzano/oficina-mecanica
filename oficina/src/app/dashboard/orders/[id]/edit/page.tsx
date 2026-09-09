@@ -19,10 +19,14 @@ interface CatalogService {
 interface StockItem {
   id: string;
   code: string;
+  originalCode?: string | null;
   description: string;
+  application?: string | null;
   brand: string | null;
   unit: string;
   quantity: number;
+  costPrice: number;
+  profitMargin: number | null;
   sellPrice: number;
 }
 
@@ -40,6 +44,7 @@ interface PartItem {
   brand: string;
   quantity: number;
   unitPrice: number;
+  costPrice?: number;
   stockItemId?: string;
   approved?: boolean;
 }
@@ -66,7 +71,7 @@ interface OrderData {
   complaints: {
     description: string;
     services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; approved?: boolean }[];
-    parts: { description: string; quantity: number; unitPrice: number; totalPrice: number; stockItemId?: string | null; stockItem?: { brand?: string | null } | null; approved?: boolean }[];
+    parts: { description: string; quantity: number; unitPrice: number; costPrice?: number | null; totalPrice: number; stockItemId?: string | null; stockItem?: { brand?: string | null } | null; approved?: boolean }[];
   }[];
 }
 
@@ -118,6 +123,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             brand: p.stockItem?.brand || "",
             quantity: p.quantity,
             unitPrice: p.unitPrice,
+            costPrice: p.costPrice ?? undefined,
             stockItemId: p.stockItemId || undefined,
             approved: p.approved !== false,
           })),
@@ -177,7 +183,10 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
     const u = [...complaints];
     const newParts = ids.map((id) => {
       const item = stockItems.find((s) => s.id === id)!;
-      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice: item.sellPrice, stockItemId: item.id, approved: true };
+      const costPrice = item.costPrice || 0;
+      const margin = item.profitMargin || 0;
+      const unitPrice = costPrice > 0 && margin > 0 ? costPrice * (1 + margin / 100) : item.sellPrice;
+      return { description: item.description, brand: item.brand || "", quantity: 1, unitPrice, costPrice, stockItemId: item.id, approved: true };
     });
     u[ci].parts.push(...newParts);
     setComplaints(u);
@@ -238,6 +247,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
             description: p.description,
             quantity: p.quantity,
             unitPrice: p.unitPrice,
+            costPrice: p.costPrice ?? null,
             stockItemId: p.stockItemId,
             approved: p.approved !== false,
           })),
@@ -245,6 +255,19 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
       }),
     });
     if (!res.ok) { const data = await res.json(); setError(data.error || "Erro ao salvar OS"); setSaving(false); return; }
+
+    // Avisos de estoque (reserva não realizada por saldo insuficiente)
+    try {
+      const saved = await res.json();
+      if (Array.isArray(saved?.stockWarnings) && saved.stockWarnings.length > 0) {
+        alert(
+          "Alterações salvas, mas o estoque não pôde ser reservado para:\n\n" +
+            saved.stockWarnings.join("\n") +
+            "\n\nO saldo do estoque nunca fica negativo — registre a entrada dessas peças."
+        );
+      }
+    } catch { /* resposta sem corpo — segue o fluxo */ }
+
     router.replace(`/dashboard/orders/${id}`);
   };
 
@@ -412,7 +435,7 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                     ) : (
                       <div className="space-y-2">
                         {complaint.parts.map((p, pi) => (
-                          <div key={pi} className={`grid grid-cols-[24px_1fr_80px_60px_90px_30px] gap-2 items-end ${p.approved === false ? "opacity-50" : ""}`}>
+                          <div key={pi} className={`grid grid-cols-[24px_1fr_80px_60px_80px_90px_30px] gap-2 items-end ${p.approved === false ? "opacity-50" : ""}`}>
                             <div className="pb-2">
                               <input type="checkbox" checked={p.approved !== false}
                                 onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].approved = e.target.checked; setComplaints(u); }}
@@ -431,7 +454,10 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                                 const item = stockItems.find(st => st.id === opt.id);
                                 if (item) {
                                   const u = [...complaints];
-                                  u[ci].parts[pi] = { description: item.description, brand: item.brand || "", quantity: u[ci].parts[pi].quantity || 1, unitPrice: item.sellPrice, stockItemId: item.id, approved: true };
+                                  const costPrice = item.costPrice || 0;
+                                  const margin = item.profitMargin || 0;
+                                  const unitPrice = costPrice > 0 && margin > 0 ? costPrice * (1 + margin / 100) : item.sellPrice;
+                                  u[ci].parts[pi] = { description: item.description, brand: item.brand || "", quantity: u[ci].parts[pi].quantity || 1, unitPrice, costPrice, stockItemId: item.id, approved: true };
                                   setComplaints(u);
                                 }
                               }}
@@ -448,6 +474,23 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
                               <input type="number" value={p.quantity || ""}
                                 onChange={(e) => { const u = [...complaints]; u[ci].parts[pi].quantity = Number(e.target.value); setComplaints(u); }}
                                 className="w-full px-2 py-2 border border-slate-300 rounded-lg text-sm" />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-600 mb-1">R$ Custo</label>
+                              <input type="number" step="0.01" value={p.costPrice || ""}
+                                onChange={(e) => {
+                                  const u = [...complaints];
+                                  const cost = Number(e.target.value);
+                                  u[ci].parts[pi].costPrice = cost;
+                                  // Margem do estoque recalcula o preço de venda
+                                  if (cost > 0 && p.stockItemId) {
+                                    const item = stockItems.find(st => st.id === p.stockItemId);
+                                    const margin = item?.profitMargin || 0;
+                                    if (margin > 0) u[ci].parts[pi].unitPrice = cost * (1 + margin / 100);
+                                  }
+                                  setComplaints(u);
+                                }}
+                                className="w-full px-2 py-2 border border-slate-200 rounded-lg text-sm bg-yellow-50" />
                             </div>
                             <div>
                               <label className="block text-xs font-medium text-slate-600 mb-1">R$ Unit</label>
