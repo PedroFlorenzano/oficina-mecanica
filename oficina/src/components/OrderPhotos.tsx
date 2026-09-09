@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Camera, Trash2, Upload, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Modal } from "@/components/ui";
+import { compressImage } from "@/lib/image-compression";
 
 interface Photo {
   id: string;
@@ -25,6 +26,7 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [showUpload, setShowUpload] = useState(false);
   const [lightbox, setLightbox] = useState<Photo | null>(null);
   const [category, setCategory] = useState<"BEFORE" | "AFTER" | "DAMAGE">("BEFORE");
@@ -47,7 +49,15 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
 
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
+      const total = Array.from(files);
+      for (let i = 0; i < total.length; i++) {
+        const original = total[i];
+        setProgress(total.length > 1 ? `Enviando ${i + 1} de ${total.length}...` : "Enviando...");
+
+        // Reduz a imagem antes de enviar: o limite de corpo da requisição em
+        // produção é de ~4,5MB e foto de celular costuma passar disso.
+        const { file } = await compressImage(original);
+
         const formData = new FormData();
         formData.append("file", file);
         formData.append("category", category);
@@ -58,8 +68,8 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
           body: formData,
         });
         if (!res.ok) {
-          const err = await res.json();
-          alert(err.error || "Erro ao enviar foto");
+          const err = await res.json().catch(() => ({}));
+          alert(err.error || `Erro ao enviar ${original.name}`);
         }
       }
       setDescription("");
@@ -67,6 +77,7 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
       await fetchPhotos();
     } finally {
       setUploading(false);
+      setProgress(null);
       e.target.value = "";
     }
   };
@@ -126,7 +137,7 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
               />
             </div>
             <label className="cursor-pointer inline-flex items-center h-8 px-3 text-xs gap-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 font-medium">
-              {uploading ? "Enviando..." : "Selecionar Arquivo(s)"}
+              {uploading ? progress || "Enviando..." : "Selecionar Arquivo(s)"}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -137,7 +148,9 @@ export function OrderPhotos({ orderId }: { orderId: string }) {
               />
             </label>
           </div>
-          <p className="text-xs text-slate-500">JPEG, PNG ou WebP. Máx. 10MB por arquivo.</p>
+          <p className="text-xs text-slate-500">
+            JPEG, PNG ou WebP. Fotos grandes são reduzidas automaticamente antes do envio.
+          </p>
         </div>
       )}
 

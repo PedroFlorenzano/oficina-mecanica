@@ -1,14 +1,14 @@
 import { UploadOrderPhoto } from "@/application/use-cases/photos/UploadOrderPhoto";
 import { DeleteOrderPhoto } from "@/application/use-cases/photos/DeleteOrderPhoto";
 import { IOrderPhotoRepository, OrderPhoto } from "@/domain/repositories/IOrderPhotoRepository";
+import { IFileStorage } from "@/domain/storage/IFileStorage";
 import { ValidationError, NotFoundError } from "@/domain/errors/DomainError";
-import { unlink } from "fs/promises";
 
-jest.mock("fs/promises", () => ({
-  unlink: jest.fn().mockResolvedValue(undefined),
-}));
-
-const mockedUnlink = unlink as jest.MockedFunction<typeof unlink>;
+const makeStorage = (): jest.Mocked<IFileStorage> => ({
+  save: jest.fn().mockResolvedValue(undefined),
+  get: jest.fn().mockResolvedValue(null),
+  delete: jest.fn().mockResolvedValue(undefined),
+});
 
 const makePhoto = (overrides: Partial<OrderPhoto> = {}): OrderPhoto => ({
   id: "photo-1",
@@ -127,30 +127,54 @@ describe("UploadOrderPhoto", () => {
 });
 
 describe("DeleteOrderPhoto", () => {
-  it("deve deletar foto existente", async () => {
+  it("deve deletar foto existente e remover o arquivo do storage", async () => {
     const repo = makeRepo();
-    const useCase = new DeleteOrderPhoto(repo);
+    const storage = makeStorage();
+    const useCase = new DeleteOrderPhoto(repo, storage);
 
     await useCase.execute("photo-1");
 
+    expect(storage.delete).toHaveBeenCalledWith("cmq0y8y8q/photo1.jpg");
     expect(repo.delete).toHaveBeenCalledWith("photo-1");
   });
 
   it("deve lançar NotFoundError se foto não existe", async () => {
     const repo = makeRepo(null);
-    const useCase = new DeleteOrderPhoto(repo);
+    const useCase = new DeleteOrderPhoto(repo, makeStorage());
 
     await expect(useCase.execute("inexistente")).rejects.toThrow(NotFoundError);
   });
 
-  it("deve prosseguir com delete no DB mesmo se arquivo não existe no disco", async () => {
-    mockedUnlink.mockRejectedValueOnce(new Error("ENOENT"));
-
+  it("deve prosseguir com delete no DB mesmo se o arquivo não existe no storage", async () => {
     const repo = makeRepo();
-    const useCase = new DeleteOrderPhoto(repo);
+    const storage = makeStorage();
+    // Contrato do storage: delete é idempotente e não lança se já não existe
+    storage.delete.mockResolvedValueOnce(undefined);
 
+    const useCase = new DeleteOrderPhoto(repo, storage);
     await useCase.execute("photo-1");
 
+    expect(repo.delete).toHaveBeenCalledWith("photo-1");
+  });
+
+  it("deve recusar exclusão de foto de outro tenant", async () => {
+    const repo = makeRepo(makePhoto({ filePath: "t/tenant-b/orders/order-9/abc.jpg" }));
+    const storage = makeStorage();
+    const useCase = new DeleteOrderPhoto(repo, storage);
+
+    await expect(useCase.execute("photo-1", "tenant-a")).rejects.toThrow(NotFoundError);
+    expect(storage.delete).not.toHaveBeenCalled();
+    expect(repo.delete).not.toHaveBeenCalled();
+  });
+
+  it("deve permitir exclusão de foto do próprio tenant", async () => {
+    const repo = makeRepo(makePhoto({ filePath: "t/tenant-a/orders/order-9/abc.jpg" }));
+    const storage = makeStorage();
+    const useCase = new DeleteOrderPhoto(repo, storage);
+
+    await useCase.execute("photo-1", "tenant-a");
+
+    expect(storage.delete).toHaveBeenCalledWith("t/tenant-a/orders/order-9/abc.jpg");
     expect(repo.delete).toHaveBeenCalledWith("photo-1");
   });
 });
