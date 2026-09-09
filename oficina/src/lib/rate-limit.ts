@@ -11,7 +11,7 @@ import { RateLimitError } from "@/domain/errors/DomainError";
  */
 
 export interface RateLimitRule {
-  /** Identificador do limite. Ex.: "register:ip:203.0.113.10" */
+  /** Identificador do limite. Ex.: "register:attempt:ip:203.0.113.10" */
   key: string;
   /** Máximo de requisições permitidas dentro da janela */
   limit: number;
@@ -40,11 +40,11 @@ export function getClientIp(request: NextRequest): string {
 }
 
 /**
- * Verifica as regras e registra o acesso. Lança `RateLimitError` na primeira
- * regra estourada — nada é registrado quando o limite é atingido, para que uma
- * rajada de tentativas bloqueadas não estenda a punição indefinidamente.
+ * Verifica as regras sem registrar nada. Use quando o consumo da cota deve
+ * acontecer apenas se a operação der certo (ex.: contas efetivamente criadas),
+ * para que erros de preenchimento não bloqueiem o usuário.
  */
-export async function enforceRateLimit(rules: RateLimitRule[]): Promise<void> {
+export async function checkRateLimit(rules: RateLimitRule[]): Promise<void> {
   const now = Date.now();
 
   for (const rule of rules) {
@@ -68,15 +68,29 @@ export async function enforceRateLimit(rules: RateLimitRule[]): Promise<void> {
       throw new RateLimitError(rule.message, Math.ceil(retryAfterMs / 1000));
     }
   }
+}
 
-  await prismaAdmin.rateLimitHit.createMany({
-    data: rules.map((rule) => ({ key: rule.key })),
-  });
+/** Registra o consumo de uma ou mais chaves. */
+export async function recordRateLimitHit(keys: string | string[]): Promise<void> {
+  const list = Array.isArray(keys) ? keys : [keys];
+  if (list.length === 0) return;
+
+  await prismaAdmin.rateLimitHit.createMany({ data: list.map((key) => ({ key })) });
 
   // Limpeza oportunista (~2% das chamadas) para a tabela não crescer sem limite
   if (Math.random() < 0.02) {
     await prismaAdmin.rateLimitHit
-      .deleteMany({ where: { createdAt: { lt: new Date(now - 7 * DAY) } } })
+      .deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 7 * DAY) } } })
       .catch(() => { /* limpeza é best-effort, não deve derrubar a requisição */ });
   }
+}
+
+/**
+ * Verifica as regras e registra o acesso. Lança `RateLimitError` na primeira
+ * regra estourada — nada é registrado quando o limite é atingido, para que uma
+ * rajada de tentativas bloqueadas não estenda a punição indefinidamente.
+ */
+export async function enforceRateLimit(rules: RateLimitRule[]): Promise<void> {
+  await checkRateLimit(rules);
+  await recordRateLimitHit(rules.map((rule) => rule.key));
 }

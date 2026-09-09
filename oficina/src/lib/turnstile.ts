@@ -12,6 +12,19 @@ export function isTurnstileEnabled(): boolean {
   return Boolean(process.env.TURNSTILE_SECRET_KEY);
 }
 
+/** Mensagens específicas por código de erro da Cloudflare (facilita diagnóstico). */
+function messageForCodes(codes: string[]): string {
+  if (codes.includes("timeout-or-duplicate")) {
+    return "A verificação de segurança expirou. Marque a verificação novamente e reenvie.";
+  }
+  if (codes.includes("invalid-input-secret") || codes.includes("bad-request")) {
+    // Erro de configuração no servidor, não culpa do usuário
+    return "Verificação de segurança indisponível por erro de configuração. Avise o suporte.";
+  }
+  const detail = codes.length > 0 ? ` (${codes.join(", ")})` : "";
+  return `Verificação de segurança falhou${detail}. Recarregue a página e tente novamente.`;
+}
+
 export async function verifyTurnstile(token: unknown, ip?: string): Promise<void> {
   if (!isTurnstileEnabled()) return;
 
@@ -25,7 +38,7 @@ export async function verifyTurnstile(token: unknown, ip?: string): Promise<void
   });
   if (ip && ip !== "unknown") body.set("remoteip", ip);
 
-  let outcome: { success?: boolean } = {};
+  let outcome: { success?: boolean; "error-codes"?: string[] } = {};
   try {
     const res = await fetch(VERIFY_URL, {
       method: "POST",
@@ -41,6 +54,8 @@ export async function verifyTurnstile(token: unknown, ip?: string): Promise<void
   }
 
   if (!outcome.success) {
-    throw new ValidationError("Verificação de segurança falhou. Recarregue a página e tente novamente.");
+    const codes = outcome["error-codes"] ?? [];
+    console.error("Turnstile: validação recusada", codes);
+    throw new ValidationError(messageForCodes(codes));
   }
 }

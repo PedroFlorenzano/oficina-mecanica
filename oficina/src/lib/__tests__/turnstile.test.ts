@@ -40,6 +40,36 @@ describe("turnstile", () => {
     await expect(verifyTurnstile("token-ruim")).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it("explica token reusado/expirado (timeout-or-duplicate)", async () => {
+    process.env.TURNSTILE_SECRET_KEY = "secret";
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ success: false, "error-codes": ["timeout-or-duplicate"] }),
+    }) as unknown as typeof fetch;
+
+    await expect(verifyTurnstile("token")).rejects.toThrow(/expirou/i);
+  });
+
+  it("sinaliza erro de configuração quando a secret é inválida", async () => {
+    process.env.TURNSTILE_SECRET_KEY = "secret-errada";
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ success: false, "error-codes": ["invalid-input-secret"] }),
+    }) as unknown as typeof fetch;
+
+    await expect(verifyTurnstile("token")).rejects.toThrow(/configuração/i);
+  });
+
+  it("inclui o código da Cloudflare na mensagem genérica", async () => {
+    process.env.TURNSTILE_SECRET_KEY = "secret";
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    global.fetch = jest.fn().mockResolvedValue({
+      json: async () => ({ success: false, "error-codes": ["invalid-input-response"] }),
+    }) as unknown as typeof fetch;
+
+    await expect(verifyTurnstile("token")).rejects.toThrow(/invalid-input-response/);
+  });
+
   it("não bloqueia cadastro se a Cloudflare estiver fora do ar", async () => {
     process.env.TURNSTILE_SECRET_KEY = "secret";
     jest.spyOn(console, "error").mockImplementation(() => {});

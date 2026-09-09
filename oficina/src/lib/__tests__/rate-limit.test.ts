@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { DAY, HOUR, enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { DAY, HOUR, checkRateLimit, enforceRateLimit, getClientIp, recordRateLimitHit } from "@/lib/rate-limit";
 import { RateLimitError } from "@/domain/errors/DomainError";
 
 const countMock = jest.fn();
@@ -119,5 +119,55 @@ describe("enforceRateLimit", () => {
     await enforceRateLimit([rule("a", 3, HOUR), rule("b", 30, HOUR)]);
 
     expect(createManyMock).toHaveBeenCalledWith({ data: [{ key: "a" }, { key: "b" }] });
+  });
+});
+
+describe("checkRateLimit / recordRateLimitHit", () => {
+  beforeEach(() => {
+    countMock.mockReset();
+    findFirstMock.mockReset();
+    createManyMock.mockReset().mockResolvedValue({ count: 1 });
+    deleteManyMock.mockReset().mockResolvedValue({ count: 0 });
+    jest.spyOn(Math, "random").mockReturnValue(0.99);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("checkRateLimit não consome cota (erro de formulário não pune o usuário)", async () => {
+    countMock.mockResolvedValue(1);
+
+    await expect(
+      checkRateLimit([rule("register:success:ip:1.1.1.1", 3, DAY)])
+    ).resolves.toBeUndefined();
+
+    expect(createManyMock).not.toHaveBeenCalled();
+  });
+
+  it("checkRateLimit bloqueia quando a cota já está cheia", async () => {
+    countMock.mockResolvedValue(3);
+    findFirstMock.mockResolvedValue({ createdAt: new Date() });
+
+    await expect(
+      checkRateLimit([rule("register:success:ip:1.1.1.1", 3, DAY)])
+    ).rejects.toBeInstanceOf(RateLimitError);
+  });
+
+  it("recordRateLimitHit registra a chave informada", async () => {
+    await recordRateLimitHit("register:success:ip:1.1.1.1");
+
+    expect(createManyMock).toHaveBeenCalledWith({
+      data: [{ key: "register:success:ip:1.1.1.1" }],
+    });
+  });
+
+  it("recordRateLimitHit aceita lista e ignora vazia", async () => {
+    await recordRateLimitHit(["a", "b"]);
+    expect(createManyMock).toHaveBeenCalledWith({ data: [{ key: "a" }, { key: "b" }] });
+
+    createManyMock.mockClear();
+    await recordRateLimitHit([]);
+    expect(createManyMock).not.toHaveBeenCalled();
   });
 });

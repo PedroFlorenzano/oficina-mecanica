@@ -11,6 +11,7 @@ export default function RegisterForm() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const handleToken = useCallback((token: string) => setTurnstileToken(token), []);
   const handleTurnstileError = useCallback(
     (code: string) =>
@@ -19,6 +20,12 @@ export default function RegisterForm() {
       ),
     []
   );
+  // Cada token da Cloudflare vale um único envio: depois de uma falha é preciso pedir outro
+  const failWith = (message: string) => {
+    setError(message);
+    setTurnstileToken("");
+    setTurnstileReset((n) => n + 1);
+  };
 
   const [form, setForm] = useState({
     officeName: "",
@@ -80,10 +87,10 @@ export default function RegisterForm() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          setError(data.error || "Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+          failWith(data.error || "Muitas tentativas. Aguarde alguns minutos e tente novamente.");
           return;
         }
-        setError(data.error || "Erro ao cadastrar.");
+        failWith(data.error || "Erro ao cadastrar.");
         return;
       }
 
@@ -182,7 +189,7 @@ export default function RegisterForm() {
         </div>
       )}
 
-      <TurnstileWidget onToken={handleToken} onError={handleTurnstileError} />
+      <TurnstileWidget onToken={handleToken} onError={handleTurnstileError} resetKey={turnstileReset} />
 
       <Button type="submit" loading={loading} className="w-full">
         Cadastrar Oficina

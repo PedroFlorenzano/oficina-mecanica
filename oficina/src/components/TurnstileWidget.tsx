@@ -8,6 +8,12 @@ interface TurnstileWidgetProps {
   onToken: (token: string) => void;
   /** Recebe o código de erro da Cloudflare (ex.: "110200") para exibição/diagnóstico */
   onError?: (code: string) => void;
+  /**
+   * Incremente este número para pedir um token novo.
+   * Cada token só pode ser validado uma vez pela Cloudflare, então o formulário
+   * precisa resetar o widget depois de um envio que falhou.
+   */
+  resetKey?: number;
 }
 
 interface TurnstileApi {
@@ -21,6 +27,7 @@ interface TurnstileApi {
       language?: string;
     }
   ) => string;
+  reset: (widgetId?: string) => void;
 }
 
 declare global {
@@ -34,31 +41,37 @@ declare global {
  * Não renderiza nada se NEXT_PUBLIC_TURNSTILE_SITE_KEY não estiver configurada,
  * então o formulário continua utilizável em dev/CI.
  */
-export default function TurnstileWidget({ onToken, onError }: TurnstileWidgetProps) {
+export default function TurnstileWidget({ onToken, onError, resetKey = 0 }: TurnstileWidgetProps) {
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
   const containerRef = useRef<HTMLDivElement>(null);
-  const renderedRef = useRef(false);
+  const widgetIdRef = useRef<string | null>(null);
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
-    if (!siteKey || !scriptReady || renderedRef.current) return;
+    if (!siteKey || !scriptReady || widgetIdRef.current !== null) return;
     const el = containerRef.current;
     if (!el || !window.turnstile) return;
 
-    renderedRef.current = true;
-    window.turnstile.render(el, {
+    widgetIdRef.current = window.turnstile.render(el, {
       sitekey: siteKey,
       language: "pt-BR",
       callback: (token: string) => onToken(token),
       "expired-callback": () => onToken(""),
       "error-callback": (code?: string) => {
         onToken("");
-        // Código da Cloudflare (110200 = domínio não autorizado, 110100 = sitekey inválida)
+        // Código da Cloudflare (110200 = domínio não autorizado, 110100/400020 = sitekey inválida)
         console.error("[Turnstile] erro", code ?? "desconhecido");
         onError?.(code ?? "desconhecido");
       },
     });
   }, [siteKey, scriptReady, onToken, onError]);
+
+  // Token novo a pedido do formulário (após falha no envio)
+  useEffect(() => {
+    if (resetKey === 0 || widgetIdRef.current === null || !window.turnstile) return;
+    onToken("");
+    window.turnstile.reset(widgetIdRef.current);
+  }, [resetKey, onToken]);
 
   if (!siteKey) return null;
 
