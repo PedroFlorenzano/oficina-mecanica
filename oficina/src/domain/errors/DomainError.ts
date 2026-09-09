@@ -40,3 +40,10 @@ export class ForbiddenError extends DomainError {
     super(message, "FORBIDDEN");
   }
 }
+
+/** Excesso de requisições em endpoint público (HTTP 429). */
+export class RateLimitError extends DomainError {
+  constructor(message: string, public readonly retryAfterSeconds: number) {
+    super(message, "RATE_LIMIT_EXCEEDED");
+  }
+}

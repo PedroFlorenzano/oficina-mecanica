@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input } from "@/components/ui";
+import TurnstileWidget from "@/components/TurnstileWidget";
 
 export default function RegisterForm() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const handleToken = useCallback((token: string) => setTurnstileToken(token), []);
 
   const [form, setForm] = useState({
     officeName: "",
@@ -63,11 +66,16 @@ export default function RegisterForm() {
           adminName: form.adminName,
           adminEmail: form.adminEmail,
           adminPassword: form.adminPassword,
+          turnstileToken: turnstileToken || undefined,
         }),
       });
 
       if (!res.ok) {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          setError(data.error || "Muitas tentativas. Aguarde alguns minutos e tente novamente.");
+          return;
+        }
         setError(data.error || "Erro ao cadastrar.");
         return;
       }
@@ -166,6 +174,8 @@ export default function RegisterForm() {
           {error}
         </div>
       )}
+
+      <TurnstileWidget onToken={handleToken} />
 
       <Button type="submit" loading={loading} className="w-full">
         Cadastrar Oficina

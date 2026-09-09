@@ -798,3 +798,18 @@ model FinancialEntry {
   @@index([tenantId, category])
   @@index([tenantId, dueDate])
 }
+
+// ============================================
+// Rate limiting de endpoints públicos
+// Não pertence a nenhum tenant (protege o cadastro e o agendamento anônimo).
+// Persistido no banco porque cada função serverless tem memória própria.
+// ============================================
+
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String   // ex: "register:ip:203.0.113.10" | "register:global"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+  @@index([createdAt])
+}

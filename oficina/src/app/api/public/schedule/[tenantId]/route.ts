@@ -4,6 +4,8 @@ import { PrismaAppointmentRepository } from "@/infrastructure/repositories/Prism
 import { GetAvailableSlots } from "@/application/use-cases/appointments/GetAvailableSlots";
 import { CreateAppointment } from "@/application/use-cases/appointments/CreateAppointment";
 import { handleError } from "@/lib/api-handler";
+import { HOUR, enforceRateLimit, getClientIp } from "@/lib/rate-limit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 function getRepo() {
   return new PrismaAppointmentRepository(prismaAdmin);
@@ -51,7 +53,27 @@ export async function POST(
 ) {
   try {
     const { tenantId } = await params;
+    const ip = getClientIp(request);
     const body = await request.json();
+
+    // Captcha (só exigido se TURNSTILE_SECRET_KEY estiver configurada)
+    await verifyTurnstile(body?.turnstileToken, ip);
+
+    // Agendamento anônimo: limita spam por IP e protege a agenda da oficina
+    await enforceRateLimit([
+      {
+        key: `schedule:ip:${ip}`,
+        limit: 5,
+        windowMs: HOUR,
+        message: "Muitas solicitações de agendamento. Tente novamente em alguns minutos.",
+      },
+      {
+        key: `schedule:tenant:${tenantId}`,
+        limit: 60,
+        windowMs: HOUR,
+        message: "Agendamento online temporariamente indisponível. Entre em contato com a oficina por telefone.",
+      },
+    ]);
 
     const repo = getRepo();
     const useCase = new CreateAppointment(repo);
