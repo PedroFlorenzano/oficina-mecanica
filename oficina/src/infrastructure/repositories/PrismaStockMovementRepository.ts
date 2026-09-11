@@ -55,5 +55,12 @@ export class PrismaStockMovementRepository implements IStockMovementRepository {
     return { data: data as unknown as StockMovementData[], total, page, pageSize };
   }
 
+  async findEntriesByStockItemId(stockItemId: string): Promise<StockMovementData[]> {
+    return this.db.stockMovement.findMany({
+      where: { stockItemId, type: "IN", supplier: { not: null } },
+      orderBy: { createdAt: "desc" },
+    }) as unknown as StockMovementData[];
+  }
+
   // Sem update() nem delete() — imutabilidade garantida por interface
 }

@@ -14,10 +14,10 @@ const makeOrder = (status = "WAITING_APPROVAL") => ({
     {
       id: "c1",
       services: [{ id: "s1", description: "Troca óleo", price: 60 }],
-      parts: [{ id: "p1", description: "Filtro", quantity: 1, unitPrice: 40, stockItemId: "stock-1" }],
+      parts: [{ id: "p1", description: "Filtro", quantity: 1, unitPrice: 40, stockItemId: "stock-1" as string | null }],
     },
   ],
-  parts: [{ id: "p1", stockItemId: "stock-1", quantity: 1 }],
+  parts: [{ id: "p1", stockItemId: "stock-1" as string | null, quantity: 1 }],
 });
 
 const makeStockItem = (id: string, quantity = 10): StockItemData => ({
@@ -26,21 +26,54 @@ const makeStockItem = (id: string, quantity = 10): StockItemData => ({
   costPrice: 10, sellPrice: 20, avgCost: 10, profitMargin: 1, active: true, tenantId: "tenant-1",
 });
 
-const makeOrderRepo = (order = makeOrder()): IServiceOrderRepository => ({
-  findById: jest.fn().mockResolvedValue(order),
-  findAll: jest.fn(),
-  findActive: jest.fn(),
-  getNextNumber: jest.fn(),
-  createWithComplaints: jest.fn(),
-  createLegacy: jest.fn(),
-  updateStatus: jest.fn(),
-  replaceComplaints: jest.fn().mockResolvedValue({ ...order, totalAmount: 0 }),
-  findByClientId: jest.fn(),
-  findByVehicleId: jest.fn(),
-  findOilChangeOrders: jest.fn(),
-  cancel: jest.fn(),
-  setItemApproval: jest.fn(),
-});
+// O fake precisa ser stateful: a reserva de estoque agora é feita a partir das peças
+// **gravadas**, não da entrada da requisição.
+const makeOrderRepo = (order = makeOrder()): IServiceOrderRepository => {
+  let current: ReturnType<typeof makeOrder> = order;
+
+  return {
+    findById: jest.fn().mockImplementation(() => Promise.resolve(current)),
+    findAll: jest.fn(),
+    findActive: jest.fn(),
+    getNextNumber: jest.fn(),
+    createWithComplaints: jest.fn(),
+    createLegacy: jest.fn(),
+    updateStatus: jest.fn(),
+    replaceComplaints: jest.fn().mockImplementation(
+      (
+        _orderId: string,
+        _tenantId: string,
+        complaints: { services: unknown[]; parts: { description: string; quantity: number; unitPrice: number; stockItemId?: string | null }[] }[],
+        totalAmount: number
+      ) => {
+        current = {
+          ...current,
+          totalAmount,
+          complaints: complaints.map((c, i) => ({
+            id: `c${i + 1}`,
+            services: c.services as ReturnType<typeof makeOrder>["complaints"][0]["services"],
+            parts: c.parts.map((p, j) => ({
+              id: `c${i + 1}p${j + 1}`,
+              description: p.description,
+              quantity: p.quantity,
+              unitPrice: p.unitPrice,
+              stockItemId: p.stockItemId ?? null,
+            })),
+          })),
+          parts: [],
+        };
+        return Promise.resolve(current);
+      }
+    ),
+    findByClientId: jest.fn(),
+    findByVehicleId: jest.fn(),
+    findOilChangeOrders: jest.fn(),
+    cancel: jest.fn(),
+    setItemApproval: jest.fn(),
+    recordStatusHistory: jest.fn().mockResolvedValue(undefined),
+    getStatusHistory: jest.fn().mockResolvedValue([]),
+  } as unknown as IServiceOrderRepository;
+};
 
 const makeStockItemRepo = (items: StockItemData[] = [makeStockItem("stock-1")]): IStockItemRepository => ({
   findById: jest.fn().mockImplementation((id) => Promise.resolve(items.find((i) => i.id === id) ?? null)),
@@ -138,11 +171,11 @@ describe("UpdateOrder", () => {
 
     // serviços = 80, peças = 4×32 = 128, total = 208
     expect(orderRepo.replaceComplaints).toHaveBeenCalledWith(
-      "order-1", "tenant-1", expect.anything(), 208, null
+      "order-1", "tenant-1", expect.anything(), 208, null, expect.anything()
     );
   });
 
-  it("deve reverter reservas de estoque antes de substituir", async () => {
+  it("deve reverter reservas de estoque depois de gravar", async () => {
     const reservation: StockMovementData = {
       id: "mov-1", type: "RESERVED", quantity: 1, reason: "Reserva",
       document: null, supplier: null, unitCost: 10, orderId: "order-1",
@@ -200,5 +233,176 @@ describe("UpdateOrder", () => {
 
     // Nenhuma interação com comissões — apenas replaceComplaints
     expect(orderRepo.replaceComplaints).toHaveBeenCalledTimes(1);
+  });
+});
+
+// --- Item 2: admin edita OS em andamento por configuração ---
+type SettingsRepo = {
+  get: jest.Mock;
+  upsert: jest.Mock;
+};
+const makeSettingsRepo = (allowEditInProgress: boolean): SettingsRepo => ({
+  get: jest.fn().mockResolvedValue({
+    id: "cfg-1", tenantId: "tenant-1", allowEditInProgress, uppercaseInputs: false,
+    createdAt: new Date(), updatedAt: new Date(),
+  }),
+  upsert: jest.fn(),
+});
+
+const makeVehicleRepo = () => ({
+  findById: jest.fn(),
+  findByPlate: jest.fn(),
+  findByPlateExcluding: jest.fn(),
+  search: jest.fn(),
+  findAll: jest.fn(),
+  findWithReminderEnabled: jest.fn(),
+  create: jest.fn(),
+  update: jest.fn(),
+  updateMileage: jest.fn().mockResolvedValue(undefined),
+  delete: jest.fn(),
+  countOrders: jest.fn(),
+});
+
+describe("UpdateOrder — edição de OS em andamento (item 2)", () => {
+  const validInput = {
+    complaints: [
+      {
+        description: "Troca de óleo",
+        services: [{ description: "Mão de obra", price: 80 }],
+        parts: [],
+      },
+    ],
+  };
+
+  it("flag ON + admin → permite editar OS IN_PROGRESS", async () => {
+    const orderRepo = makeOrderRepo(makeOrder("IN_PROGRESS"));
+    const settingsRepo = makeSettingsRepo(true);
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(),
+      makeVehicleRepo() as never, settingsRepo as never
+    );
+
+    await expect(
+      useCase.execute("order-1", validInput, "tenant-1", { userRole: "ADMIN", userId: "u1" })
+    ).resolves.toBeDefined();
+    expect(orderRepo.replaceComplaints).toHaveBeenCalled();
+    // Registra a edição no histórico
+    expect(orderRepo.recordStatusHistory).toHaveBeenCalledWith("order-1", "IN_PROGRESS", "u1");
+  });
+
+  it("flag ON + não-admin → bloqueia", async () => {
+    const orderRepo = makeOrderRepo(makeOrder("IN_PROGRESS"));
+    const settingsRepo = makeSettingsRepo(true);
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(),
+      makeVehicleRepo() as never, settingsRepo as never
+    );
+
+    await expect(
+      useCase.execute("order-1", validInput, "tenant-1", { userRole: "MECHANIC", userId: "u1" })
+    ).rejects.toThrow("Somente OS em status 'Aguardando Aprovação' pode ser editada");
+  });
+
+  it("flag OFF + admin → bloqueia", async () => {
+    const orderRepo = makeOrderRepo(makeOrder("IN_PROGRESS"));
+    const settingsRepo = makeSettingsRepo(false);
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(),
+      makeVehicleRepo() as never, settingsRepo as never
+    );
+
+    await expect(
+      useCase.execute("order-1", validInput, "tenant-1", { userRole: "ADMIN", userId: "u1" })
+    ).rejects.toThrow("Somente OS em status 'Aguardando Aprovação' pode ser editada");
+  });
+
+  it("flag OFF + não-admin → bloqueia", async () => {
+    const orderRepo = makeOrderRepo(makeOrder("IN_PROGRESS"));
+    const settingsRepo = makeSettingsRepo(false);
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(),
+      makeVehicleRepo() as never, settingsRepo as never
+    );
+
+    await expect(
+      useCase.execute("order-1", validInput, "tenant-1", { userRole: "MECHANIC", userId: "u1" })
+    ).rejects.toThrow("Somente OS em status 'Aguardando Aprovação' pode ser editada");
+  });
+
+  it("flag ON + admin → OS DELIVERED continua bloqueada", async () => {
+    const orderRepo = makeOrderRepo(makeOrder("DELIVERED"));
+    const settingsRepo = makeSettingsRepo(true);
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(),
+      makeVehicleRepo() as never, settingsRepo as never
+    );
+
+    await expect(
+      useCase.execute("order-1", validInput, "tenant-1", { userRole: "ADMIN", userId: "u1" })
+    ).rejects.toThrow("OS entregue ou cancelada não pode ser editada");
+  });
+});
+
+describe("UpdateOrder — KM de saída (item 45)", () => {
+  const makeOrderWithMileage = (mileage: number) => ({
+    ...makeOrder("WAITING_APPROVAL"),
+    mileage,
+    vehicleId: "veh-1",
+  });
+
+  const inputWithMileageOut = (mileageOut: number | null) => ({
+    complaints: [
+      { description: "Serviço", services: [{ description: "Mão de obra", price: 80 }], parts: [] },
+    ],
+    mileageOut,
+  });
+
+  it("rejeita KM de saída menor que KM de entrada", async () => {
+    const orderRepo = makeOrderRepo(makeOrderWithMileage(50000));
+    const vehicleRepo = makeVehicleRepo();
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(), vehicleRepo as never
+    );
+
+    await expect(
+      useCase.execute("order-1", inputWithMileageOut(49000), "tenant-1")
+    ).rejects.toThrow("não pode ser menor que o KM de entrada");
+  });
+
+  it("aceita KM de saída maior e atualiza a quilometragem do veículo", async () => {
+    const orderRepo = makeOrderRepo(makeOrderWithMileage(50000));
+    const vehicleRepo = makeVehicleRepo();
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(), vehicleRepo as never
+    );
+
+    await useCase.execute("order-1", inputWithMileageOut(51000), "tenant-1");
+
+    expect(vehicleRepo.updateMileage).toHaveBeenCalledWith("veh-1", 51000);
+    expect(orderRepo.replaceComplaints).toHaveBeenCalledWith(
+      "order-1", "tenant-1", expect.anything(), 80, null,
+      expect.objectContaining({ mileageOut: 51000 })
+    );
+  });
+
+  it("passa attendantId ao repositório (item 8)", async () => {
+    const orderRepo = makeOrderRepo(makeOrderWithMileage(50000));
+    const useCase = new UpdateOrder(
+      orderRepo, makeStockItemRepo(), makeMovementRepo(), makeVehicleRepo() as never
+    );
+
+    await useCase.execute(
+      "order-1",
+      {
+        complaints: [{ description: "S", services: [{ description: "M", price: 80 }], parts: [] }],
+        attendantId: "att-1",
+      },
+      "tenant-1"
+    );
+
+    expect(orderRepo.replaceComplaints).toHaveBeenCalledWith(
+      "order-1", "tenant-1", expect.anything(), 80, null,
+      expect.objectContaining({ attendantId: "att-1" })
+    );
   });
 });

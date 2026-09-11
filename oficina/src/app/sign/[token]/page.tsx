@@ -10,6 +10,7 @@ interface SignComplaintService {
 interface SignComplaintPart {
   description: string;
   quantity: number;
+  unitPrice: number;
   totalPrice: number;
 }
 
@@ -196,7 +197,10 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
       {/* Detalhes da OS */}
       {data.type === "APPROVAL" && data.order?.complaints && (
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-4 space-y-4 max-h-[40vh] overflow-y-auto">
-          {data.order.complaints.map((c: SignComplaint, i: number) => (
+          {data.order.complaints.map((c: SignComplaint, i: number) => {
+            const svcTotal = c.services.reduce((s, sv) => s + (sv.price || 0), 0);
+            const partsTotal = c.parts.reduce((s, p) => s + (p.totalPrice || 0), 0);
+            return (
             <div key={i} className="border-b border-slate-100 pb-3 last:border-0 last:pb-0">
               <p className="font-semibold text-slate-700 text-sm mb-2">
                 {c.number}. {c.description}
@@ -204,27 +208,37 @@ export default function SignPage({ params }: { params: Promise<{ token: string }
               {c.services.length > 0 && (
                 <div className="ml-3 mb-1">
                   <p className="text-xs font-medium text-slate-500 uppercase mb-1">Serviços</p>
+                  {/* Item 31: cliente vê os serviços sem valor por linha */}
                   {c.services.map((s: SignComplaintService, j: number) => (
-                    <div key={j} className="flex justify-between text-xs text-slate-600">
+                    <div key={j} className="text-xs text-slate-600">
                       <span>{s.description}</span>
-                      <span className="font-medium">R$ {s.price.toFixed(2)}</span>
                     </div>
                   ))}
+                  <div className="flex justify-between text-xs font-medium text-slate-700 mt-1 pt-1 border-t border-slate-100">
+                    <span>Total dos serviços</span>
+                    <span>R$ {svcTotal.toFixed(2)}</span>
+                  </div>
                 </div>
               )}
               {c.parts.length > 0 && (
                 <div className="ml-3">
                   <p className="text-xs font-medium text-slate-500 uppercase mb-1">Peças</p>
+                  {/* Item 31: cliente vê unitário, total por peça e o total geral das peças */}
                   {c.parts.map((p: SignComplaintPart, j: number) => (
                     <div key={j} className="flex justify-between text-xs text-slate-600">
-                      <span>{p.quantity}x {p.description}</span>
+                      <span>{p.quantity}x {p.description} <span className="text-slate-400">(R$ {p.unitPrice.toFixed(2)} un.)</span></span>
                       <span className="font-medium">R$ {p.totalPrice.toFixed(2)}</span>
                     </div>
                   ))}
+                  <div className="flex justify-between text-xs font-medium text-slate-700 mt-1 pt-1 border-t border-slate-100">
+                    <span>Total das peças</span>
+                    <span>R$ {partsTotal.toFixed(2)}</span>
+                  </div>
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
           <div className="border-t-2 border-slate-300 pt-2 flex justify-between font-bold text-slate-800">
             <span>Total</span>
             <span>R$ {data.order.totalAmount.toFixed(2)}</span>

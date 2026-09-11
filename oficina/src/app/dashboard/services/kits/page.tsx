@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import { Plus, Trash2, Pencil, Package, Wrench, ArrowLeft } from "lucide-react";
+import { Plus, Trash2, Pencil, Package, Wrench, ArrowLeft, ListChecks } from "lucide-react";
 import Link from "next/link";
-import { PageHeader, Button, Combobox, EmptyState, Table, TableHeader, TableHead, TableBody, TableRow, TableCell } from "@/components/ui";
+import { PageHeader, Button, Combobox, EmptyState, Table, TableHeader, TableHead, TableBody, TableRow, TableCell, MultiSelectModal } from "@/components/ui";
+import type { MultiSelectItem } from "@/components/ui";
 
 interface KitItem {
   id?: string;
@@ -252,6 +253,59 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
     setItems(u);
   };
 
+  // ─── Seleção múltipla (item 25) ─────────────────────────────────────────────
+  // Replica o comportamento de addMultipleServices/addMultipleParts dos
+  // formulários da OS (dashboard/orders/new), adaptado ao formato do kit.
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [showPartModal, setShowPartModal] = useState(false);
+
+  const serviceModalItems: MultiSelectItem[] = catalogServices.map((s) => ({
+    id: s.id,
+    label: s.description,
+    rightLabel: `R$ ${s.defaultPrice.toFixed(2)}`,
+  }));
+
+  const partModalItems: MultiSelectItem[] = stockItems.map((s) => ({
+    id: s.id,
+    label: s.description,
+    sublabel: s.code,
+    rightLabel: `R$ ${s.sellPrice.toFixed(2)}`,
+  }));
+
+  const addMultipleServices = (ids: string[]) => {
+    const newItems: KitItem[] = ids.map((id) => {
+      const svc = catalogServices.find((s) => s.id === id)!;
+      return {
+        type: "SERVICE",
+        description: svc.description,
+        serviceId: svc.id,
+        price: svc.defaultPrice,
+        timeMinutes: svc.estimatedTime || 0,
+        quantity: 1,
+        unitPrice: 0,
+      };
+    });
+    setItems([...items, ...newItems]);
+    setShowServiceModal(false);
+  };
+
+  const addMultipleParts = (ids: string[]) => {
+    const newItems: KitItem[] = ids.map((id) => {
+      const st = stockItems.find((s) => s.id === id)!;
+      return {
+        type: "PART",
+        description: st.description,
+        stockItemId: st.id,
+        price: 0,
+        timeMinutes: 0,
+        quantity: 1,
+        unitPrice: st.sellPrice,
+      };
+    });
+    setItems([...items, ...newItems]);
+    setShowPartModal(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) { setError("Nome é obrigatório"); return; }
@@ -310,7 +364,15 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-slate-800">Itens do Kit</h3>
-              <div className="flex gap-3">
+              <div className="flex gap-2 flex-wrap justify-end">
+                <button type="button" onClick={() => setShowServiceModal(true)}
+                  className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 flex items-center gap-1">
+                  <ListChecks size={12} /> Selecionar Serviços
+                </button>
+                <button type="button" onClick={() => setShowPartModal(true)}
+                  className="px-3 py-1.5 text-xs font-medium text-green-700 bg-white border border-green-200 rounded-lg hover:bg-green-50 flex items-center gap-1">
+                  <ListChecks size={12} /> Selecionar Peças
+                </button>
                 <button type="button" onClick={() => addItem("SERVICE")}
                   className="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 flex items-center gap-1">
                   <Wrench size={12} /> + Serviço
@@ -427,6 +489,26 @@ function KitFormModal({ kit, onClose, onSaved }: { kit: Kit | null; onClose: () 
           </div>
         </form>
       </div>
+
+      {/* Modais de seleção múltipla (item 25) */}
+      {showServiceModal && (
+        <MultiSelectModal
+          title="Selecionar Serviços"
+          items={serviceModalItems}
+          excludeIds={items.filter((it) => it.type === "SERVICE" && it.serviceId).map((it) => it.serviceId!)}
+          onConfirm={addMultipleServices}
+          onClose={() => setShowServiceModal(false)}
+        />
+      )}
+      {showPartModal && (
+        <MultiSelectModal
+          title="Selecionar Peças"
+          items={partModalItems}
+          excludeIds={items.filter((it) => it.type === "PART" && it.stockItemId).map((it) => it.stockItemId!)}
+          onConfirm={addMultipleParts}
+          onClose={() => setShowPartModal(false)}
+        />
+      )}
     </div>
   );
 }

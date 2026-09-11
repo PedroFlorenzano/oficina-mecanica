@@ -143,7 +143,6 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                         <Text style={[styles.fieldLabel, { marginBottom: 3 }]}>SERVIÇOS</Text>
                         <View style={styles.tableHeader}>
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                          <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
                         </View>
                         {(c.services || []).map((sv: BudgetService, idx: number) => {
                           const rejected = sv.approved === false;
@@ -152,10 +151,14 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                               <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
                                 {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
                               </Text>
-                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
                             </View>
                           );
                         })}
+                        {/* Item 31: cliente vê só o total dos serviços, sem valor por serviço */}
+                        <View style={styles.subtotalRow}>
+                          <Text style={styles.subtotalLabel}>Total dos serviços</Text>
+                          <Text style={styles.subtotalValue}>{formatMoney(cSvcTotal)}</Text>
+                        </View>
                       </View>
                     )}
                     {(c.parts || []).length > 0 && (
@@ -200,7 +203,6 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
             <View style={styles.card}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
               </View>
               {ungroupedServices.map((sv: BudgetService, idx: number) => {
                 const rejected = sv.approved === false;
@@ -209,10 +211,14 @@ export function BudgetDocument({ order }: { order: BudgetOrder }) {
                     <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
                       {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
                     </Text>
-                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
                   </View>
                 );
               })}
+              {/* Item 31: só o total dos serviços */}
+              <View style={styles.subtotalRow}>
+                <Text style={styles.subtotalLabel}>Total dos serviços</Text>
+                <Text style={styles.subtotalValue}>{formatMoney(totalServices)}</Text>
+              </View>
             </View>
           </View>
         )}

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createContainer } from "@/infrastructure/container";
 import { CreateOrder } from "@/application/use-cases/orders/CreateOrder";
-import { ReserveStock } from "@/application/use-cases/stock/ReserveStock";
-import { ComplaintInput } from "@/domain/repositories/IServiceOrderRepository";
+import { ReserveOrderParts } from "@/application/use-cases/stock/ReserveOrderParts";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 
@@ -61,39 +60,23 @@ export async function POST(request: NextRequest) {
     const userId = session.user.userId;
 
     const body = await request.json();
-    const useCase = new CreateOrder(container.orderRepository, container.vehicleRepository);
+    const reserveOrderParts = new ReserveOrderParts(
+      container.orderRepository,
+      container.stockItemRepository,
+      container.stockMovementRepository
+    );
+    const useCase = new CreateOrder(
+      container.orderRepository,
+      container.vehicleRepository,
+      reserveOrderParts
+    );
     const order = await useCase.execute(body, tenantId, userId);
 
     if (!order) {
       return NextResponse.json({ error: "Erro ao criar ordem de serviço" }, { status: 500 });
     }
 
-    // Reservar estoque para peças vinculadas a stockItemId
-    const allParts = [
-      ...(body.complaints?.flatMap((c: ComplaintInput) => c.parts || []) || []),
-      ...(body.parts || []),
-    ];
-
-    const stockWarnings: string[] = [];
-    for (const part of allParts) {
-      if (part.stockItemId) {
-        try {
-          const reserveStock = new ReserveStock(
-            container.stockItemRepository,
-            container.stockMovementRepository
-          );
-          await reserveStock.execute(part.stockItemId, part.quantity, order.id, tenantId);
-        } catch (err: unknown) {
-          const msg = err instanceof Error ? err.message : "Erro desconhecido";
-          stockWarnings.push(`${part.description || part.stockItemId}: ${msg}`);
-        }
-      }
-    }
-
-    return NextResponse.json(
-      { ...order, stockWarnings: stockWarnings.length > 0 ? stockWarnings : undefined },
-      { status: 201 }
-    );
+    return NextResponse.json(order, { status: 201 });
   } catch (error) {
     return handleError(error);
   }

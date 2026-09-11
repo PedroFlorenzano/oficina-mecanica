@@ -11,6 +11,9 @@ export interface PistaOrder {
   status: OrderStatus;
   totalAmount: number;
   createdAt: string;
+  // Momento em que a OS entrou no status atual (ISO). Derivado do StatusHistory
+  // no back-end (GetPista). Usado para o indicador de "OS parada" (item 44).
+  statusSince?: string;
   client: { name: string };
   vehicle: { plate: string; brand: string; model: string };
   complaints: { description: string }[];

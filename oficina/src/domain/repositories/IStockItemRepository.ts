@@ -32,6 +32,16 @@ export interface StockItemData {
   productUse?: string | null;
 }
 
+/** Critério de seleção para atualização de preços em lote (item 17) */
+export interface BulkPriceFilter {
+  /** Lista explícita de ids — tem precedência sobre os demais filtros */
+  ids?: string[];
+  /** Casa com a marca (case-insensitive, igualdade exata) */
+  brand?: string;
+  /** Trecho que casa com descrição OU código/código original/SKU (case-insensitive) */
+  term?: string;
+}
+
 export interface IStockItemRepository {
   findById(id: string): Promise<StockItemData | null>;
   findByCode(code: string, tenantId: string): Promise<StockItemData | null>;
@@ -47,6 +57,13 @@ export interface IStockItemRepository {
   delete(id: string): Promise<void>;
   countMovements(id: string): Promise<number>;
   countOrderParts(id: string): Promise<number>;
+  /** Seleciona itens ativos do tenant para operações em lote (marca, trecho de descrição/código ou ids) */
+  findForBulk?(tenantId: string, filter: BulkPriceFilter): Promise<StockItemData[]>;
+  /** Atualiza sellPrice (e opcionalmente profitMargin) de vários itens numa transação. Retorna a quantidade afetada. */
+  bulkUpdatePrices?(
+    tenantId: string,
+    updates: { id: string; sellPrice: number; profitMargin?: number | null }[]
+  ): Promise<number>;
   createEntryTransaction(
     itemId: string,
     movementData: Omit<StockMovementData, "id" | "createdAt">,

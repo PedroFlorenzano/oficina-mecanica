@@ -182,6 +182,7 @@ export default function Sidebar({ role, customPermissions, tenantName }: Sidebar
               <>
                 <NavItem href="/dashboard/import" label="Importar Dados" icon={Upload} />
                 <NavItem href="/dashboard/users" label="Usuários" icon={UserCog} />
+                <NavItem href="/dashboard/settings" label="Configurações" icon={Settings} />
                 <NavItem href="/dashboard/billing" label="Assinatura" icon={CreditCard} />
               </>
             )}

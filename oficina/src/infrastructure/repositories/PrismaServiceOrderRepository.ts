@@ -1,5 +1,6 @@
 import { PrismaClient, OrderStatus } from "@prisma/client";
-import { IServiceOrderRepository, OrderData, OrderDetail as IOrderDetail, ActiveOrder as IActiveOrder, OrderSummary, CreateOrderData, LegacyCreateOrderData } from "@/domain/repositories/IServiceOrderRepository";
+import { IServiceOrderRepository, OrderData, OrderDetail as IOrderDetail, ActiveOrder as IActiveOrder, OrderSummary, CreateOrderData, LegacyCreateOrderData, StatusHistoryEntry } from "@/domain/repositories/IServiceOrderRepository";
+import { NotFoundError } from "@/domain/errors/DomainError";
 
 export class PrismaServiceOrderRepository implements IServiceOrderRepository {
   // Defense in depth: RLS também filtra no banco
@@ -12,6 +13,7 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
         client: true,
         vehicle: true,
         createdBy: { select: { name: true } },
+        attendant: { select: { id: true, name: true } },
         complaints: {
           orderBy: { number: "asc" },
           include: {
@@ -77,12 +79,14 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
           number: nextNumber,
           status: "WAITING_APPROVAL",
           mileage: data.mileage,
+          mileageOut: data.mileageOut ?? null,
           notes: data.notes,
           totalAmount: data.totalAmount,
           clientId: data.clientId,
           vehicleId: data.vehicleId,
           tenantId: data.tenantId,
           createdById: data.createdById,
+          attendantId: data.attendantId ?? null,
           statusHistory: {
             create: { toStatus: "WAITING_APPROVAL", userId: data.createdById },
           },
@@ -218,6 +222,29 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     });
   }
 
+  async recordStatusHistory(orderId: string, status: string, userId: string): Promise<void> {
+    const order = await this.db.serviceOrder.findUnique({ where: { id: orderId }, select: { status: true } });
+    if (!order) return;
+    // Registra a edição sem trocar o status: fromStatus == toStatus == status atual
+    await this.db.statusHistory.create({
+      data: {
+        fromStatus: status as OrderStatus,
+        toStatus: status as OrderStatus,
+        userId,
+        orderId,
+      },
+    });
+  }
+
+  async getStatusHistory(orderId: string): Promise<StatusHistoryEntry[]> {
+    const entries = await this.db.statusHistory.findMany({
+      where: { orderId },
+      orderBy: { createdAt: "asc" },
+      select: { fromStatus: true, toStatus: true, createdAt: true },
+    });
+    return entries as StatusHistoryEntry[];
+  }
+
   async findByClientId(clientId: string, tenantId: string): Promise<OrderSummary[]> {
     return this.db.serviceOrder.findMany({
       where: { clientId, tenantId },
@@ -294,7 +321,8 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
     tenantId: string,
     complaints: { description: string; services: { description: string; price: number; timeMinutes?: number | null; serviceId?: string | null; mechanicId?: string | null; commissionRate?: number | null; approved?: boolean }[]; parts: { description: string; quantity: number; unitPrice: number; costPrice?: number | null; stockItemId?: string | null; approved?: boolean }[] }[],
     totalAmount: number,
-    notes: string | null
+    notes: string | null,
+    extra?: { attendantId?: string | null; mileageOut?: number | null }
   ): Promise<OrderData> {
     return this.db.$transaction(async (tx) => {
       await tx.orderPart.deleteMany({ where: { orderId } });
@@ -350,7 +378,12 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
 
       await tx.serviceOrder.update({
         where: { id: orderId },
-        data: { totalAmount, notes },
+        data: {
+          totalAmount,
+          notes,
+          ...(extra?.attendantId !== undefined ? { attendantId: extra.attendantId } : {}),
+          ...(extra?.mileageOut !== undefined ? { mileageOut: extra.mileageOut } : {}),
+        },
       });
 
       return tx.serviceOrder.findUnique({
@@ -369,12 +402,13 @@ export class PrismaServiceOrderRepository implements IServiceOrderRepository {
       if (itemType === "service") {
         const result = await tx.orderService.updateMany({ where: { id: itemId, orderId }, data: { approved } });
         if (result.count === 0) {
-          throw new Error("Serviço não encontrado nesta OS");
+          // DomainError, não Error puro: erro puro virava 500 "Erro interno do servidor"
+          throw new NotFoundError("Serviço da OS", itemId);
         }
       } else {
         const result = await tx.orderPart.updateMany({ where: { id: itemId, orderId }, data: { approved } });
         if (result.count === 0) {
-          throw new Error("Peça não encontrada nesta OS");
+          throw new NotFoundError("Item de peça da OS", itemId);
         }
       }
 

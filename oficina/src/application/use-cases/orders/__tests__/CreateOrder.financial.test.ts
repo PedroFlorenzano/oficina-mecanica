@@ -18,6 +18,8 @@ const makeOrderRepo = (): IServiceOrderRepository => ({
   cancel: jest.fn(),
   replaceComplaints: jest.fn(),
   setItemApproval: jest.fn(),
+  recordStatusHistory: jest.fn(),
+  getStatusHistory: jest.fn(),
 });
 
 const makeVehicleRepo = (): IVehicleRepository => ({

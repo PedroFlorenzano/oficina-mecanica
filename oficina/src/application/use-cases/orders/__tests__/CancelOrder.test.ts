@@ -32,6 +32,8 @@ const makeOrderRepo = (order: ReturnType<typeof makeOrder> | null): IServiceOrde
   cancel: jest.fn().mockResolvedValue({ ...makeOrder("CANCELLED") }),
   replaceComplaints: jest.fn(),
   setItemApproval: jest.fn(),
+  recordStatusHistory: jest.fn(),
+  getStatusHistory: jest.fn(),
 });
 
 const makeReverseReservations = (): ReverseStockReservations => ({

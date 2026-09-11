@@ -17,10 +17,41 @@ export class PrismaWhatsAppRepository implements IWhatsAppRepository {
   }
 
   async upsertConfig(tenantId: string, data: Partial<WhatsAppConfigData>): Promise<WhatsAppConfigData> {
+    // Só grava os campos presentes em `data` (a tela envia conexão e templates em telas separadas)
+    const templateKeys = [
+      "msgStatusUpdate",
+      "msgDeliveryReady",
+      "msgOilReminder",
+      "msgAppointment",
+      "msgBirthday",
+      "msgReturnReminder",
+    ] as const;
+
+    const update: Prisma.WhatsAppConfigUpdateInput = {};
+    if ("phoneNumberId" in data) update.phoneNumberId = data.phoneNumberId;
+    if ("accessToken" in data) update.accessToken = data.accessToken;
+    if ("businessName" in data) update.businessName = data.businessName;
+    if ("enabled" in data) update.enabled = data.enabled;
+    for (const key of templateKeys) {
+      if (key in data) update[key] = data[key];
+    }
+
     return this.db.whatsAppConfig.upsert({
       where: { tenantId },
-      update: { phoneNumberId: data.phoneNumberId, accessToken: data.accessToken, businessName: data.businessName, enabled: data.enabled },
-      create: { tenantId, phoneNumberId: data.phoneNumberId, accessToken: data.accessToken, businessName: data.businessName, enabled: data.enabled ?? false },
+      update,
+      create: {
+        tenantId,
+        phoneNumberId: data.phoneNumberId,
+        accessToken: data.accessToken,
+        businessName: data.businessName,
+        enabled: data.enabled ?? false,
+        msgStatusUpdate: data.msgStatusUpdate,
+        msgDeliveryReady: data.msgDeliveryReady,
+        msgOilReminder: data.msgOilReminder,
+        msgAppointment: data.msgAppointment,
+        msgBirthday: data.msgBirthday,
+        msgReturnReminder: data.msgReturnReminder,
+      },
     }) as Promise<WhatsAppConfigData>;
   }
 

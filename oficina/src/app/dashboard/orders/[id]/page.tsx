@@ -37,6 +37,7 @@ interface Order {
   number: number;
   status: string;
   mileage: number;
+  mileageOut?: number | null;
   notes: string | null;
   cancelReason?: string | null;
   totalAmount: number;
@@ -44,6 +45,7 @@ interface Order {
   client: { name: string; document: string; phone: string | null; email: string | null; address: string | null };
   vehicle: { plate: string; brand: string; model: string; year: number; color: string | null; mileage: number };
   createdBy: { name: string };
+  attendant?: { id: string; name: string } | null;
   complaints: ComplaintData[];
   services: { id: string; description: string; price: number; timeMinutes?: number | null; complaintId: string | null; approved?: boolean }[];
   parts: { id: string; description: string; quantity: number; unitPrice: number; totalPrice: number; complaintId: string | null; stockItem?: { supplier?: string | null } | null; approved?: boolean }[];
@@ -95,6 +97,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   // Alertas de garantia
   const [warrantyAlerts, setWarrantyAlerts] = useState<{ serviceDescription: string; previousOrderNumber: number; daysRemaining: number }[]>([]);
 
+  // Item 24 — tempo por status (só admin). Restrição também aplicada no servidor.
+  const [statusDurations, setStatusDurations] = useState<{ status: string; durationMs: number; current: boolean }[]>([]);
+  // Item 2 — admin edita OS em andamento quando a oficina habilita
+  const [allowEditInProgress, setAllowEditInProgress] = useState(false);
+
   const fetchOrder = () => {
     fetch(`/api/orders/${id}`)
       .then((r) => { if (!r.ok) throw new Error("Falha"); return r.json(); })
@@ -117,6 +124,23 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     if (!id) return;
     fetch(`/api/orders/${id}/warranty`).then(r => r.ok ? r.json() : []).then(setWarrantyAlerts).catch(() => {});
   }, [id]);
+
+  // Item 24 — tempo por status. Só busca para ADMIN; o servidor também restringe (403).
+  useEffect(() => {
+    if (!id || userRole !== "ADMIN") return;
+    fetch(`/api/orders/${id}/status-durations`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => setStatusDurations(Array.isArray(data) ? data : []))
+      .catch(() => {});
+  }, [id, userRole, order?.status]);
+
+  // Configuração da oficina — libera edição de OS em andamento pelo admin (item 2)
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => { if (s) setAllowEditInProgress(!!s.allowEditInProgress); })
+      .catch(() => {});
+  }, []);
   const [togglingItem, setTogglingItem] = useState<string | null>(null);
 
   const toggleItemApproval = (itemType: "service" | "part", itemId: string, approved: boolean) => {
@@ -256,6 +280,22 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const totalParts = order.parts.reduce((s, p) => s + p.totalPrice, 0);
   const totalServices = order.services.reduce((s, sv) => s + sv.price, 0);
 
+  // Item 23 — tempo estimado total dos serviços (visível ao mecânico).
+  const totalEstimatedMinutes = order.services.reduce((s, sv) => s + (sv.timeMinutes || 0), 0);
+  const formatDuration = (minutes: number) => {
+    if (minutes <= 0) return "—";
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}min`;
+    if (h > 0) return `${h}h`;
+    return `${m}min`;
+  };
+  const formatMs = (ms: number) => formatDuration(Math.round(ms / 60000));
+
+  // Item 2 — admin pode editar OS em andamento quando a oficina habilita.
+  const isNeverEditable = ["DELIVERED", "CANCELLED"].includes(order.status);
+  const canEdit = order.status === "WAITING_APPROVAL" || (userRole === "ADMIN" && allowEditInProgress && !isNeverEditable);
+
   return (
     <div className="max-w-5xl">
       {/* Alerta de garantia */}
@@ -290,6 +330,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <a href={`/api/orders/${order.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700">
             <FileDown size={16} /> Baixar PDF
           </a>
+          <a href={`/api/orders/${order.id}/pdf?via=mecanico`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700" title="Sem valores — tempo estimado por serviço e total">
+            <FileDown size={16} /> Via Mecânico
+          </a>
+          <a href={`/api/orders/${order.id}/pdf?via=patio`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700" title="Sem dados do cliente — espelha o quadro físico">
+            <FileDown size={16} /> Via Pátio
+          </a>
+          <a href={`/api/orders/${order.id}/pdf?via=cliente`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium hover:bg-slate-50 text-slate-700" title="Marca da peça — só o total dos serviços">
+            <FileDown size={16} /> Via Cliente
+          </a>
           <a href={`/api/orders/${order.id}/checklist`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-4 py-2 border border-teal-300 bg-teal-50 rounded-lg text-sm font-medium hover:bg-teal-100 text-teal-700">
             <ClipboardList size={16} /> Checklist
           </a>
@@ -316,7 +365,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
               <FileText size={16} /> Orçamento
             </a>
           )}
-          {order.status === "WAITING_APPROVAL" && (
+          {canEdit && (
             <Link href={`/dashboard/orders/${order.id}/edit`} className="inline-flex items-center gap-2 px-4 py-2 border border-blue-300 bg-blue-50 rounded-lg text-sm font-medium hover:bg-blue-100 text-blue-700">
               <Pencil size={16} /> Editar Orçamento
             </Link>
@@ -473,6 +522,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           <div><span className="text-xs text-slate-500">ANO</span><p className="text-slate-700">{order.vehicle.year}</p></div>
           <div><span className="text-xs text-slate-500">COR</span><p className="text-slate-700">{order.vehicle.color || "—"}</p></div>
           <div><span className="text-xs text-slate-500">KM ENTRADA</span><p className="font-medium text-slate-800">{order.mileage.toLocaleString("pt-BR")} km</p></div>
+          <div><span className="text-xs text-slate-500">KM SAÍDA</span><p className="font-medium text-slate-800">{order.mileageOut != null ? `${order.mileageOut.toLocaleString("pt-BR")} km` : "—"}</p></div>
+          <div><span className="text-xs text-slate-500">ATENDENTE</span><p className="text-slate-700">{order.attendant?.name || "—"}</p></div>
         </div>
       </div>
 
@@ -708,7 +759,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* Total Geral */}
       <div className="bg-white rounded-xl shadow-sm border-2 border-slate-300 p-5 mb-4">
-        <div className="grid grid-cols-3 gap-4 text-center">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+          <div>
+            <p className="text-xs text-slate-500">TEMPO ESTIMADO</p>
+            <p className="text-lg font-bold text-blue-600">{formatDuration(totalEstimatedMinutes)}</p>
+          </div>
           <div>
             <p className="text-xs text-slate-500">TOTAL PRODUTOS</p>
             <p className="text-lg font-bold text-slate-700">{formatCurrency(totalParts)}</p>
@@ -744,6 +799,26 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           })}
         </div>
       </div>
+
+      {/* Item 24 — Tempo por status (somente ADMIN). O servidor também restringe. */}
+      {userRole === "ADMIN" && statusDurations.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">TEMPO POR STATUS</h2>
+          <div className="space-y-2">
+            {statusDurations.map((d) => {
+              const st = statusLabels[d.status] || { label: d.status, color: "" };
+              return (
+                <div key={d.status} className="flex items-center justify-between text-sm">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${st.color}`}>
+                    {st.label}{d.current ? " (atual)" : ""}
+                  </span>
+                  <span className="font-medium text-slate-700">{formatMs(d.durationMs)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Etiqueta de Troca de Óleo */}
       {oilLabelData && (

@@ -8,7 +8,10 @@ import GlobalSearch from "@/components/GlobalSearch";
 import NotificationBell from "@/components/NotificationBell";
 import { SupportButton } from "@/components/SupportButton";
 import { TrialBanner } from "@/components/TrialBanner";
+import UppercaseInputs from "@/components/UppercaseInputs";
 import { prisma } from "@/infrastructure/database/prisma";
+import { createContainer } from "@/infrastructure/container";
+import { GetTenantSettings } from "@/application/use-cases/tenants/GetTenantSettings";
 
 const roleLabel: Record<string, string> = {
   ADMIN: "Administrador",
@@ -44,8 +47,14 @@ export default async function DashboardLayout({
   });
   const tenantName = tenant?.name ?? "Oficina";
 
+  // Configurações da oficina — usadas para o interceptor global de MAIÚSCULAS.
+  const settings = await new GetTenantSettings(
+    createContainer(session.user.tenantId).tenantSettingsRepository
+  ).execute(session.user.tenantId);
+
   return (
     <div className="flex min-h-screen">
+      <UppercaseInputs enabled={settings.uppercaseInputs} />
       <Sidebar role={role} customPermissions={customPermissions} tenantName={tenantName} />
       <GlobalSearch />
       <div className="flex-1 flex flex-col min-w-0">

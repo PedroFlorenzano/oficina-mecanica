@@ -36,6 +36,21 @@ model Tenant {
   appointments   Appointment[]
   financialEntries FinancialEntry[]
   kits             Kit[]
+  settings         TenantSettings?
+}
+
+/// Preferências gerais da oficina. Uma linha por tenant, criada sob demanda.
+model TenantSettings {
+  id                  String   @id @default(cuid())
+  tenantId            String   @unique
+  /// Permite ao admin editar OS já em andamento (fora de WAITING_APPROVAL)
+  allowEditInProgress Boolean  @default(false)
+  /// Converte todo campo de texto digitável para maiúsculas (não afeta senhas)
+  uppercaseInputs     Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant              Tenant   @relation(fields: [tenantId], references: [id])
 }
 
 model User {
@@ -55,7 +70,8 @@ model User {
   customPermissions String?
 
   tenant    Tenant   @relation(fields: [tenantId], references: [id])
-  orders    ServiceOrder[]
+  orders    ServiceOrder[] @relation("OrderCreatedBy")
+  attendedOrders ServiceOrder[] @relation("OrderAttendant")
   timerLogs TimerLog[]
   commissions Commission[]
   uploadedPhotos OrderPhoto[] @relation("PhotoUploader")
@@ -141,6 +157,8 @@ model ServiceOrder {
   number       Int
   status       OrderStatus @default(OPEN)
   mileage      Int
+  /// KM de saída, preenchido na entrega (KM-S)
+  mileageOut   Int?
   notes        String?
   cancelReason String?
   totalAmount  Float       @default(0)
@@ -151,13 +169,16 @@ model ServiceOrder {
   vehicleId    String
   tenantId     String
   createdById  String
+  /// Atendente responsável pela OS — base da comissão do atendente
+  attendantId  String?
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
   client      Client      @relation(fields: [clientId], references: [id])
   vehicle     Vehicle     @relation(fields: [vehicleId], references: [id])
   tenant      Tenant      @relation(fields: [tenantId], references: [id])
-  createdBy   User        @relation(fields: [createdById], references: [id])
+  createdBy   User        @relation("OrderCreatedBy", fields: [createdById], references: [id])
+  attendant   User?       @relation("OrderAttendant", fields: [attendantId], references: [id])
   complaints  Complaint[]
   services    OrderService[]
   parts       OrderPart[]
@@ -172,6 +193,7 @@ model ServiceOrder {
   @@index([tenantId, createdAt])
   @@index([clientId])
   @@index([vehicleId])
+  @@index([attendantId])
   @@unique([number, tenantId])
 }
 

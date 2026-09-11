@@ -2,6 +2,7 @@
 
 import { useState, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Plus, Trash2, ArrowLeft, ChevronDown, ChevronUp, ListChecks } from "lucide-react";
 import Link from "next/link";
 import { Combobox, ComboboxOption, MultiSelectModal } from "@/components/ui";
@@ -61,11 +62,20 @@ interface Mechanic {
   name: string;
 }
 
+interface Attendant {
+  id: string;
+  name: string;
+  role: string;
+}
+
 interface OrderData {
   id: string;
   number: number;
   status: string;
   notes: string | null;
+  mileage: number;
+  mileageOut?: number | null;
+  attendantId?: string | null;
   client: { name: string };
   vehicle: { plate: string; brand: string; model: string };
   complaints: {
@@ -78,10 +88,16 @@ interface OrderData {
 export default function EditOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const userRole = session?.user?.role ?? "";
+  const [allowEditInProgress, setAllowEditInProgress] = useState(false);
 
   const [order, setOrder] = useState<OrderData | null>(null);
   const [complaints, setComplaints] = useState<ComplaintItem[]>([]);
   const [notes, setNotes] = useState("");
+  const [attendants, setAttendants] = useState<Attendant[]>([]);
+  const [attendantId, setAttendantId] = useState("");
+  const [mileageOut, setMileageOut] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -99,12 +115,18 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
       fetch("/api/services").then((r) => { if (!r.ok) return []; return r.json(); }),
       fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }),
       fetch("/api/users?role=MECHANIC").then((r) => { if (!r.ok) return []; return r.json(); }),
-    ]).then(([orderData, services, stock, mechs]) => {
+      fetch("/api/users").then((r) => { if (!r.ok) return []; return r.json(); }),
+    ]).then(([orderData, services, stock, mechs, allUsers]) => {
       setOrder(orderData);
       setCatalogServices(services);
       setStockItems(stock);
       setMechanics(mechs);
       setNotes(orderData.notes || "");
+      setAttendantId(orderData.attendantId || "");
+      setMileageOut(orderData.mileageOut != null ? String(orderData.mileageOut) : "");
+      setAttendants(
+        (allUsers as Attendant[]).filter((u) => u.role === "ATTENDANT" || u.role === "ADMIN")
+      );
 
       // Preencher formulário com dados atuais
       setComplaints(
@@ -134,6 +156,14 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
       setError("Erro ao carregar OS");
     }).finally(() => setLoading(false));
   }, [id]);
+
+  // Configuração da oficina — habilita a edição de OS em andamento pelo admin (item 2)
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => { if (s) setAllowEditInProgress(!!s.allowEditInProgress); })
+      .catch(() => {});
+  }, []);
 
   const serviceOptions: ComboboxOption[] = catalogServices.map((s) => ({
     id: s.id,
@@ -233,6 +263,8 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         notes,
+        attendantId: attendantId || null,
+        mileageOut: mileageOut.trim() === "" ? null : Number(mileageOut),
         complaints: validComplaints.map(c => ({
           description: c.description,
           services: c.services.filter(s => s.description).map(s => ({
@@ -273,7 +305,11 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
 
   if (loading) return <div className="p-6 text-slate-500">Carregando...</div>;
   if (!order) return <div className="p-6 text-red-600">OS não encontrada</div>;
-  if (order.status !== "WAITING_APPROVAL") {
+  // Regra base: só WAITING_APPROVAL é editável. Exceção (item 2): admin com a
+  // configuração allowEditInProgress ligada edita OS em andamento (nunca entregue/cancelada).
+  const isNeverEditable = order.status === "DELIVERED" || order.status === "CANCELLED";
+  const canEditInProgress = userRole === "ADMIN" && allowEditInProgress && !isNeverEditable;
+  if (order.status !== "WAITING_APPROVAL" && !canEditInProgress) {
     return (
       <div className="p-6">
         <p className="text-red-600 mb-4">Esta OS não pode ser editada (status: {order.status})</p>
@@ -297,6 +333,35 @@ export default function EditOrderPage({ params }: { params: Promise<{ id: string
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Dados da OS: atendente e quilometragem */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+          <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">DADOS DA OS</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">ATENDENTE RESPONSÁVEL</label>
+              <select value={attendantId} onChange={(e) => setAttendantId(e.target.value)}
+                data-no-uppercase
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">—</option>
+                {attendants.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">KM ENTRADA</label>
+              <input type="text" readOnly value={(order.mileage ?? 0).toLocaleString("pt-BR")}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">KM SAÍDA</label>
+              <input type="number" min="0" value={mileageOut}
+                onChange={(e) => setMileageOut(e.target.value)}
+                placeholder="Preencher na entrega"
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              <p className="text-[10px] text-slate-400 mt-0.5">Não pode ser menor que o KM de entrada.</p>
+            </div>
+          </div>
+        </div>
+
         {/* Observações */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
           <h2 className="font-bold text-slate-800 mb-3 border-b pb-2">OBSERVAÇÕES</h2>

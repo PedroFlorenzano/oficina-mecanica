@@ -5,4 +5,6 @@ export interface UpdateOrderDTO {
     parts: { description: string; quantity: number; unitPrice: number; costPrice?: number | null; stockItemId?: string; approved?: boolean }[];
   }[];
   notes?: string;
+  attendantId?: string | null;
+  mileageOut?: number | null;
 }

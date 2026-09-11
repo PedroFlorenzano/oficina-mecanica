@@ -6,6 +6,19 @@ export const PISTA_STATUSES = [
   "COMPLETED",
 ] as const;
 
+/**
+ * Todos os status possíveis de uma OS, na ordem do fluxo.
+ * A Pista trabalha com um subconjunto (`PISTA_STATUSES`).
+ */
+export const ORDER_STATUSES = [
+  ...PISTA_STATUSES,
+  "DELIVERED",
+  "CANCELLED",
+] as const;
+
+/** Status que encerram a OS: dali não se muda mais de status. */
+export const TERMINAL_STATUSES = ["DELIVERED", "CANCELLED"] as const;
+
 export type PistaStatus = typeof PISTA_STATUSES[number];
 
 export const VALID_TRANSITIONS: Record<string, PistaStatus[]> = {

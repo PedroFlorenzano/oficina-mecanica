@@ -46,6 +46,8 @@ const makeOrderRepo = (oilOrders: { mileage: number; createdAt: Date }[]): IServ
   cancel: jest.fn(),
   replaceComplaints: jest.fn(),
   setItemApproval: jest.fn(),
+  recordStatusHistory: jest.fn(),
+  getStatusHistory: jest.fn(),
 });
 
 describe("CheckOilChangeReminder", () => {

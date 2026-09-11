@@ -1,5 +1,5 @@
 import { PrismaClient, Prisma } from "@prisma/client";
-import { IStockItemRepository, StockItemData } from "@/domain/repositories/IStockItemRepository";
+import { IStockItemRepository, StockItemData, BulkPriceFilter } from "@/domain/repositories/IStockItemRepository";
 import { StockMovementData } from "@/domain/repositories/IStockMovementRepository";
 import { BusinessRuleError } from "@/domain/errors/DomainError";
 
@@ -95,6 +95,59 @@ export class PrismaStockItemRepository implements IStockItemRepository {
 
   async countOrderParts(id: string): Promise<number> {
     return this.db.orderPart.count({ where: { stockItemId: id } });
+  }
+
+  async findForBulk(tenantId: string, filter: BulkPriceFilter): Promise<StockItemData[]> {
+    // Ids explícitos têm precedência: filtra sempre por tenant (defense in depth)
+    if (filter.ids && filter.ids.length > 0) {
+      return this.db.stockItem.findMany({
+        where: { tenantId, id: { in: filter.ids } },
+        orderBy: { description: "asc" },
+      }) as unknown as StockItemData[];
+    }
+
+    const where: Prisma.StockItemWhereInput = { tenantId };
+
+    if (filter.brand && filter.brand.trim()) {
+      where.brand = { equals: filter.brand.trim(), mode: "insensitive" };
+    }
+
+    if (filter.term && filter.term.trim()) {
+      const contains = { contains: filter.term.trim(), mode: "insensitive" as const };
+      where.OR = [
+        { description: contains },
+        { code: contains },
+        { originalCode: contains },
+        { sku: contains },
+      ];
+    }
+
+    return this.db.stockItem.findMany({
+      where,
+      orderBy: { description: "asc" },
+    }) as unknown as StockItemData[];
+  }
+
+  async bulkUpdatePrices(
+    tenantId: string,
+    updates: { id: string; sellPrice: number; profitMargin?: number | null }[]
+  ): Promise<number> {
+    if (updates.length === 0) return 0;
+
+    const results = await this.db.$transaction(
+      updates.map((u) =>
+        this.db.stockItem.updateMany({
+          // tenantId no where garante que só itens do tenant sejam alterados
+          where: { id: u.id, tenantId },
+          data:
+            u.profitMargin !== undefined
+              ? { sellPrice: u.sellPrice, profitMargin: u.profitMargin }
+              : { sellPrice: u.sellPrice },
+        })
+      )
+    );
+
+    return results.reduce((sum, r) => sum + r.count, 0);
   }
 
   async createEntryTransaction(

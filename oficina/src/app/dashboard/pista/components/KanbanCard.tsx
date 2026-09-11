@@ -2,7 +2,7 @@
 
 import { PistaOrder } from "../types";
 import { STATUS_CONFIG } from "../config";
-import { formatCurrency, formatDate } from "../utils";
+import { formatCurrency, formatDate, daysSince, staleLevel, staleLabel } from "../utils";
 
 interface KanbanCardProps {
   order: PistaOrder;
@@ -20,6 +20,31 @@ export function KanbanCard({ order, isDragging, onDragStart, onDragEnd, onClick,
 
   const visibleComplaints = order.complaints.slice(0, 3);
 
+  // Indicador de OS parada (item 44): tempo desde que entrou no status atual.
+  // Fallback para createdAt quando o back-end não enviou statusSince.
+  const stalledSince = order.statusSince ?? order.createdAt;
+  const stalledDays = daysSince(stalledSince);
+  const level = staleLevel(stalledDays);
+  const stalledText = staleLabel(stalledDays);
+
+  // Destaque visual crescente. A cor NÃO é o único sinal: há ícone + texto e
+  // um title/aria-label descritivo, para leitores de tela e daltônicos.
+  const stalePillClass =
+    level === "critical"
+      ? "bg-red-100 text-red-700 border border-red-300 font-semibold"
+      : "bg-amber-100 text-amber-800 border border-amber-300";
+  // Borda esquerda mais forte conforme o alerta escala.
+  const staleBorderClass =
+    level === "critical"
+      ? "border-l-4 border-l-red-500"
+      : level === "warning"
+      ? "border-l-4 border-l-amber-400"
+      : "";
+  const staleAriaLabel =
+    level === "critical"
+      ? `Atenção: OS ${stalledText} no status atual — parada há muito tempo`
+      : `OS ${stalledText} no status atual`;
+
   return (
     <div
       draggable={true}
@@ -29,7 +54,7 @@ export function KanbanCard({ order, isDragging, onDragStart, onDragEnd, onClick,
       }}
       onDragEnd={onDragEnd}
       onClick={onClick}
-      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow-md transition-shadow select-none ${
+      className={`bg-white rounded-lg shadow-sm border border-gray-200 p-3 cursor-pointer hover:shadow-md transition-shadow select-none ${staleBorderClass} ${
         isDragging ? "opacity-50 shadow-lg" : ""
       }`}
     >
@@ -82,6 +107,39 @@ export function KanbanCard({ order, isDragging, onDragStart, onDragEnd, onClick,
         <span className="text-xs text-gray-500">{formatDate(order.createdAt)}</span>
         <span className="text-xs font-medium text-gray-700">{formatCurrency(order.totalAmount)}</span>
       </div>
+
+      {/* Indicador de OS parada há muito tempo (item 44).
+          Só aparece a partir do limiar de atenção. Comunica por ícone + texto,
+          não só por cor, e expõe title/aria-label para acessibilidade. */}
+      {level !== "none" && (
+        <div
+          role="status"
+          aria-label={staleAriaLabel}
+          title={staleAriaLabel}
+          className={`mt-2 flex items-center gap-1 px-2 py-0.5 rounded text-xs ${stalePillClass}`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="flex-shrink-0"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          <span className="truncate">
+            {level === "critical" ? "⚠ " : ""}
+            {stalledText}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

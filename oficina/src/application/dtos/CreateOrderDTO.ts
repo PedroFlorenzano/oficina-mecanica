@@ -2,6 +2,8 @@ export interface CreateOrderDTO {
   clientId: string;
   vehicleId: string;
   mileage: number;
+  mileageOut?: number | null;
+  attendantId?: string | null;
   notes?: string;
   complaints?: {
     description: string;

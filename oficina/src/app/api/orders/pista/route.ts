@@ -13,6 +13,9 @@ export async function GET() {
     const container = createContainer(tenantId);
 
     const useCase = new GetPista(container.orderRepository);
+    // GetPista devolve cada OS enriquecida com `statusSince` (derivado do
+    // StatusHistory) para o indicador de OS parada na Pista (item 44).
+    // A Date serializa como ISO no JSON — o cartão a interpreta no cliente.
     const orders = await useCase.execute(tenantId);
     return NextResponse.json(orders);
   } catch (error) {
@@ -31,8 +34,12 @@ export async function PATCH(request: NextRequest) {
     const useCase = new UpdatePistaStatus(container.orderRepository);
     const updated = await useCase.execute(body.id, body.status, userId);
 
-    // Fire-and-forget: notifica cliente via WhatsApp sem bloquear resposta
-    const notifier = new SendStatusNotification(container.orderRepository);
+    // Fire-and-forget: notifica cliente via WhatsApp sem bloquear resposta.
+    // Com o whatsAppRepository, o template configurado pela oficina é usado (item 14).
+    const notifier = new SendStatusNotification(
+      container.orderRepository,
+      container.whatsAppRepository
+    );
     notifier.execute(body.id, body.status).catch(() => {});
 
     return NextResponse.json(updated);

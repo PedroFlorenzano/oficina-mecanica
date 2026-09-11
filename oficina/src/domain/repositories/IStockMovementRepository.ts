@@ -20,6 +20,15 @@ export interface PaginatedMovements {
   pageSize: number;
 }
 
+/** Item 19 — resumo consolidado de compras por fornecedor de um item */
+export interface SupplierSummary {
+  supplier: string;
+  lastPurchase: Date;
+  totalQuantity: number;
+  avgCost: number;
+  purchaseCount: number;
+}
+
 export interface IStockMovementRepository {
   create(data: Omit<StockMovementData, "id" | "createdAt">): Promise<StockMovementData>;
   findPendingReservations(orderId: string): Promise<StockMovementData[]>;
@@ -29,5 +38,7 @@ export interface IStockMovementRepository {
     page: number,
     pageSize: number
   ): Promise<PaginatedMovements>;
+  /** Movimentações de entrada (type IN) com fornecedor, para consolidação por fornecedor */
+  findEntriesByStockItemId?(stockItemId: string): Promise<StockMovementData[]>;
   // Sem update() nem delete() — imutabilidade por design
 }

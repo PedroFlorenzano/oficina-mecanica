@@ -5,6 +5,7 @@ import { UpdateOrder } from "@/application/use-cases/orders/UpdateOrder";
 import { CancelOrder } from "@/application/use-cases/orders/CancelOrder";
 import { ReverseStockReservations } from "@/application/use-cases/stock/ReverseStockReservations";
 import { ConfirmStockConsumption } from "@/application/use-cases/stock/ConfirmStockConsumption";
+import { SendStatusNotification } from "@/application/use-cases/whatsapp/SendStatusNotification";
 import { handleError } from "@/lib/api-handler";
 import { requireAuth } from "@/lib/auth";
 
@@ -65,7 +66,16 @@ export async function PATCH(
       reverseReservations
     );
     const useCase = new UpdateOrderStatus(container.orderRepository, confirmStockConsumption);
-    const updated = await useCase.execute(id, body.status, userId);
+    const updated = await useCase.execute(id, body.status, userId, tenantId);
+
+    // Item 14: toda mudança de status avisa o cliente, não só o arrastar na Pista.
+    // Fire-and-forget para não bloquear a resposta; usa o template da oficina.
+    const notifier = new SendStatusNotification(
+      container.orderRepository,
+      container.whatsAppRepository
+    );
+    notifier.execute(id, body.status).catch(() => {});
+
     return NextResponse.json(updated);
   } catch (error) {
     if (error instanceof Response) return error;
@@ -87,9 +97,14 @@ export async function PUT(
     const useCase = new UpdateOrder(
       container.orderRepository,
       container.stockItemRepository,
-      container.stockMovementRepository
+      container.stockMovementRepository,
+      container.vehicleRepository,
+      container.tenantSettingsRepository
     );
-    const result = await useCase.execute(id, body, tenantId);
+    const result = await useCase.execute(id, body, tenantId, {
+      userRole: session.user.role,
+      userId: session.user.userId,
+    });
     return NextResponse.json(result);
   } catch (error) {
     if (error instanceof Response) return error;

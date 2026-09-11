@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { getViaPolicy, type OrderVia } from "./osVia";
 
 interface OSServiceItem {
   id: string;
@@ -17,7 +18,7 @@ interface OSPartItem {
   unitPrice: number;
   totalPrice: number;
   complaintId?: string | null;
-  stockItem?: { supplier?: string | null } | null;
+  stockItem?: { supplier?: string | null; brand?: string | null; code?: string | null; originalCode?: string | null } | null;
   approved?: boolean;
 }
 
@@ -63,6 +64,7 @@ const styles = StyleSheet.create({
   osTitle: { fontSize: 20, fontFamily: "Helvetica-Bold", color: "#0f172a" },
   osDate: { fontSize: 8, color: "#64748b" },
   statusBadge: { fontSize: 8, color: "#1e40af", backgroundColor: "#dbeafe", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  viaBadge: { fontSize: 7, color: "#475569", backgroundColor: "#e2e8f0", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginTop: 4 },
 
   // Seções
   section: { marginBottom: 10 },
@@ -111,6 +113,11 @@ const styles = StyleSheet.create({
   totalFinalLabel: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0f172a" },
   totalFinalValue: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#16a34a" },
 
+  // Bloco de tempo total (vias sem valores)
+  timeBox: { backgroundColor: "#f1f5f9", borderWidth: 0.5, borderColor: "#cbd5e1", borderRadius: 4, padding: 10, marginBottom: 10, flexDirection: "row", justifyContent: "space-between" },
+  timeLabel: { fontSize: 10, fontFamily: "Helvetica-Bold", color: "#0f172a" },
+  timeValue: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#0f172a" },
+
   // Observações
   notesBox: { backgroundColor: "#fffbeb", borderWidth: 0.5, borderColor: "#fde68a", borderRadius: 4, padding: 8 },
   notesText: { fontSize: 8, color: "#78350f" },
@@ -155,7 +162,15 @@ function formatMinutes(min?: number | null) {
   return m > 0 ? `${h}h ${m}min` : `${h}h`;
 }
 
-export function OSDocument({ order }: { order: OSOrderData }) {
+/** Identificador da peça exibido conforme a via: código (interna) ou marca (cliente). */
+function partIdentifier(p: OSPartItem, mode: "code" | "brand" | "none"): string | null {
+  if (mode === "code") return p.stockItem?.originalCode || p.stockItem?.code || null;
+  if (mode === "brand") return p.stockItem?.brand || null;
+  return null;
+}
+
+export function OSDocument({ order, via = "interna" }: { order: OSOrderData; via?: OrderVia }) {
+  const policy = getViaPolicy(via);
   const hasComplaints = order.complaints && order.complaints.length > 0;
 
   // Serviços e peças não vinculados a reclamações (OS legadas)
@@ -164,6 +179,23 @@ export function OSDocument({ order }: { order: OSOrderData }) {
 
   const totalServices = (order.services || []).reduce((s: number, sv: OSServiceItem) => s + (sv.approved === false ? 0 : (sv.price || 0)), 0);
   const totalParts = (order.parts || []).reduce((s: number, p: OSPartItem) => s + (p.approved === false ? 0 : (p.totalPrice || 0)), 0);
+
+  // Total de tempo estimado (vias mecânico/pátio) — soma dos serviços aprovados
+  const totalMinutes = (order.services || []).reduce((sum: number, sv: OSServiceItem) => {
+    if (sv.approved === false) return sum;
+    return sum + (sv.timeMinutes ?? sv.service?.estimatedTime ?? 0);
+  }, 0);
+
+  // Rótulo do identificador de peça na coluna
+  const partIdLabel = policy.partIdentifier === "brand" ? "Marca" : policy.partIdentifier === "code" ? "Código" : "";
+  const showPartId = policy.partIdentifier !== "none";
+
+  // Colunas de serviço: quantas células de valor/tempo aparecem
+  const serviceTimeLabel = "Tempo Previsto";
+
+  function serviceTimeFor(sv: OSServiceItem) {
+    return formatMinutes(sv.timeMinutes ?? sv.service?.estimatedTime);
+  }
 
   return (
     <Document>
@@ -178,43 +210,46 @@ export function OSDocument({ order }: { order: OSOrderData }) {
               {order.createdBy && (
                 <Text style={styles.osDate}>Responsável: {order.createdBy.name}</Text>
               )}
+              <Text style={styles.viaBadge}>{policy.label}</Text>
             </View>
             <Text style={styles.statusBadge}>{statusLabels[order.status] || order.status}</Text>
           </View>
         </View>
 
-        {/* ── CLIENTE ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Cliente</Text>
-          <View style={styles.card}>
-            <View style={styles.grid2}>
-              <View style={styles.gridCell}>
-                <Text style={styles.fieldLabel}>NOME / RAZÃO SOCIAL</Text>
-                <Text style={styles.fieldValueBold}>{order.client?.name}</Text>
+        {/* ── CLIENTE ── (oculto na via do pátio) */}
+        {policy.showClient && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cliente</Text>
+            <View style={styles.card}>
+              <View style={styles.grid2}>
+                <View style={styles.gridCell}>
+                  <Text style={styles.fieldLabel}>NOME / RAZÃO SOCIAL</Text>
+                  <Text style={styles.fieldValueBold}>{order.client?.name}</Text>
+                </View>
+                <View style={styles.gridCell}>
+                  <Text style={styles.fieldLabel}>CPF / CNPJ</Text>
+                  <Text style={styles.fieldValue}>{order.client?.document}</Text>
+                </View>
               </View>
-              <View style={styles.gridCell}>
-                <Text style={styles.fieldLabel}>CPF / CNPJ</Text>
-                <Text style={styles.fieldValue}>{order.client?.document}</Text>
+              <View style={[styles.grid2, { marginTop: 5 }]}>
+                <View style={styles.gridCell}>
+                  <Text style={styles.fieldLabel}>TELEFONE</Text>
+                  <Text style={styles.fieldValue}>{order.client?.phone || "—"}</Text>
+                </View>
+                <View style={styles.gridCell}>
+                  <Text style={styles.fieldLabel}>E-MAIL</Text>
+                  <Text style={styles.fieldValue}>{order.client?.email || "—"}</Text>
+                </View>
               </View>
+              {order.client?.address && (
+                <View style={{ marginTop: 5 }}>
+                  <Text style={styles.fieldLabel}>ENDEREÇO</Text>
+                  <Text style={styles.fieldValue}>{order.client.address}</Text>
+                </View>
+              )}
             </View>
-            <View style={[styles.grid2, { marginTop: 5 }]}>
-              <View style={styles.gridCell}>
-                <Text style={styles.fieldLabel}>TELEFONE</Text>
-                <Text style={styles.fieldValue}>{order.client?.phone || "—"}</Text>
-              </View>
-              <View style={styles.gridCell}>
-                <Text style={styles.fieldLabel}>E-MAIL</Text>
-                <Text style={styles.fieldValue}>{order.client?.email || "—"}</Text>
-              </View>
-            </View>
-            {order.client?.address && (
-              <View style={{ marginTop: 5 }}>
-                <Text style={styles.fieldLabel}>ENDEREÇO</Text>
-                <Text style={styles.fieldValue}>{order.client.address}</Text>
-              </View>
-            )}
           </View>
-        </View>
+        )}
 
         {/* ── VEÍCULO ── */}
         <View style={styles.section}>
@@ -267,8 +302,8 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                         <Text style={[styles.fieldLabel, { marginBottom: 3 }]}>SERVIÇOS</Text>
                         <View style={styles.tableHeader}>
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                          <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo Previsto</Text>
-                          <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
+                          {policy.showServiceTime && <Text style={[styles.tableHeaderText, styles.colTime]}>{serviceTimeLabel}</Text>}
+                          {policy.showServiceLineValue && <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>}
                         </View>
                         {(c.services || []).map((sv: OSServiceItem, idx: number) => {
                           const rejected = sv.approved === false;
@@ -280,13 +315,24 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                               <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
                                 {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
                               </Text>
-                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colTime]}>
-                                {formatMinutes(sv.service?.estimatedTime)}
-                              </Text>
-                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                              {policy.showServiceTime && (
+                                <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colTime]}>
+                                  {serviceTimeFor(sv)}
+                                </Text>
+                              )}
+                              {policy.showServiceLineValue && (
+                                <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                              )}
                             </View>
                           );
                         })}
+                        {/* Total dos serviços da reclamação (via cliente: só o total, sem valor por linha) */}
+                        {policy.showMoney && !policy.showServiceLineValue && (
+                          <View style={styles.subtotalRow}>
+                            <Text style={styles.subtotalLabel}>Total dos serviços</Text>
+                            <Text style={styles.subtotalValue}>{formatMoney(cSvcTotal)}</Text>
+                          </View>
+                        )}
                       </View>
                     )}
 
@@ -296,10 +342,10 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                         <Text style={[styles.fieldLabel, { marginBottom: 3 }]}>PEÇAS / PRODUTOS</Text>
                         <View style={styles.tableHeader}>
                           <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                          <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Fornecedor</Text>
+                          {showPartId && <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>{partIdLabel}</Text>}
                           <Text style={[styles.tableHeaderText, styles.colQty]}>Qtd</Text>
-                          <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
-                          <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
+                          {policy.showPartLineValue && <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>}
+                          {policy.showPartLineValue && <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>}
                         </View>
                         {(c.parts || []).map((p: OSPartItem, idx: number) => {
                           const rejected = p.approved === false;
@@ -311,20 +357,22 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                               <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
                                 {p.description}{rejected ? " (NÃO APROVADO)" : ""}
                               </Text>
-                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
+                              {showPartId && <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, { flex: 1.5 }]}>{partIdentifier(p, policy.partIdentifier) || "—"}</Text>}
                               <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
-                              <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>
-                              <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>
+                              {policy.showPartLineValue && <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>}
+                              {policy.showPartLineValue && <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>}
                             </View>
                           );
                         })}
                       </View>
                     )}
 
-                    <View style={styles.subtotalRow}>
-                      <Text style={styles.subtotalLabel}>Subtotal reclamação</Text>
-                      <Text style={styles.subtotalValue}>{formatMoney(cSubtotal)}</Text>
-                    </View>
+                    {policy.showMoney && (
+                      <View style={styles.subtotalRow}>
+                        <Text style={styles.subtotalLabel}>Subtotal reclamação</Text>
+                        <Text style={styles.subtotalValue}>{formatMoney(cSubtotal)}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               );
@@ -339,8 +387,8 @@ export function OSDocument({ order }: { order: OSOrderData }) {
             <View style={styles.card}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                <Text style={[styles.tableHeaderText, styles.colTime]}>Tempo Previsto</Text>
-                <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>
+                {policy.showServiceTime && <Text style={[styles.tableHeaderText, styles.colTime]}>{serviceTimeLabel}</Text>}
+                {policy.showServiceLineValue && <Text style={[styles.tableHeaderText, styles.colTotal]}>Valor</Text>}
               </View>
               {ungroupedServices.map((sv: OSServiceItem, idx: number) => {
                 const rejected = sv.approved === false;
@@ -349,11 +397,17 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                     <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
                       {sv.description}{rejected ? " (NÃO APROVADO)" : ""}
                     </Text>
-                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colTime]}>{formatMinutes(sv.service?.estimatedTime)}</Text>
-                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>
+                    {policy.showServiceTime && <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colTime]}>{serviceTimeFor(sv)}</Text>}
+                    {policy.showServiceLineValue && <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : sv.price)}</Text>}
                   </View>
                 );
               })}
+              {policy.showMoney && !policy.showServiceLineValue && (
+                <View style={styles.subtotalRow}>
+                  <Text style={styles.subtotalLabel}>Total dos serviços</Text>
+                  <Text style={styles.subtotalValue}>{formatMoney(ungroupedServices.reduce((s, sv) => s + (sv.approved === false ? 0 : (sv.price || 0)), 0))}</Text>
+                </View>
+              )}
             </View>
           </View>
         )}
@@ -365,10 +419,10 @@ export function OSDocument({ order }: { order: OSOrderData }) {
             <View style={styles.card}>
               <View style={styles.tableHeader}>
                 <Text style={[styles.tableHeaderText, styles.colDesc]}>Descrição</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Fornecedor</Text>
+                {showPartId && <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>{partIdLabel}</Text>}
                 <Text style={[styles.tableHeaderText, styles.colQty]}>Qtd</Text>
-                <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>
-                <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>
+                {policy.showPartLineValue && <Text style={[styles.tableHeaderText, styles.colUnit]}>Unit.</Text>}
+                {policy.showPartLineValue && <Text style={[styles.tableHeaderText, styles.colTotal]}>Total</Text>}
               </View>
               {ungroupedParts.map((p: OSPartItem, idx: number) => {
                 const rejected = p.approved === false;
@@ -377,10 +431,10 @@ export function OSDocument({ order }: { order: OSOrderData }) {
                     <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colDesc]}>
                       {p.description}{rejected ? " (NÃO APROVADO)" : ""}
                     </Text>
-                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, { flex: 1.5 }]}>{p.stockItem?.supplier || "—"}</Text>
+                    {showPartId && <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, { flex: 1.5 }]}>{partIdentifier(p, policy.partIdentifier) || "—"}</Text>}
                     <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colQty]}>{p.quantity}</Text>
-                    <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>
-                    <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>
+                    {policy.showPartLineValue && <Text style={[rejected ? styles.cellTextRejectedMuted : styles.cellTextMuted, styles.colUnit]}>{formatMoney(rejected ? 0 : p.unitPrice)}</Text>}
+                    {policy.showPartLineValue && <Text style={[rejected ? styles.cellTextRejected : styles.cellText, styles.colTotal]}>{formatMoney(rejected ? 0 : p.totalPrice)}</Text>}
                   </View>
                 );
               })}
@@ -388,21 +442,31 @@ export function OSDocument({ order }: { order: OSOrderData }) {
           </View>
         )}
 
+        {/* ── TOTAL DE TEMPO (vias sem valores: mecânico / pátio) ── */}
+        {policy.showTotalTime && !policy.showTotals && (
+          <View style={styles.timeBox}>
+            <Text style={styles.timeLabel}>TEMPO ESTIMADO TOTAL</Text>
+            <Text style={styles.timeValue}>{formatMinutes(totalMinutes)}</Text>
+          </View>
+        )}
+
         {/* ── TOTAL GERAL ── */}
-        <View style={styles.totalsBox}>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>Total serviços</Text>
-            <Text style={styles.totalsValue}>{formatMoney(totalServices)}</Text>
+        {policy.showTotals && (
+          <View style={styles.totalsBox}>
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabel}>Total serviços</Text>
+              <Text style={styles.totalsValue}>{formatMoney(totalServices)}</Text>
+            </View>
+            <View style={styles.totalsRow}>
+              <Text style={styles.totalsLabel}>Total peças / produtos</Text>
+              <Text style={styles.totalsValue}>{formatMoney(totalParts)}</Text>
+            </View>
+            <View style={styles.totalFinalRow}>
+              <Text style={styles.totalFinalLabel}>TOTAL GERAL</Text>
+              <Text style={styles.totalFinalValue}>{formatMoney(order.totalAmount)}</Text>
+            </View>
           </View>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>Total peças / produtos</Text>
-            <Text style={styles.totalsValue}>{formatMoney(totalParts)}</Text>
-          </View>
-          <View style={styles.totalFinalRow}>
-            <Text style={styles.totalFinalLabel}>TOTAL GERAL</Text>
-            <Text style={styles.totalFinalValue}>{formatMoney(order.totalAmount)}</Text>
-          </View>
-        </View>
+        )}
 
         {/* ── OBSERVAÇÕES ── */}
         {order.notes && (
@@ -424,8 +488,8 @@ export function OSDocument({ order }: { order: OSOrderData }) {
           </View>
         )}
 
-        {/* ── HISTÓRICO DE STATUS ── */}
-        {(order.statusHistory || []).length > 0 && (
+        {/* ── HISTÓRICO DE STATUS ── (só na via interna) */}
+        {via === "interna" && (order.statusHistory || []).length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Histórico de Status</Text>
             <View style={styles.card}>
@@ -444,7 +508,7 @@ export function OSDocument({ order }: { order: OSOrderData }) {
 
         {/* ── RODAPÉ ── */}
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>O.S. #{order.number} — {order.client?.name}</Text>
+          <Text style={styles.footerText}>O.S. #{order.number} — {policy.label}{policy.showClient && order.client?.name ? ` — ${order.client.name}` : ""}</Text>
           <Text style={styles.footerText}>Gerado em {formatDate(new Date())}</Text>
         </View>
       </Page>

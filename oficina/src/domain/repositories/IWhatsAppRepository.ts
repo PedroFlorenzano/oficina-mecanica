@@ -5,6 +5,13 @@ export interface WhatsAppConfigData {
   accessToken: string | null;
   businessName: string | null;
   enabled: boolean;
+  // Templates de mensagens (variáveis: {cliente} {veiculo} {placa} {os} {oficina} {status} {link})
+  msgStatusUpdate: string | null;
+  msgDeliveryReady: string | null;
+  msgOilReminder: string | null;
+  msgAppointment: string | null;
+  msgBirthday: string | null;
+  msgReturnReminder: string | null;
 }
 
 export interface WhatsAppMessageData {

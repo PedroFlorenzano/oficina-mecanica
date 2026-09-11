@@ -61,6 +61,14 @@ interface PaginatedMovements {
   pageSize: number;
 }
 
+interface SupplierSummary {
+  supplier: string;
+  lastPurchase: string;
+  totalQuantity: number;
+  avgCost: number;
+  purchaseCount: number;
+}
+
 const MOVEMENT_LABELS: Record<string, string> = {
   IN: "Entrada",
   OUT: "Saída",
@@ -90,6 +98,7 @@ export default function StockItemDetailPage() {
 
   const [item, setItem] = useState<StockItem | null>(null);
   const [movements, setMovements] = useState<PaginatedMovements | null>(null);
+  const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [movLoading, setMovLoading] = useState(false);
@@ -130,14 +139,21 @@ export default function StockItemDetailPage() {
     [id]
   );
 
+  const fetchSuppliers = useCallback(async () => {
+    const res = await fetch(`/api/stock/${id}/suppliers`);
+    if (res.ok) {
+      setSuppliers(await res.json());
+    }
+  }, [id]);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([fetchItem(), fetchMovements(1)]);
+      await Promise.all([fetchItem(), fetchMovements(1), fetchSuppliers()]);
       setLoading(false);
     };
     init();
-  }, [fetchItem, fetchMovements]);
+  }, [fetchItem, fetchMovements, fetchSuppliers]);
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
@@ -169,7 +185,7 @@ export default function StockItemDetailPage() {
       setAdjustLoading(false);
       return;
     }
-    await Promise.all([fetchItem(), fetchMovements(1)]);
+    await Promise.all([fetchItem(), fetchMovements(1), fetchSuppliers()]);
     setPage(1);
     setShowAdjustModal(false);
     setAdjustLoading(false);
@@ -204,7 +220,7 @@ export default function StockItemDetailPage() {
       setEntryLoading(false);
       return;
     }
-    await Promise.all([fetchItem(), fetchMovements(1)]);
+    await Promise.all([fetchItem(), fetchMovements(1), fetchSuppliers()]);
     setPage(1);
     setShowEntryModal(false);
     setEntryLoading(false);
@@ -312,6 +328,46 @@ export default function StockItemDetailPage() {
           </p>
         </div>
       </div>
+
+      {/* Histórico consolidado de fornecedores (item 19) */}
+      {suppliers.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+          <div className="px-4 py-3 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-800 text-sm">Fornecedores</h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Consolidado das entradas por fornecedor — última compra, quantidade total e custo médio
+            </p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableHead>Fornecedor</TableHead>
+              <TableHead>Última Compra</TableHead>
+              <TableHead>Compras</TableHead>
+              <TableHead>Qtd Total</TableHead>
+              <TableHead>Custo Médio</TableHead>
+            </TableHeader>
+            <TableBody>
+              {suppliers.map((s) => (
+                <TableRow key={s.supplier}>
+                  <TableCell className="font-medium text-slate-800">{s.supplier}</TableCell>
+                  <TableCell className="text-slate-500 text-xs whitespace-nowrap">
+                    {new Date(s.lastPurchase).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                    })}
+                  </TableCell>
+                  <TableCell className="text-slate-600">{s.purchaseCount}</TableCell>
+                  <TableCell className="text-slate-600">
+                    {s.totalQuantity} {item.unit}
+                  </TableCell>
+                  <TableCell className="text-slate-700">{formatCurrency(s.avgCost)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
       {/* Histórico de movimentações */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

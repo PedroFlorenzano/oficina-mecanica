@@ -73,6 +73,12 @@ interface Mechanic {
   name: string;
 }
 
+interface Attendant {
+  id: string;
+  name: string;
+  role: string;
+}
+
 interface KitData {
   id: string;
   name: string;
@@ -95,6 +101,8 @@ export default function NewOrderPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [vehicleId, setVehicleId] = useState("");
   const [mileageIn, setMileageIn] = useState(0);
+  const [attendants, setAttendants] = useState<Attendant[]>([]);
+  const [attendantId, setAttendantId] = useState("");
   const [complaints, setComplaints] = useState<ComplaintItem[]>([
     { description: "", services: [{ description: "", price: 0, timeHours: 0, approved: true }], parts: [], expanded: true },
   ]);
@@ -122,6 +130,10 @@ export default function NewOrderPage() {
     fetch("/api/stock").then((r) => { if (!r.ok) return []; return r.json(); }).then(setStockItems).catch(() => {});
     fetch("/api/users?role=MECHANIC").then((r) => { if (!r.ok) return []; return r.json(); }).then(setMechanics).catch(() => {});
     fetch("/api/kits").then((r) => { if (!r.ok) return []; return r.json(); }).then(setKits).catch(() => {});
+    // Atendente responsável: papéis ATTENDANT ou ADMIN (item 8)
+    fetch("/api/users").then((r) => { if (!r.ok) return []; return r.json(); })
+      .then((users: Attendant[]) => setAttendants(users.filter((u) => u.role === "ATTENDANT" || u.role === "ADMIN")))
+      .catch(() => {});
   }, []);
 
   // Peças cuja "Aplicação" casa com marca/modelo do veículo selecionado
@@ -351,6 +363,7 @@ export default function NewOrderPage() {
         clientId: selectedClient.id,
         vehicleId,
         mileage: mileageIn,
+        attendantId: attendantId || null,
         complaints: validComplaints.map(c => ({
           description: c.description,
           services: c.services.filter(s => s.description).map(s => ({
@@ -508,6 +521,15 @@ export default function NewOrderPage() {
               <label className="block text-xs font-medium text-slate-600 mb-1">KM ENTRADA *</label>
               <input type="number" value={mileageIn || ""} onChange={(e) => setMileageIn(Number(e.target.value))}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-600 mb-1">ATENDENTE RESPONSÁVEL</label>
+              <select value={attendantId} onChange={(e) => setAttendantId(e.target.value)}
+                data-no-uppercase
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">—</option>
+                {attendants.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">MARCA</label>
